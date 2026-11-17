@@ -76,46 +76,65 @@ class WindowVideoRecorder:
                 pass
 
 class CursorRippleOverlay(QLabel):
-    """Visual click-ring indicator so viewers follow every mouse click."""
+    """Crisp 60 FPS on-screen vector pointer + click pulse ring for screen recording."""
 
     def __init__(self, parent):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WA_NoSystemBackground, True)
-        self.setFixedSize(72, 72)
+        self.setFixedSize(84, 84)
         self._alpha = 0
         self._radius = 10
         self._pulse_timer = QTimer(self)
         self._pulse_timer.timeout.connect(self._tick)
-        self.hide()
+        self.move(400, 300)
+        self.show()
+        self.raise_()
 
-    def pulse_at_global(self, gpos):
+    def move_to_global(self, gpos):
         lpos = self.parent().mapFromGlobal(gpos)
         self.move(lpos.x() - 36, lpos.y() - 36)
-        self._alpha = 235
-        self._radius = 10
         self.raise_()
         self.show()
-        self._pulse_timer.start(22)
+        self.update()
+
+    def pulse_at_global(self, gpos):
+        self.move_to_global(gpos)
+        self._alpha = 240
+        self._radius = 10
+        self._pulse_timer.start(20)
+
     def _tick(self):
         self._radius += 3
-        self._alpha -= 24
+        self._alpha -= 22
         if self._alpha <= 0:
+            self._alpha = 0
             self._pulse_timer.stop()
-            self.hide()
-        else:
-            self.update()
+        self.update()
 
     def paintEvent(self, ev):
-        if self._alpha <= 0:
-            return
+        from PySide6.QtGui import QPolygon
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing, True)
-        c = QColor(14, 165, 233, max(0, self._alpha))
-        p.setPen(QPen(c, 3.0))
-        p.setBrush(QBrush(QColor(56, 189, 248, max(0, self._alpha // 4))))
-        p.drawEllipse(QPoint(36, 36), self._radius, self._radius)
+        if self._alpha > 0:
+            c = QColor(14, 165, 233, max(0, self._alpha))
+            p.setPen(QPen(c, 3.0))
+            p.setBrush(QBrush(QColor(56, 189, 248, max(0, self._alpha // 4))))
+            p.drawEllipse(QPoint(36, 36), self._radius, self._radius)
+        arrow = QPolygon([
+            QPoint(36, 36),
+            QPoint(36, 62),
+            QPoint(42, 56),
+            QPoint(47, 67),
+            QPoint(51, 65),
+            QPoint(46, 54),
+            QPoint(54, 54),
+        ])
+        p.setPen(QPen(QColor("#0f172a"), 2.0))
+        p.setBrush(QBrush(QColor("#ffffff")))
+        p.drawPolygon(arrow)
         p.end()
+
 
 class TrailerOverlayBanner(QLabel):
     """Broadcast lower-third caption banner explaining each step clearly."""
@@ -188,7 +207,7 @@ class MarketingTrailerDirector:
             return exact
         hits = glob.glob("*Dave Pugsley*.pdf") or glob.glob("*3122 Broadway*.pdf")
         if hits:
-            return os.path.abspath(hits)
+            return os.path.abspath(hits[0])
         raise FileNotFoundError("Could not find 1230-Dave Pugsley_3122 Broadway - Combined Plan Set.pdf")
     def _glide_to_widget(self, widget, duration_ms=650, click_pulse=True, on_done=None):
         """Moves the real OS cursor smoothly to the center of `widget` using ease-in-out."""
@@ -200,7 +219,7 @@ class MarketingTrailerDirector:
         self._glide_to_global(center_global, duration_ms=duration_ms, click_pulse=click_pulse, on_done=on_done)
 
     def _glide_to_global(self, target_gpos, duration_ms=650, click_pulse=True, on_move=None, on_done=None):
-        self._anim_start = QCursor.pos()
+        self._anim_start = self.ripple.mapToGlobal(QPoint(36, 36))
         self._anim_end = target_gpos
         self._anim_t0 = time.perf_counter()
         self._anim_dur = max(0.12, duration_ms / 1000.0)
@@ -221,7 +240,7 @@ class MarketingTrailerDirector:
         nx = int(round(self._anim_start.x() + (self._anim_end.x() - self._anim_start.x()) * eased))
         ny = int(round(self._anim_start.y() + (self._anim_end.y() - self._anim_start.y()) * eased))
         cur = QPoint(nx, ny)
-        QCursor.setPos(cur)
+        self.ripple.move_to_global(cur)
         if self._anim_on_move:
             try:
                 self._anim_on_move(cur)
@@ -244,7 +263,7 @@ class MarketingTrailerDirector:
         QApplication.processEvents()
 
         c = self.win.mapToGlobal(QPoint(self.win.width() // 2, self.win.height() // 2))
-        QCursor.setPos(c)
+        self.ripple.move_to_global(c)
 
         self.banner.show_caption(
             "BOWMAN-MORTON PRICING SUITE",
@@ -345,7 +364,7 @@ class MarketingTrailerDirector:
         QApplication.processEvents()
 
         pg_num = vw.get_page_fn()
-        sh_label = pt.sheet_combo.currentText().split("—").strip().replace("/", "-")
+        sh_label = pt.sheet_combo.currentText().split("—")[0].strip().replace("/", "-")
         out_pdf = os.path.join(EXPORT_DIR, f"3122_Broadway_{sh_label}_Pg{pg_num}_MarkedUp.pdf")
         self._write_marked_sheet_pdf(vw, pg_num, out_pdf)
 
@@ -389,7 +408,7 @@ class MarketingTrailerDirector:
         rb = self.win.master_ribbon
 
         if self.steel_pages:
-            first_idx = self.steel_pages
+            first_idx = self.steel_pages[0]
             pt.sheet_combo.setCurrentIndex(first_idx)
             vw.render_sheet(first_idx + 1)
             QApplication.processEvents()
@@ -434,7 +453,7 @@ class MarketingTrailerDirector:
         p1_local = QPoint(int(cv.width() * 0.30), int(cv.height() * 0.46))
         p2_local = QPoint(int(cv.width() * 0.62), int(cv.height() * 0.46))
         if cv.key_highlights:
-            rx0, ry0, rx1, ry1 = cv.key_highlights["rect"]
+            rx0, ry0, rx1, ry1 = cv.key_highlights[0]["rect"]
             q_start = cv._from_pdf_pt(rx0, ry1 + 12.0)
             p1_local = QPoint(max(80, q_start.x()), max(80, q_start.y()))
             p2_local = QPoint(min(cv.width() - 80, p1_local.x() + 260), p1_local.y())
