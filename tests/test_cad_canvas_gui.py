@@ -4,7 +4,7 @@ from PySide6.QtGui import QPixmap
 from blueprint_takeoff_ui import CadBlueprintCanvas
 
 def test_cad_tools_pressure_suite(qtbot):
-    canvas = CadBlueprintCanvas()
+    canvas = CadBlueprintCanvas(lambda *a: None, lambda *a: None)
     canvas.resize(900, 700)
     pm = QPixmap(900, 700)
     pm.fill(Qt.white)
@@ -12,7 +12,7 @@ def test_cad_tools_pressure_suite(qtbot):
     qtbot.addWidget(canvas)
     canvas.show()
 
-    # 1. Test 3-click Hanger Skew T-Square tool & true skew calculation
+    # 1. Pressure test 3-click Hanger Skew T-Square tool & live pivot swing
     canvas.set_mode("hanger_skew")
     qtbot.mouseClick(canvas, Qt.LeftButton, pos=QPoint(200, 300))
     qtbot.mouseClick(canvas, Qt.LeftButton, pos=QPoint(400, 300))
@@ -24,7 +24,7 @@ def test_cad_tools_pressure_suite(qtbot):
     assert canvas.markups[-1]["type"] == "hanger_skew"
     assert "SKEW" in canvas.markups[-1]["label"]
 
-    # 2. Test click-click Line drawing + Enter break + Undo
+    # 2. Pressure test click-click Line drawing + Enter chain break
     canvas.set_mode("line")
     qtbot.mouseClick(canvas, Qt.LeftButton, pos=QPoint(100, 100))
     qtbot.mouseClick(canvas, Qt.LeftButton, pos=QPoint(250, 100))
@@ -32,6 +32,6 @@ def test_cad_tools_pressure_suite(qtbot):
     qtbot.keyClick(canvas, Qt.Key_Return)
     assert canvas._p1 is None and canvas.mode == "line"
 
-    # 3. Test Undo removes last markup cleanly
+    # 3. Pressure test Undo removes last markup cleanly
     canvas.undo_last_markup()
     assert len(canvas.markups) == 1
