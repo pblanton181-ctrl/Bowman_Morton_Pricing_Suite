@@ -730,6 +730,8 @@ class CadBlueprintCanvas(QLabel):
     def mousePressEvent(self, ev):
         if ev.button() == Qt.RightButton and self.mode == "polyline" and len(self._pline_pts) >= 2:
             self._finish_polyline(False); ev.accept(); return
+        if ev.button() == Qt.RightButton and self.mode in ("line", "dashed", "centerline", "arrow") and self._p1 is not None:
+            self._p1 = None; self._p2 = None; self._dyn_input_buf = ""; self._dyn_ang_buf = ""; self.update(); ev.accept(); return
         if ev.button() == Qt.RightButton and self.mode == "area" and len(self._poly_pts) >= 3:
             self._finish_area_polygon()
             ev.accept()
@@ -797,7 +799,33 @@ class CadBlueprintCanvas(QLabel):
             self._free_pts = [self._to_pdf_pt(pos)]
             self.update()
             return
-        elif self.mode in ("box", "arrow", "highlight", "line", "ellipse", "angle", "cloud", "filled_box", "dashed", "callout", "weld", "centerline"):
+        elif self.mode in ("line", "dashed", "centerline", "arrow"):
+            if self._p1 is None:
+                self._p1 = pos
+                self._p2 = None
+                self._dyn_input_buf = ""
+                self._dyn_ang_buf = ""
+                self._dyn_field = "len"
+                self._hover_pt = pos
+            else:
+                end_pt = self._snap_ortho(self._p1, pos, shift_held)
+                x1, y1 = self._to_pdf_pt(self._p1)
+                x2, y2 = self._to_pdf_pt(end_pt)
+                if math.hypot(x2 - x1, y2 - y1) > 2.0:
+                    self.markups.append({
+                        "type": self.mode, "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                        "color": QColor(self.active_color), "line_width": float(self.active_line_width)
+                    })
+                    self.selected_idx = len(self.markups) - 1
+                if self.mode == "arrow":
+                    self._p1 = None
+                else:
+                    self._p1 = end_pt
+                self._p2 = None
+                self._dyn_input_buf = ""
+                self._dyn_ang_buf = ""
+                self._dyn_field = "len"
+        elif self.mode in ("box", "highlight", "ellipse", "angle", "cloud", "filled_box", "callout", "weld"):
             self._drag_start = pos
             self._drag_cur = pos
         elif self.mode == "count":
@@ -841,7 +869,7 @@ class CadBlueprintCanvas(QLabel):
         shift_held = bool(ev.modifiers() & Qt.ShiftModifier) or getattr(self, 'ortho_lock', False)
         if self.mode == "polyline" and self._pline_pts:
             self._hover_pt = pos if getattr(self, "_snap_badge_pt", None) is not None else self._snap_ortho(self._from_pdf_pt(*self._pline_pts[-1]), pos, shift_held)
-        elif self.mode in ("measure", "calibrate") and self._p1:
+        elif self.mode in ("measure", "calibrate", "line", "dashed", "centerline", "arrow") and self._p1:
             self._hover_pt = self._snap_ortho(self._p1, pos, shift_held)
         else:
             self._hover_pt = pos
