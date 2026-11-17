@@ -38,6 +38,8 @@ def _cache_dir():
     os.makedirs(d, exist_ok=True)
     return d
 
+from core.plan_world import PlanWorldModel, scan_world_ocr, round_structural_ft, parse_arch_scale
+
 def _file_fingerprint(path):
     st = os.stat(path)
     h = hashlib.sha256()
