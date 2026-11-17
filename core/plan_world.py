@@ -203,119 +203,107 @@ class SheetWorldState:
         return best_seg
 
 
-def _ocr_tile_worker(args):
-    """Unified tile OCR worker: isolates pure black AutoCAD SHX text pen strokes
-    (stripping walls, joists, and dimension lines) when vector drawings are present,
-    or renders full raster for scanned PDFs, and scans across 0, 90, 270, +-32, +-45 deg."""
-    from PIL import Image, ImageDraw
+def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
+    """Single unified OCR engine for both Drag-Box and Full-Sheet scans:
+    renders native page clips via page.get_pixmap (preserving all stroked AND filled SHX glyphs)
+    into bite-size <=450pt tiles and processes all tiles of the page in ONE PowerShell batch."""
+    pw, ph = float(page.rect.width), float(page.rect.height)
+    if world_rect is not None:
+        r = pymupdf.Rect(world_rect)
+        rx0, ry0 = max(0.0, r.x0 - 18.0), max(0.0, r.y0 - 18.0)
+        rx1, ry1 = min(pw, r.x1 + 18.0), min(ph, r.y1 + 18.0)
+    else:
+        rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.90, ph * 0.95
 
-    pdf_path, page_num, rect_tuple, dpi, angles, tile_id = args
-    rx0, ry0, rx1, ry1 = rect_tuple
-    rect = pymupdf.Rect(rx0, ry0, rx1, ry1)
-    doc = pymupdf.open(pdf_path)
-    tmp_png = os.path.join(tempfile.gettempdir(), f"bm_tile_{os.getpid()}_{tile_id}.png")
+    span_w, span_h = max(1.0, rx1 - rx0), max(1.0, ry1 - ry0)
+    target_tile_pts = 450.0
+    cols = max(1, int(math.ceil(span_w / target_tile_pts)))
+    rows = max(1, int(math.ceil(span_h / target_tile_pts)))
+    tile_w, tile_h = span_w / cols, span_h / rows
+    ov_x, ov_y = (tile_w * 0.16 if cols > 1 else 0.0), (tile_h * 0.16 if rows > 1 else 0.0)
+
+    tmp_dir = tempfile.mkdtemp(prefix=f"bm_ocr_{os.getpid()}_")
+    tile_meta = []
     try:
-        page = doc.load_page(int(page_num) - 1)
-        max_side_pt = max(1.0, float(rect.width), float(rect.height))
-        safe_dpi = max(240, min(int(dpi), int((1850.0 * 72.0) / max_side_pt)))
-        sc = safe_dpi / 72.0
+        for r_i in range(rows):
+            for c_i in range(cols):
+                tx0 = max(rx0, rx0 + c_i * tile_w - (ov_x if c_i > 0 else 0.0))
+                ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
+                tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
+                ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
+                rect = pymupdf.Rect(tx0, ty0, tx1, ty1)
+                max_side = max(1.0, rect.width, rect.height)
+                safe_dpi = max(200, min(int(dpi), int((2200.0 * 72.0) / max_side)))
+                pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
+                t_png = os.path.join(tmp_dir, f"t_{r_i}_{c_i}.png")
+                pix.save(t_png)
+                tile_meta.append((t_png, tx0, ty0, 72.0 / float(safe_dpi)))
 
-        # Check if tile contains AutoCAD SHX black text strokes (0.24..0.85 pen width, <= 12 pt)
-        shx_strokes = []
-        for drw in page.get_drawings():
-            r = drw.get("rect")
-            if not r or not rect.intersects(r):
-                continue
-            w_pen = round(float(drw.get("width") or 0.0), 2)
-            col = drw.get("color") or ()
-            is_blk = (len(col) >= 3 and col.__getitem__(0) < 0.1 and col.__getitem__(1) < 0.1 and col.__getitem__(2) < 0.1)
-            if is_blk and 0.15 <= w_pen <= 1.0 and r.width <= 24.0 and r.height <= 24.0:
-                shx_strokes.append((w_pen, drw.get("items", ())))
-
-        if len(shx_strokes) >= 12:
-            w_px = max(32, int(round(rect.width * sc)))
-            h_px = max(32, int(round(rect.height * sc)))
-            clean_im = Image.new("RGB", (w_px, h_px), (255, 255, 255))
-            draw = ImageDraw.Draw(clean_im)
-            for w_pen, items in shx_strokes:
-                lw = max(2, int(round(w_pen * sc * 1.45)))
-                for itm in items:
-                    op = itm.__getitem__(0)
-                    if op == "l" and len(itm) >= 3:
-                        p1, p2 = itm.__getitem__(1), itm.__getitem__(2)
-                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
-                    elif op == "c" and len(itm) >= 5:
-                        p1, p2 = itm.__getitem__(1), itm.__getitem__(4)
-                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
-            clean_im.save(tmp_png)
-            eff_scale = 72.0 / float(safe_dpi)
-        else:
-            pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
-            pix.save(tmp_png)
-            eff_scale = 72.0 / float(safe_dpi)
-    finally:
-        doc.close()
-
-    ps_script = (
-        "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
-        "Add-Type -AssemblyName System.Drawing;"
-        "$null = [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime];"
-        "$null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime];"
-        "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"
-        "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"
-        "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
-        f"$baseBmp = New-Object System.Drawing.Bitmap('{tmp_png}');"
-        "$bw = $baseBmp.Width; $bh = $baseBmp.Height;"
-        f"foreach($ang in @({angles})) {{"
-        "  $rotPng = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.png');"
-        "  $bmpDraw = $null;"
-        "  if($ang -eq 0){ $baseBmp.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
-        "  elseif($ang -eq 90){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate90FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
-        "  elseif($ang -eq 270){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate270FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
-        "  else {"
-        "    $diag = [int][math]::Ceiling([math]::Sqrt($bw*$bw + $bh*$bh));"
-        "    $bmpDraw = New-Object System.Drawing.Bitmap($diag, $diag);"
-        "    $g = [System.Drawing.Graphics]::FromImage($bmpDraw);"
-        "    $g.Clear([System.Drawing.Color]::White);"
-        "    $g.TranslateTransform($diag/2.0, $diag/2.0);"
-        "    $g.RotateTransform($ang);"
-        "    $g.TranslateTransform(-$bw/2.0, -$bh/2.0);"
-        "    $g.DrawImage($baseBmp, 0, 0, $bw, $bh);"
-        "    $g.Dispose();"
-        "    $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png);"
-        "  }"
-        "  $f = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($rotPng)) ([Windows.Storage.StorageFile]);"
-        "  $st = Await ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream]);"
-        "  $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($st)) ([Windows.Graphics.Imaging.BitmapDecoder]);"
-        "  $sbmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"
-        "  $res = Await ($eng.RecognizeAsync($sbmp)) ([Windows.Media.Ocr.OcrResult]);"
-        "  $st.Dispose();"
-        "  foreach($l in $res.Lines){"
-        "    $w=$l.Words; if($w.Count -gt 0){$r0=$w.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"
-        "    foreach($wi in $w){$r=$wi.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $ang,$bw,$bh,[math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}"
-        "  }"
-        "  if($bmpDraw -ne $null){ $bmpDraw.Dispose(); }"
-        "  Remove-Item $rotPng -Force -ErrorAction SilentlyContinue;"
-        "}"
-        "$baseBmp.Dispose();"
-    )
-    hits = []
-    try:
+        angles = "0,90,270,45,315" if multi_angle else "0,90,270"
+        ps_script = (
+            "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
+            "Add-Type -AssemblyName System.Drawing;"
+            "$null = [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime];"
+            "$null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime];"
+            "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"
+            "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"
+            "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
+            f"$files = Get-ChildItem -Path '{tmp_dir}' -Filter '*.png' | Sort-Object Name;"
+            "foreach($fi in $files){"
+            "  $baseBmp = New-Object System.Drawing.Bitmap($fi.FullName);"
+            "  $bw = $baseBmp.Width; $bh = $baseBmp.Height;"
+            f"  foreach($ang in @({angles})) {{"
+            "    $rotPng = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.png');"
+            "    $bmpDraw = $null;"
+            "    if($ang -eq 0){ $baseBmp.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+            "    elseif($ang -eq 90){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate90FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+            "    elseif($ang -eq 270){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate270FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+            "    else {"
+            "      $diag = [int][math]::Ceiling([math]::Sqrt($bw*$bw + $bh*$bh));"
+            "      $bmpDraw = New-Object System.Drawing.Bitmap($diag, $diag);"
+            "      $g = [System.Drawing.Graphics]::FromImage($bmpDraw);"
+            "      $g.Clear([System.Drawing.Color]::White);"
+            "      $g.TranslateTransform($diag/2.0, $diag/2.0);"
+            "      $g.RotateTransform($ang);"
+            "      $g.TranslateTransform(-$bw/2.0, -$bh/2.0);"
+            "      $g.DrawImage($baseBmp, 0, 0, $bw, $bh);"
+            "      $g.Dispose();"
+            "      $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png);"
+            "    }"
+            "    $f = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($rotPng)) ([Windows.Storage.StorageFile]);"
+            "    $st = Await ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream]);"
+            "    $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($st)) ([Windows.Graphics.Imaging.BitmapDecoder]);"
+            "    $sbmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"
+            "    $res = Await ($eng.RecognizeAsync($sbmp)) ([Windows.Media.Ocr.OcrResult]);"
+            "    $st.Dispose();"
+            "    foreach($l in $res.Lines){"
+            "      $w=$l.Words; if($w.Count -gt 0){$r0=$w.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"
+            "      foreach($wi in $w){$r=$wi.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}"
+            "    }"
+            "    if($bmpDraw -ne $null){ $bmpDraw.Dispose(); }"
+            "    Remove-Item $rotPng -Force -ErrorAction SilentlyContinue;"
+            "  }"
+            "  $baseBmp.Dispose();"
+            "}"
+        )
         out = subprocess.check_output(
             ["powershell", "-NoProfile", "-Command", ps_script],
             stderr=subprocess.DEVNULL,
             encoding="utf-8",
             errors="replace",
-            timeout=35,
+            timeout=60,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
+        meta_by_name = {os.path.basename(p): (ox, oy, sc) for p, ox, oy, sc in tile_meta}
+        merged_hits = []
         for ln in out.splitlines():
-            parts = ln.split("|", 7)
-            if len(parts) == 8:
-                ang = int(parts.__getitem__(0))
-                bw, bh = float(parts.__getitem__(1)), float(parts.__getitem__(2))
-                rx, ry = float(parts.__getitem__(3)), float(parts.__getitem__(4))
-                rw, rh = float(parts.__getitem__(5)), float(parts.__getitem__(6))
+            parts = ln.split("|", 8)
+            if len(parts) == 9 and parts.__getitem__(0) in meta_by_name:
+                t_ox, t_oy, sc = meta_by_name[parts.__getitem__(0)]
+                ang = int(parts.__getitem__(1))
+                bw, bh = float(parts.__getitem__(2)), float(parts.__getitem__(3))
+                rx, ry = float(parts.__getitem__(4)), float(parts.__getitem__(5))
+                rw, rh = float(parts.__getitem__(6)), float(parts.__getitem__(7))
                 cx_r, cy_r = rx + rw * 0.5, ry + rh * 0.5
                 if ang == 0:
                     ox, oy = cx_r, cy_r
@@ -329,84 +317,37 @@ def _ocr_tile_worker(args):
                     dx, dy = cx_r - diag * 0.5, cy_r - diag * 0.5
                     ox = dx * math.cos(rad) - dy * math.sin(rad) + bw * 0.5
                     oy = dx * math.sin(rad) + dy * math.cos(rad) + bh * 0.5
-                wcx = rect.x0 + max(0.0, min(bw, ox)) * eff_scale
-                wcy = rect.y0 + max(0.0, min(bh, oy)) * eff_scale
-                hw, hh = (rw * eff_scale) * 0.5, (rh * eff_scale) * 0.5
-                ntxt = normalize_cad_text(parts.__getitem__(7))
-                if ntxt:
-                    hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt))
-    except Exception:
-        pass
-    finally:
-        if os.path.exists(tmp_png):
-            try:
-                os.remove(tmp_png)
-            except OSError:
-                pass
-    return hits
-
-
-def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
-    """Unified Dynamic Neighbor-Aware Grid OCR: pads drag-box selections by +18 PDF pts
-    and subdivides ANY region (drag-box OR full sheet) into overlapping <=360pt tiles
-    at 320 DPI across 0, 90, 270, +-30, +-45 deg, stitching split HSS/W tokens."""
-    from concurrent.futures import ThreadPoolExecutor
-
-    pdf_path = getattr(getattr(page, "parent", None), "name", None)
-    page_num = int(getattr(page, "number", 0)) + 1
-    pw, ph = float(page.rect.width), float(page.rect.height)
-
-    if world_rect is not None:
-        r = pymupdf.Rect(world_rect)
-        rx0 = max(0.0, r.x0 - 18.0)
-        ry0 = max(0.0, r.y0 - 18.0)
-        rx1 = min(pw, r.x1 + 18.0)
-        ry1 = min(ph, r.y1 + 18.0)
-    else:
-        rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.90, ph * 0.95
-
-    span_w, span_h = max(1.0, rx1 - rx0), max(1.0, ry1 - ry0)
-    target_tile_pts = 360.0
-    cols = max(1, int(math.ceil(span_w / target_tile_pts)))
-    rows = max(1, int(math.ceil(span_h / target_tile_pts)))
-    tile_w, tile_h = span_w / cols, span_h / rows
-    ov_x, ov_y = (tile_w * 0.16 if cols > 1 else 0.0), (tile_h * 0.16 if rows > 1 else 0.0)
-
-    tasks = []
-    for r_i in range(rows):
-        for c_i in range(cols):
-            tx0 = max(rx0, rx0 + c_i * tile_w - (ov_x if c_i > 0 else 0.0))
-            ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
-            tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
-            ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
-            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,45,315", f"r{r_i}c{c_i}"))
-
-    merged_hits = []
-    with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
-        for t_hits in pool.map(_ocr_tile_worker, tasks):
-            for hx0, hy0, hx1, hy1, htxt in t_hits:
-                hcx, hcy = (hx0 + hx1) * 0.5, (hy0 + hy1) * 0.5
+                wcx = t_ox + max(0.0, min(bw, ox)) * sc
+                wcy = t_oy + max(0.0, min(bh, oy)) * sc
+                hw, hh = (rw * sc) * 0.5, (rh * sc) * 0.5
+                ntxt = normalize_cad_text(parts.__getitem__(8))
+                if not ntxt:
+                    continue
                 if any(
-                    t0 == htxt and math.hypot(hcx - ((a0 + a1) * 0.5), hcy - ((b0 + b1) * 0.5)) < 10.0
+                    t0 == ntxt and math.hypot(wcx - ((a0 + a1) * 0.5), wcy - ((b0 + b1) * 0.5)) < 10.0
                     for a0, b0, a1, b1, t0 in merged_hits
                 ):
                     continue
-                merged_hits.append((hx0, hy0, hx1, hy1, htxt))
+                merged_hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt))
 
-    # Stitch adjacent split OCR tokens (e.g. 'HSS' + '4X2X1/4' -> 'HSS4X2X1/4', 'W12' + 'X53' -> 'W12X53')
-    stitched = list(merged_hits)
-    for i, (ax0, ay0, ax1, ay1, atxt) in enumerate(merged_hits):
-        if atxt in ("HSS", "W", "PL", "MC", "C", "L") or re.match(r"^(W\d+|HSS\d+X\d+)$", atxt):
-            acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5
-            for j, (bx0, by0, bx1, by1, btxt) in enumerate(merged_hits):
-                if i == j:
-                    continue
-                bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
-                if math.hypot(bcx - acx, bcy - acy) <= 45.0:
-                    comb = normalize_cad_text(atxt + btxt)
-                    if re.match(r"^(W\d+X\d+|HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?X\d+/\d+|PL\d+/\d+X\d+)$", comb):
-                        stitched.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), comb))
-    return stitched
+        stitched = list(merged_hits)
+        for i, (ax0, ay0, ax1, ay1, atxt) in enumerate(merged_hits):
+            if atxt in ("HSS", "W", "PL", "MC", "C", "L") or re.match(r"^(W\d+|HSS\d+X\d+)$", atxt):
+                acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5
+                for j, (bx0, by0, bx1, by1, btxt) in enumerate(merged_hits):
+                    if i == j:
+                        continue
+                    bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
+                    if math.hypot(bcx - acx, bcy - acy) <= 45.0:
+                        comb = normalize_cad_text(atxt + btxt)
+                        if re.match(r"^(W\d+X\d+|HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?X\d+/\d+|PL\d+/\d+X\d+)$", comb):
+                            stitched.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), comb))
+        return stitched
+    except Exception:
+        return []
+    finally:
+        import shutil as _sh
+        _sh.rmtree(tmp_dir, ignore_errors=True)
 
 
 class PlanWorldModel:
