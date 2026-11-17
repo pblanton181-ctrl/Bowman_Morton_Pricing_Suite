@@ -15,6 +15,7 @@ def normalize_cad_text(s):
     s = re.sub(r"(X\d+)O\b", lambda m: m.group(1) + "0", s)
     s = re.sub(r"\b(W\d+X\d+)J\b", lambda m: m.group(1) + "3", s)
     s = re.sub(r"\b(W\d+X)I(\d+)\b", lambda m: m.group(1) + "1" + m.group(2), s)
+    s = re.sub(r"\bWBX(\d+)", lambda m: "W8X" + m.group(1), s)
     return s
 
 

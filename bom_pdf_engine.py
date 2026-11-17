@@ -278,6 +278,8 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                     sk, uw = catalog[prof]
                     meas_len = 20.0
                 else:
+                    if prof.startswith("W") and not prof.startswith("WT"):
+                        continue
                     if prof.startswith(("HSS", "PIPE")):
                         sk, uw = "hss_tube", 20.0
                         mh = re.match(r"HSS(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)X(\d+)/(\d+)", prof)
