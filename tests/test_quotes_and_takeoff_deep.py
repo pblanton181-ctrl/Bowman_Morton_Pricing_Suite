@@ -52,7 +52,7 @@ def test_takeoff_cad_shapes_calibration_and_sheet_color_keys(shared_app_win, qtb
 
     # 1. Custom CAD shape stamping
     for shape_type in ("wide_flange", "hss_tube", "angle", "channel", "base_plate", "bolt_hole"):
-        cv._pending_cad_shape = shape_type
+        cv._pending_cad_shape = {"shape": shape_type, "label": shape_type.upper(), "w_pts": 54.0, "h_pts": 54.0}
         qtbot.mouseClick(cv, Qt.LeftButton, pos=QPoint(250, 250))
     assert len(cv.markups) >= 1
 
