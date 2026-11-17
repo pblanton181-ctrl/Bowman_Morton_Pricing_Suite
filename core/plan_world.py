@@ -210,7 +210,7 @@ def _ocr_tile_worker(args):
     doc = pymupdf.open(pdf_path)
     try:
         page = doc.load_page(int(page_num) - 1)
-            max_side_pt = max(1.0, float(rect.width), float(rect.height))
+        max_side_pt = max(1.0, float(rect.width), float(rect.height))
         safe_dpi = min(int(dpi), int((2600.0 * 72.0) / max_side_pt))
         safe_dpi = max(150, safe_dpi)
         pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
