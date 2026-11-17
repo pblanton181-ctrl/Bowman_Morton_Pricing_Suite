@@ -962,7 +962,7 @@ class PdfBomImporterDialog(QDialog):
         if hasattr(self, 'lbl_summary') and new_rows:
             self.lbl_summary.setText(f'OCR Highlight: Staged {len(new_rows)} member(s) to BOM Tree (staying on Blueprint).')
 
-    def scan_whole_planset(self, use_ocr=False, prompt_if_empty=False):
+    def scan_whole_planset(self, use_ocr=True, prompt_if_empty=False):
         if not self.pdf_path or not os.path.exists(self.pdf_path):
             self.load_new_pdf_planset()
             return
