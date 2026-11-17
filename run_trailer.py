@@ -22,12 +22,6 @@ def main():
     qdarktheme.setup_theme(theme="light", corner_shape="rounded", custom_colors={"primary": "#0284c7"})
     app.setFont(QFont("Segoe UI", 10))
 
-    class _NoTooltipFilter(QObject):
-        def eventFilter(self, obj, ev):
-            return ev.type() == QEvent.ToolTip
-
-    _ntf = _NoTooltipFilter(app)
-    app.installEventFilter(_ntf)
 
     win = live_test.StandaloneManufacturingApp()
     director = MarketingTrailerDirector(win, single_scene=scene_num)

@@ -1938,14 +1938,14 @@ class VisualTakeoffWorkspace(QWidget):
             }
             QComboBox QAbstractItemView { background-color: #eff6ff; color: #0f172a; selection-background-color: #0284c7; selection-color: #ffffff; border: 1.5px solid #0284c7; font-weight: bold; outline: none; } 
             QToolTip {
-                background-color: #eff6ff;
+                background-color: #ffffff;
                 color: #0f172a;
-                border: 2px solid #0284c7;
-                border-radius: 6px;
-                padding: 8px 10px;
-                font-family: 'Segoe UI', sans-serif;
-                font-size: 15px;
-                font-weight: 600;
+                border: 1px solid #94a3b8;
+                border-radius: 5px;
+                padding: 6px 9px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 11.5px;
+                font-weight: 500;
             }
         """)
         outer = QHBoxLayout(self)

@@ -461,14 +461,19 @@ class MarketingTrailerDirector:
         cv = vw.canvas
         if cv.key_highlights:
             hl = next((h for h in cv.key_highlights if h.get("seg")), cv.key_highlights.__getitem__(0))
+            span_pts = beam_len_ft * max(1.0, float(getattr(cv, "pts_per_ft", 18.0)))
             if hl.get("seg"):
                 sx1, sy1, sx2, sy2 = hl["seg"]
-                p1_local = cv._from_pdf_pt(sx1, sy1)
-                p2_local = cv._from_pdf_pt(sx2, sy2)
+                bx0 = min(sx1, sx2)
+                by0 = (sy1 + sy2) * 0.5
+                p1_local = cv._from_pdf_pt(bx0, by0)
+                p2_local = cv._from_pdf_pt(bx0 + span_pts, by0)
             else:
                 rx0, ry0, rx1, ry1 = hl["rect"]
-                p1_local = cv._from_pdf_pt(rx0 - 35.0, (ry0 + ry1) * 0.5)
-                p2_local = cv._from_pdf_pt(rx1 + 145.0, (ry0 + ry1) * 0.5)
+                bx0 = rx0 - span_pts * 0.35
+                by0 = (ry0 + ry1) * 0.5 + 10.0
+                p1_local = cv._from_pdf_pt(bx0, by0)
+                p2_local = cv._from_pdf_pt(bx0 + span_pts, by0)
         else:
             p1_local = QPoint(int(cv.width() * 0.35), int(cv.height() * 0.48))
             p2_local = QPoint(int(cv.width() * 0.62), int(cv.height() * 0.48))
