@@ -1337,7 +1337,8 @@ class StandaloneManufacturingApp(QMainWindow):
                 p.drawPixmap(0, 0, self._cached_layer)
                 p.end()
 
-        self.central_widget = _FullScreenBackdropWidget(get_workspace_path("BMAPP.jpg"), self)
+        self.central_widget = QWidget(self)
+        self.central_widget.setStyleSheet("QWidget { background-color: #e2e8f0; }")
         self.setCentralWidget(self.central_widget)
         
         outer_deck_layout = QVBoxLayout(self.central_widget)
@@ -1352,7 +1353,7 @@ class StandaloneManufacturingApp(QMainWindow):
         self.master_tabs.setObjectName("MasterTransparentTabs")
         self.master_tabs.tabBar().setVisible(False)
         self.master_tabs.setDocumentMode(True)
-        self.master_tabs.setStyleSheet('QTabWidget#MasterTransparentTabs::pane { border: none; margin: 0px; padding: 0px; background: transparent; }')
+        self.master_tabs.setStyleSheet('QTabWidget#MasterTransparentTabs::pane { border: none; margin: 0px; padding: 0px; background-color: #f1f5f9; }')
         import ribbon_bar_widget as rbw
         from PySide6.QtWidgets import QSplitter
         self.master_ribbon = rbw.BowmanMortonRibbonBar(self, self.central_widget)
