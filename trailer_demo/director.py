@@ -363,33 +363,62 @@ class MarketingTrailerDirector:
 
         btn_zoom_in = self._find_visible_button(rb, "Zoom In", "Zoom +")
         self.caption.show_step(
-            "SHOT 4 OF 7 • ZOOMING INTO FRAMING PLAN",
-            f"Clicking 'Zoom In' to Inspect {beam_profile} Steel Details",
-            "Magnifying the highlighted framing beam before measuring span",
+            "SHOT 4 OF 7 • ZOOMING DEEP INTO FRAMING PLAN",
+            f"Zooming In on {beam_profile} Structural Beam & Callout",
+            "Magnifying drawing details before verifying architectural scale & span",
         )
 
         def _do_zoom_sequence():
             cv = vw.canvas
-            # Perform 3 visible zoom steps so viewers watch the framing plan magnify
-            def _zoom_step(step_n):
+            target_zooms = [1.25, 2.0, 2.85]
+
+            def _zoom_step(idx_z):
                 if btn_zoom_in is not None:
                     self.cursor.halo.pulse_at(btn_zoom_in.mapToGlobal(QPoint(btn_zoom_in.width() // 2, btn_zoom_in.height() // 2)))
-                cv.set_zoom(min(2.6, cv.zoom * 1.32))
+                cv.set_zoom(target_zooms.__getitem__(idx_z))
                 if cv.key_highlights:
-                    hl0 = cv.key_highlights.__getitem__(0)
-                    rx0, ry0, rx1, ry1 = hl0["rect"]
-                    ctr_px = cv._from_pdf_pt((rx0 + rx1) * 0.5, (ry0 + ry1) * 0.5)
+                    hl0 = next((h for h in cv.key_highlights if h.get("seg")), cv.key_highlights.__getitem__(0))
+                    if hl0.get("seg"):
+                        sx1, sy1, sx2, sy2 = hl0["seg"]
+                        ctr_px = cv._from_pdf_pt((sx1 + sx2) * 0.5, (sy1 + sy2) * 0.5)
+                    else:
+                        rx0, ry0, rx1, ry1 = hl0["rect"]
+                        ctr_px = cv._from_pdf_pt((rx0 + rx1) * 0.5, (ry0 + ry1) * 0.5)
                     vw.scroll.horizontalScrollBar().setValue(max(0, ctr_px.x() - vw.scroll.viewport().width() // 2))
                     vw.scroll.verticalScrollBar().setValue(max(0, ctr_px.y() - vw.scroll.viewport().height() // 2))
                 QApplication.processEvents()
-                if step_n < 3:
-                    QTimer.singleShot(380, lambda: _zoom_step(step_n + 1))
+                if idx_z + 1 < len(target_zooms):
+                    QTimer.singleShot(420, lambda: _zoom_step(idx_z + 1))
                 else:
+                    QTimer.singleShot(450, lambda: self._set_scale_then_measure(beam_profile, beam_len_ft))
+
+            _zoom_step(0)
+
+        self.cursor.glide_to_widget(btn_zoom_in, duration_ms=550, click_pulse=True, on_done=_do_zoom_sequence)
+
+    def _set_scale_then_measure(self, beam_profile, beam_len_ft):
+        rb = self.win.master_ribbon
+        scale_cb = getattr(rb, "ribbon_scale_cb", None)
+        self.caption.show_step(
+            "SHOT 4 OF 7 • VERIFYING ARCHITECTURAL DRAWING SCALE",
+            "Confirming Sheet Scale (1/4\" = 1'-0\") Before Measuring Beam",
+            "Setting exact blueprint scale so CAD measurement matches real-world feet",
+        )
+
+        def _after_scale_click():
+            if scale_cb is not None and scale_cb.isVisible():
+                scale_cb.showPopup()
+                QApplication.processEvents()
+
+                def _select_scale_and_arm_measure():
+                    scale_cb.setCurrentIndex(0)
+                    scale_cb.hidePopup()
+                    QApplication.processEvents()
                     btn_measure = self._find_visible_button(rb, "Linear Dim", "Measure")
                     self.caption.show_step(
                         "SHOT 4 OF 7 • LIVE MEASURE TOOL & OSNAP VERIFICATION",
-                        f"Selecting 'Linear Dim (M)' to Verify {beam_profile} Span",
-                        "Snapping Measure endpoints directly across the zoomed framing beam",
+                        f"Selecting 'Linear Dim (M)' to Measure {beam_profile} Beam Endpoints",
+                        "Snapping Measure tool directly onto the highlighted steel beam",
                     )
                     QTimer.singleShot(350, lambda: self.cursor.glide_to_widget(
                         btn_measure,
@@ -398,9 +427,20 @@ class MarketingTrailerDirector:
                         on_done=lambda: self._run_real_canvas_measure(beam_profile, beam_len_ft),
                     ))
 
-            _zoom_step(1)
+                QTimer.singleShot(700, _select_scale_and_arm_measure)
+            else:
+                btn_measure = self._find_visible_button(rb, "Linear Dim", "Measure")
+                self.cursor.glide_to_widget(
+                    btn_measure,
+                    duration_ms=550,
+                    click_pulse=True,
+                    on_done=lambda: self._run_real_canvas_measure(beam_profile, beam_len_ft),
+                )
 
-        self.cursor.glide_to_widget(btn_zoom_in, duration_ms=550, click_pulse=True, on_done=_do_zoom_sequence)
+        if scale_cb is not None and scale_cb.isVisible():
+            self.cursor.glide_to_widget(scale_cb, duration_ms=550, click_pulse=True, on_done=_after_scale_click)
+        else:
+            _after_scale_click()
 
     def _run_real_canvas_measure(self, beam_profile, beam_len_ft):
         pt = self.win.planset_takeoff_tab
@@ -415,15 +455,15 @@ class MarketingTrailerDirector:
 
         cv = vw.canvas
         if cv.key_highlights:
-            hl = cv.key_highlights.__getitem__(0)
+            hl = next((h for h in cv.key_highlights if h.get("seg")), cv.key_highlights.__getitem__(0))
             if hl.get("seg"):
                 sx1, sy1, sx2, sy2 = hl["seg"]
                 p1_local = cv._from_pdf_pt(sx1, sy1)
                 p2_local = cv._from_pdf_pt(sx2, sy2)
             else:
                 rx0, ry0, rx1, ry1 = hl["rect"]
-                p1_local = cv._from_pdf_pt(rx0 - 25.0, (ry0 + ry1) * 0.5)
-                p2_local = cv._from_pdf_pt(rx1 + 140.0, (ry0 + ry1) * 0.5)
+                p1_local = cv._from_pdf_pt(rx0 - 35.0, (ry0 + ry1) * 0.5)
+                p2_local = cv._from_pdf_pt(rx1 + 145.0, (ry0 + ry1) * 0.5)
         else:
             p1_local = QPoint(int(cv.width() * 0.35), int(cv.height() * 0.48))
             p2_local = QPoint(int(cv.width() * 0.62), int(cv.height() * 0.48))
@@ -453,7 +493,7 @@ class MarketingTrailerDirector:
                     measured_txt = str(last_m.get("label", ""))
                 self.caption.show_step(
                     "SHOT 4 OF 7 • 1:1 BOM ACCURACY CONFIRMED ON FRAMING PLAN",
-                    f"Measured Span: {measured_txt or cv._format_ft_in(beam_len_ft)}  |  BOM {beam_profile}: {beam_len_ft:.2f} ft",
+                    f"Measured Beam Span: {measured_txt or cv._format_ft_in(beam_len_ft)}  |  BOM {beam_profile}: {beam_len_ft:.2f} ft",
                     "Real interactive Measure tool & OSNAP confirm plan-set scale accuracy",
                 )
                 if self.single_scene == 4:
@@ -461,9 +501,9 @@ class MarketingTrailerDirector:
                 else:
                     QTimer.singleShot(1600, self._shot_5_export_all_steel_pdfs)
 
-            self.cursor.glide_to(p2_global, duration_ms=950, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
+            self.cursor.glide_to(p2_global, duration_ms=1050, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
 
-        self.cursor.glide_to(p1_global, duration_ms=650, click_pulse=True, on_move=_hover_p1, on_done=_click_p1)
+        self.cursor.glide_to(p1_global, duration_ms=700, click_pulse=True, on_move=_hover_p1, on_done=_click_p1)
 
     def _shot_5_export_all_steel_pdfs(self):
         pt = self.win.planset_takeoff_tab
