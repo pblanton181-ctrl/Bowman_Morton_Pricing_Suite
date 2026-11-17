@@ -718,7 +718,7 @@ class BowmanMortonRibbonBar(QFrame):
         pt = getattr(self.app, "planset_takeoff_tab", None)
         vw = getattr(pt, "vis_workspace", None) if pt else None
         cv = getattr(vw, "canvas", None) if vw else None
-        doc = getattr(pt, "doc", None) or getattr(vw, "doc", None)
+        doc = getattr(vw, "_doc", None) or getattr(pt, "_doc", None) or getattr(pt, "doc", None)
         n_sheets = len(doc) if doc is not None else 1
         bom = (getattr(pt, "bom_items", None) or getattr(pt, "staged_bom_items", None) or getattr(vw, "bom_items", None) or []) if pt else []
         bom_pcs = sum(int(x.get("qty", 1) or 1) for x in bom) if bom else 0
@@ -726,14 +726,22 @@ class BowmanMortonRibbonBar(QFrame):
         if bom_pcs == 0 and pt and hasattr(pt, "tree"):
             for i in range(pt.tree.topLevelItemCount()):
                 p_it = pt.tree.topLevelItem(i)
-                for j in range(p_it.childCount()):
-                    ch = p_it.child(j)
+                if p_it.childCount() == 0:
                     try:
-                        bom_pcs += int(float(ch.text(2) or 1))
-                        bom_lbs += float(str(ch.text(5)).replace(",", "") or 0.0)
+                        bom_pcs += int(float(p_it.text(2) or 0))
+                        bom_lbs += float(str(p_it.text(5)).replace(",", "") or 0.0)
                     except Exception:
                         pass
-        n_marks = len(getattr(cv, "markups", []) or []) if cv else 0
+                else:
+                    for j in range(p_it.childCount()):
+                        ch = p_it.child(j)
+                        try:
+                            bom_pcs += int(float(ch.text(2) or 1))
+                            bom_lbs += float(str(ch.text(5)).replace(",", "") or 0.0)
+                        except Exception:
+                            pass
+        pm_dict = getattr(vw, "page_markups", None) if vw else None
+        n_marks = sum(len(v) for v in pm_dict.values()) if isinstance(pm_dict, dict) else (len(getattr(cv, "markups", []) or []) if cv else 0)
         if "sheets" in self._sum_vals:
             self._sum_vals["sheets"].setText(str(max(1, n_sheets)))
         if "members" in self._sum_vals:

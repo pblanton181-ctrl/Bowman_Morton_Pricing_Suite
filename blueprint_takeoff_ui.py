@@ -2343,6 +2343,32 @@ class VisualTakeoffWorkspace(QWidget):
         pix = pg.get_pixmap(dpi=150, alpha=False)
         qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888).copy()
         self.canvas.load_pixmap(QPixmap.fromImage(qimg), render_dpi=150, page_markups=self.page_markups.setdefault(page_num, []))
+        if not hasattr(self, "_pdf_snap_cache"):
+            self._pdf_snap_cache = {}
+        if pno not in self._pdf_snap_cache:
+            eps, mps = set(), set()
+            try:
+                for drw in pg.get_drawings():
+                    for itm in drw.get("items", []):
+                        op = itm[0]
+                        if op == "l":
+                            p_a, p_b = itm[1], itm[2]
+                            ax, ay, bx, by = round(p_a.x, 1), round(p_a.y, 1), round(p_b.x, 1), round(p_b.y, 1)
+                            eps.add((ax, ay)); eps.add((bx, by))
+                            mps.add((round((ax + bx) * 0.5, 1), round((ay + by) * 0.5, 1)))
+                        elif op == "re":
+                            rc = itm[1]
+                            x0, y0, x1, y1 = round(rc.x0, 1), round(rc.y0, 1), round(rc.x1, 1), round(rc.y1, 1)
+                            eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+                            mps.update([(round((x0 + x1) * 0.5, 1), y0), (round((x0 + x1) * 0.5, 1), y1), (x0, round((y0 + y1) * 0.5, 1)), (x1, round((y0 + y1) * 0.5, 1))])
+                        if len(eps) > 6000:
+                            break
+                    if len(eps) > 6000:
+                        break
+            except Exception:
+                pass
+            self._pdf_snap_cache[pno] = (list(eps), list(mps))
+        self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints = self._pdf_snap_cache[pno]
         self._refresh_color_key_ui()
         QTimer.singleShot(0, self.canvas.fit_to_viewport)
         QTimer.singleShot(120, self.canvas.fit_to_viewport)
