@@ -717,6 +717,9 @@ class BowmanMortonRibbonBar(QFrame):
             return
         pt = getattr(self.app, "planset_takeoff_tab", None)
         vw = getattr(pt, "vis_workspace", None) if pt else None
+        cv = getattr(vw, "canvas", None) if vw else None
+        doc = getattr(pt, "doc", None) or getattr(vw, "doc", None)
+        n_sheets = len(doc) if doc is not None else 1
         bom = (getattr(pt, "bom_items", None) or getattr(pt, "staged_bom_items", None) or getattr(vw, "bom_items", None) or []) if pt else []
         bom_pcs = sum(int(x.get("qty", 1) or 1) for x in bom) if bom else 0
         bom_lbs = sum(float(x.get("total_weight", x.get("weight", 0.0)) or 0.0) for x in bom) if bom else 0.0
@@ -730,19 +733,12 @@ class BowmanMortonRibbonBar(QFrame):
                         bom_lbs += float(str(ch.text(5)).replace(",", "") or 0.0)
                     except Exception:
                         pass
-        self._sum_vals["members"].setText(f"{bom_pcs:,} pcs")
-        self._sum_vals["weight"].setText(f"{bom_lbs:,.0f} lbs")
-        cat_items = getattr(getattr(self.app, "data_core", None), "rfq_ledger_items", []) or []
-        cat_tot = 0.0
-        for it in cat_items:
-            try:
-                cat_tot += float(str(it.get("cost", 0)).replace("$", "").replace(",", "").strip() or 0.0)
-            except Exception:
-                pass
-        self._sum_vals["cat_tot"].setText(f"${cat_tot:,.2f}")
-        sq = getattr(self.app, "custom_quoting_tab", None)
-        st_items = getattr(sq, "current_project_items", []) or []
-        st_tot = sum(float(x.get("total_price", x.get("price", 0.0)) or 0.0) for x in st_items)
-        self._sum_vals["struct_tot"].setText(f"${st_tot:,.2f}")
-        quotes = getattr(self.app, "custom_ledger_pool", []) or []
-        self._sum_vals["ledger_cnt"].setText(f"{len(quotes)} quotes")
+        n_marks = len(getattr(cv, "markups", []) or []) if cv else 0
+        if "sheets" in self._sum_vals:
+            self._sum_vals["sheets"].setText(str(max(1, n_sheets)))
+        if "members" in self._sum_vals:
+            self._sum_vals["members"].setText(f"{bom_pcs:,} pcs")
+        if "weight" in self._sum_vals:
+            self._sum_vals["weight"].setText(f"{bom_lbs:,.0f} lbs")
+        if "marks" in self._sum_vals:
+            self._sum_vals["marks"].setText(str(n_marks))
