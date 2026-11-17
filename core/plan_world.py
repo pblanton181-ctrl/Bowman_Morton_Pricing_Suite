@@ -337,7 +337,7 @@ def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
         rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.90, ph * 0.95
 
     span_w, span_h = max(1.0, rx1 - rx0), max(1.0, ry1 - ry0)
-    target_tile_pts = 420.0
+    target_tile_pts = 360.0
     cols = max(1, int(math.ceil(span_w / target_tile_pts)))
     rows = max(1, int(math.ceil(span_h / target_tile_pts)))
     tile_w, tile_h = span_w / cols, span_h / rows
@@ -350,7 +350,7 @@ def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
             ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
             tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
             ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
-            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,45,315", f"r{r_i}c{c_i}"))
+            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,30,45,315,330", f"r{r_i}c{c_i}"))
 
     merged_hits = []
     with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
@@ -363,7 +363,20 @@ def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
                 ):
                     continue
                 merged_hits.append((hx0, hy0, hx1, hy1, htxt))
-    return merged_hits
+    # Stitch adjacent split OCR tokens on the same reading line (e.g. 'HSS' + '4X2X1/4' -> 'HSS4X2X1/4')
+    stitched = list(merged_hits)
+    for i, (ax0, ay0, ax1, ay1, atxt) in enumerate(merged_hits):
+        if atxt in ("HSS", "W", "PL", "MC", "C", "L") or re.match(r"^(W\d+|HSS\d+X\d+)$", atxt):
+            acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5
+            for j, (bx0, by0, bx1, by1, btxt) in enumerate(merged_hits):
+                if i == j:
+                    continue
+                bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
+                if math.hypot(bcx - acx, bcy - acy) <= 45.0:
+                    comb = normalize_cad_text(atxt + btxt)
+                    if re.match(r"^(W\d+X\d+|HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?X\d+/\d+|PL\d+/\d+X\d+)$", comb):
+                        stitched.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), comb))
+    return stitched
 
 
 class PlanWorldModel:
