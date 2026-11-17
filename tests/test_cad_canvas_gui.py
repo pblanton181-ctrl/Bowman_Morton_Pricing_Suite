@@ -65,8 +65,8 @@ def test_full_manufacturing_app_pressure(qtbot, monkeypatch):
         for ci in range(win.category_box.count()):
             win.category_box.setCurrentIndex(ci)
             win.handle_card_switch()
-            if hasattr(win, "model_box") and win.model_box.count() > 0:
-                win.model_box.setCurrentIndex(0)
+            if hasattr(win, "model_box") and win.model_box.count() > 1:
+                win.model_box.setCurrentIndex(1)
                 break
     if hasattr(win, "std_cust_input"): win.std_cust_input.setText("Test Client")
     if hasattr(win, "std_proj_input"): win.std_proj_input.setText("Test Job")
