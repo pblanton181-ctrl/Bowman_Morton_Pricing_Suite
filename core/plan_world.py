@@ -148,9 +148,15 @@ class SheetWorldState:
         segs = [(x0, y, x1, y, (x1 - x0) / self.pts_per_ft, "h") for x0, x1, y in merged_h]
         segs += [(x, y0, x, y1, (y1 - y0) / self.pts_per_ft, "v") for y0, y1, x in merged_v]
         self.bay_segments = segs
-    def attach_beam_to_callout(self, cx, cy, is_horiz, max_perp_pts=8.0, max_span_ft=32.0):
-        """Finds the single bay-bounded vector beam touching a callout in PDF world space."""
+    def attach_beam_to_callout(self, cx, cy, is_horiz, max_perp_pts=9.5, max_span_ft=34.0, min_span_ft=6.0):
+        """Finds the structural bay-bounded vector beam touching a callout in PDF world space,
+        splitting overly long continuous gridlines only at major perpendicular structural beams (never leader arrows)."""
         max_pts = float(max_span_ft) * self.pts_per_ft
+        min_pts = float(min_span_ft) * self.pts_per_ft
+        # Collect only major perpendicular structural beam lines (>= 6 ft) as valid bay boundaries
+        perp_h = [round((sy1 + sy2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "h" and sft >= min_span_ft]
+        perp_v = [round((sx1 + sx2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "v" and sft >= min_span_ft]
+
         best_seg = None
         best_d = float(max_perp_pts)
         for sx1, sy1, sx2, sy2, _, orient in self.bay_segments:
@@ -166,24 +172,26 @@ class SheetWorldState:
                     csx1, csy1, csx2, csy2 = sx1, sy1, sx2, sy2
                     if is_horiz:
                         lx0, lx1 = min(sx1, sx2), max(sx1, sx2)
-                        cuts = sorted({nx for nx, ny in self.snap_endpoints if abs(ny - sy1) <= 2.0 and (lx0 + 12.0) < nx < (lx1 - 12.0)})
-                        lb = max([lx0] + [c for c in cuts if c <= cx])
-                        rb = min([lx1] + [c for c in cuts if c >= cx])
-                        if (rb - lb) > max_pts:
-                            lb = max(lx0, cx - max_pts * 0.5)
-                            rb = min(lx1, cx + max_pts * 0.5)
-                        csx1, csx2 = lb, rb
+                        if (lx1 - lx0) > max_pts:
+                            cuts = sorted({vx for vx in perp_v if (lx0 + min_pts) < vx < (lx1 - min_pts)})
+                            lb = max([lx0] + [c for c in cuts if c <= cx])
+                            rb = min([lx1] + [c for c in cuts if c >= cx])
+                            if (rb - lb) > max_pts:
+                                lb = max(lx0, cx - max_pts * 0.5)
+                                rb = min(lx1, cx + max_pts * 0.5)
+                            csx1, csx2 = lb, rb
                     else:
                         ly0, ly1 = min(sy1, sy2), max(sy1, sy2)
-                        cuts = sorted({ny for nx, ny in self.snap_endpoints if abs(nx - sx1) <= 2.0 and (ly0 + 12.0) < ny < (ly1 - 12.0)})
-                        tb = max([ly0] + [c for c in cuts if c <= cy])
-                        bb = min([ly1] + [c for c in cuts if c >= cy])
-                        if (bb - tb) > max_pts:
-                            tb = max(ly0, cy - max_pts * 0.5)
-                            bb = min(ly1, cy + max_pts * 0.5)
-                        csy1, csy2 = tb, bb
+                        if (ly1 - ly0) > max_pts:
+                            cuts = sorted({hy for hy in perp_h if (ly0 + min_pts) < hy < (ly1 - min_pts)})
+                            tb = max([ly0] + [c for c in cuts if c <= cy])
+                            bb = min([ly1] + [c for c in cuts if c >= cy])
+                            if (bb - tb) > max_pts:
+                                tb = max(ly0, cy - max_pts * 0.5)
+                                bb = min(ly1, cy + max_pts * 0.5)
+                            csy1, csy2 = tb, bb
                     span_pts = math.hypot(csx2 - csx1, csy2 - csy1)
-                    if span_pts <= max_pts:
+                    if min_pts <= span_pts <= max_pts:
                         best_d = perp_d
                         best_seg = (csx1, csy1, csx2, csy2, round_structural_ft(span_pts / self.pts_per_ft))
         return best_seg
