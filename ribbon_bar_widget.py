@@ -66,6 +66,7 @@ class BowmanMortonRibbonBar(QFrame):
             QFrame#ContextualSelectionGroup { background-color: #eff6fc; border: 1px solid #0078d4; border-radius: 5px; margin-top: 3px; margin-bottom: 3px; }
             QLabel#OfficeGroupCap { color: #1e293b; background: transparent; font-size: 11px; font-weight: 700; border: none; padding: 1px 4px 0px 4px; }
             QLabel#CtxGroupCap { color: #0078d4; background: transparent; font-size: 10px; font-weight: 700; border: none; padding: 1px 4px 0px 4px; }
+            QToolTip { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #94a3b8 !important; border-radius: 5px; padding: 6px 9px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; }
         """)
         outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
 

@@ -414,6 +414,10 @@ class MarketingTrailerDirector:
             if scale_cb is not None and scale_cb.isVisible():
                 scale_cb.showPopup()
                 QApplication.processEvents()
+                popup_view = scale_cb.view()
+                idx0 = popup_view.model().index(0, 0)
+                item_rect = popup_view.visualRect(idx0)
+                opt_gpos = popup_view.viewport().mapToGlobal(item_rect.center())
 
                 def _select_scale_and_arm_measure():
                     scale_cb.setCurrentIndex(0)
@@ -432,7 +436,7 @@ class MarketingTrailerDirector:
                         on_done=lambda: self._run_real_canvas_measure(beam_profile, beam_len_ft),
                     ))
 
-                QTimer.singleShot(700, _select_scale_and_arm_measure)
+                QTimer.singleShot(250, lambda: self.cursor.glide_to(opt_gpos, duration_ms=520, click_pulse=True, on_done=_select_scale_and_arm_measure))
             else:
                 btn_measure = self._find_visible_button(rb, "Linear Dim", "Measure")
                 self.cursor.glide_to_widget(
@@ -459,6 +463,7 @@ class MarketingTrailerDirector:
         QApplication.processEvents()
 
         cv = vw.canvas
+        cv.endpoint_snap = True
         if cv.key_highlights:
             hl = next((h for h in cv.key_highlights if h.get("seg")), cv.key_highlights.__getitem__(0))
             span_pts = beam_len_ft * max(1.0, float(getattr(cv, "pts_per_ft", 18.0)))
@@ -478,6 +483,18 @@ class MarketingTrailerDirector:
             p1_local = QPoint(int(cv.width() * 0.35), int(cv.height() * 0.48))
             p2_local = QPoint(int(cv.width() * 0.62), int(cv.height() * 0.48))
 
+        # Snap p1_local and p2_local onto the nearest real vector line endpoints in cv.pdf_snap_endpoints so OSNAP lights up!
+        def _nearest_snap_qpt(q_target):
+            best_q, best_d = q_target, 42.0
+            for epx, epy in getattr(cv, "pdf_snap_endpoints", []):
+                eq = cv._from_pdf_pt(epx, epy)
+                d = ((eq.x() - q_target.x()) ** 2 + (eq.y() - q_target.y()) ** 2) ** 0.5
+                if d < best_d:
+                    best_d, best_q = d, eq
+            return best_q
+
+        p1_local = _nearest_snap_qpt(p1_local)
+        p2_local = _nearest_snap_qpt(p2_local)
         p1_global = cv.mapToGlobal(p1_local)
         p2_global = cv.mapToGlobal(p2_local)
 
