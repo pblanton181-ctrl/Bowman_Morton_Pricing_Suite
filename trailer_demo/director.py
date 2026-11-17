@@ -436,7 +436,15 @@ class MarketingTrailerDirector:
                     f"Measured Span: {measured_txt or cv._format_ft_in(beam_len_ft)}  |  BOM {beam_profile}: {beam_len_ft:.2f} ft",
                     "Real interactive Measure tool & OSNAP confirm plan-set scale accuracy",
                 )
-                QTimer.singleShot(1600, self._shot_5_export_all_steel_pdfs)
+                if self.single_scene == 4:
+                    self.caption.show_step(
+                        "SCENE 4 COMPLETE • BEAM SPAN VERIFIED AGAINST BOM",
+                        f"Measured {measured_txt or cv._format_ft_in(beam_len_ft)} == BOM {beam_profile}",
+                        "Stopping Scene 4 preview recording now",
+                    )
+                    QTimer.singleShot(1800, self._shutdown_and_open_exports)
+                else:
+                    QTimer.singleShot(1600, self._shot_5_export_all_steel_pdfs)
 
             self.cursor.glide_to(p2_global, duration_ms=850, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
 

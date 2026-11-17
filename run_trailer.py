@@ -1,6 +1,6 @@
 import sys
 import qdarktheme
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QObject, QEvent
 from PySide6.QtGui import QFont, QColor, QPalette
 from PySide6.QtWidgets import QApplication
 import live_test
@@ -21,6 +21,13 @@ def main():
     app.setPalette(pal)
     qdarktheme.setup_theme(theme="light", corner_shape="rounded", custom_colors={"primary": "#0284c7"})
     app.setFont(QFont("Segoe UI", 10))
+
+    class _NoTooltipFilter(QObject):
+        def eventFilter(self, obj, ev):
+            return ev.type() == QEvent.ToolTip
+
+    _ntf = _NoTooltipFilter(app)
+    app.installEventFilter(_ntf)
 
     win = live_test.StandaloneManufacturingApp()
     director = MarketingTrailerDirector(win, single_scene=scene_num)
