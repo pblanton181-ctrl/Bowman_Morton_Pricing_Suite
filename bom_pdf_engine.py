@@ -288,10 +288,14 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
         full_tb = pg.get_text("text").upper()
         items = []
         lines_grp = {}
+        vert_words = []
         for wx0, wy0, wx1, wy1, wstr, bno, lno, wno in pg.get_text("words"):
             if wx0 < mx and wy0 < my:
                 nw = normalize_cad_text(wstr)
-                items.append(((wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5, nw))
+                cx_w, cy_w = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
+                items.append((cx_w, cy_w, nw))
+                if (wy1 - wy0) > (wx1 - wx0) * 1.35:
+                    vert_words.append((cx_w, cy_w, nw))
                 lines_grp.setdefault((bno, lno), []).append((wx0, wy0, wx1, wy1, nw))
         for (bno, lno), wlist in lines_grp.items():
             if len(wlist) > 1:
@@ -318,14 +322,36 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
 
         segs = []
         if not is_detail:
+            raw_h, raw_v = [], []
             for d in pg.get_drawings():
                 for it in d.get("items", []):
                     if isinstance(it, tuple) and len(it) >= 3 and it.__getitem__(0) == "l":
                         _, p1, p2 = it[:3]
                         if p1.x < mx and p1.y < my and p2.x < mx and p2.y < my:
-                            sl = math.hypot(p2.x - p1.x, p2.y - p1.y)
-                            if sl >= pts_per_ft * 3.0:
-                                segs.append((p1.x, p1.y, p2.x, p2.y, sl / pts_per_ft))
+                            dx, dy = abs(p2.x - p1.x), abs(p2.y - p1.y)
+                            sl = math.hypot(dx, dy)
+                            if sl >= pts_per_ft * 2.5:
+                                if dy <= 1.2:
+                                    raw_h.append((min(p1.x, p2.x), max(p1.x, p2.x), (p1.y + p2.y) * 0.5))
+                                elif dx <= 1.2:
+                                    raw_v.append((min(p1.y, p2.y), max(p1.y, p2.y), (p1.x + p2.x) * 0.5))
+                                else:
+                                    segs.append((p1.x, p1.y, p2.x, p2.y, sl / pts_per_ft, "diag"))
+            # Merge collinear horizontal & vertical segments separated by small girder/symbol gaps (<= 14 pts)
+            for x0, x1, y in sorted(raw_h, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
+                if segs and segs[-1].__getitem__(5) == "h" and abs(segs[-1].__getitem__(1) - y) <= 1.5 and x0 <= segs[-1].__getitem__(2) + 14.0:
+                    px0, py0, px1, py1, _, _ = segs[-1]
+                    nx1 = max(px1, x1)
+                    segs[-1] = (px0, py0, nx1, py1, (nx1 - px0) / pts_per_ft, "h")
+                else:
+                    segs.append((x0, y, x1, y, (x1 - x0) / pts_per_ft, "h"))
+            for y0, y1, x in sorted(raw_v, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
+                if segs and segs[-1].__getitem__(5) == "v" and abs(segs[-1].__getitem__(0) - x) <= 1.5 and y0 <= segs[-1].__getitem__(3) + 14.0:
+                    px0, py0, px1, py1, _, _ = segs[-1]
+                    ny1 = max(py1, y1)
+                    segs[-1] = (px0, py0, px1, ny1, (ny1 - py0) / pts_per_ft, "v")
+                else:
+                    segs.append((x, y0, x, y1, (y1 - y0) / pts_per_ft, "v"))
 
         det_pts = []
         for cx, cy, t in items:
@@ -393,14 +419,25 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                     continue
 
                 if not is_plate and segs:
+                    is_vert_lbl = any(w_txt == prof and math.hypot(cx - vx, cy - vy) < 6.0 for vx, vy, w_txt in vert_words)
+                    want_orient = "v" if is_vert_lbl else "h"
                     min_ft = 8.0 if sk == "beam" else 4.0
                     best_span = None
-                    best_dist = 55.0
-                    for sx1, sy1, sx2, sy2, sft in segs:
-                        if not (min_ft <= sft <= 35.0):
+                    best_dist = 65.0
+                    for sx1, sy1, sx2, sy2, sft, orient in segs:
+                        if orient not in (want_orient, "diag") or not (min_ft <= sft <= 35.0):
                             continue
-                        mx_s, my_s = (sx1 + sx2) * 0.5, (sy1 + sy2) * 0.5
-                        d_seg = math.hypot(cx - mx_s, cy - my_s)
+                        # Perpendicular distance from callout center to the beam line
+                        if orient == "v":
+                            if not (min(sy1, sy2) - 12.0 <= cy <= max(sy1, sy2) + 12.0):
+                                continue
+                            d_seg = abs(cx - sx1)
+                        elif orient == "h":
+                            if not (min(sx1, sx2) - 12.0 <= cx <= max(sx1, sx2) + 12.0):
+                                continue
+                            d_seg = abs(cy - sy1)
+                        else:
+                            d_seg = math.hypot(cx - (sx1 + sx2) * 0.5, cy - (sy1 + sy2) * 0.5)
                         if d_seg < best_dist:
                             best_dist = d_seg
                             best_span = round_structural_ft(sft)
