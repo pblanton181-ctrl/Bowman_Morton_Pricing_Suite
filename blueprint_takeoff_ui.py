@@ -2482,20 +2482,9 @@ class VisualTakeoffWorkspace(QWidget):
             mx = float(pg.rect.width) * 0.72
             segs = []
             if not hasattr(self, "chk_hl_lines") or self.chk_hl_lines.isChecked():
-                for d in pg.get_drawings():
-                    stroke_w = float(d.get("width") or 0.0)
-                    if stroke_w < 1.20:
-                        continue
-                    for item in d.get("items", []):
-                        if isinstance(item, tuple) and len(item) >= 3 and item.__getitem__(0) == "l":
-                            _, p1, p2 = item[:3]
-                            dx_s, dy_s = float(p2.x - p1.x), float(p2.y - p1.y)
-                            L = math.hypot(dx_s, dy_s)
-                            if p1.x < mx and p2.x < mx and L >= 65.0:
-                                is_horiz = abs(dy_s) <= L * 0.08
-                                is_vert = abs(dx_s) <= L * 0.08
-                                if is_horiz or is_vert:
-                                    segs.append((float(p1.x), float(p1.y), float(p2.x), float(p2.y), is_horiz))
+                for sx1, sy1, sx2, sy2, _, orient in getattr(self.canvas, "canonical_beam_segs", []):
+                    if orient in ("h", "v"):
+                        segs.append((float(sx1), float(sy1), float(sx2), float(sy2), orient == "h"))
             for wx0, wy0, wx1, wy1, wstr, *_ in pg.get_text("words"):
                 if wx0 >= mx:
                     continue
@@ -2505,7 +2494,7 @@ class VisualTakeoffWorkspace(QWidget):
                     counts[nw] = counts.get(nw, 0) + 1
                     cx, cy = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
                     txt_horiz = (wx1 - wx0) >= (wy1 - wy0)
-                    best_seg, best_d = None, 12.0
+                    best_seg, best_d = None, 28.0
                     for sx1, sy1, sx2, sy2, seg_horiz in segs:
                         if seg_horiz != txt_horiz:
                             continue
