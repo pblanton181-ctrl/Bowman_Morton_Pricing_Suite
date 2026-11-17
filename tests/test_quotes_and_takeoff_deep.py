@@ -4,13 +4,11 @@ from PySide6.QtGui import QPixmap, QColor
 import live_test
 
 
-def test_bom_tree_actions_and_structural_import(qtbot, monkeypatch):
+def test_bom_tree_actions_and_structural_import(shared_app_win, qtbot, monkeypatch):
     monkeypatch.setattr(live_test.QMessageBox, "warning", lambda *a, **k: None)
     monkeypatch.setattr(live_test.QMessageBox, "information", lambda *a, **k: None)
     monkeypatch.setattr(live_test.QMessageBox, "question", lambda *a, **k: live_test.QMessageBox.Yes)
-    win = live_test.StandaloneManufacturingApp()
-    qtbot.addWidget(win)
-    win.show()
+    win = shared_app_win
 
     pt = win.planset_takeoff_tab
     sample_rows = [
@@ -37,15 +35,13 @@ def test_bom_tree_actions_and_structural_import(qtbot, monkeypatch):
     if hasattr(pt, "_import_selected_to_structural"):
         pt._import_selected_to_structural()
 
-    win.close()
+    pass
 
 
-def test_takeoff_cad_shapes_calibration_and_sheet_color_keys(qtbot, monkeypatch):
+def test_takeoff_cad_shapes_calibration_and_sheet_color_keys(shared_app_win, qtbot, monkeypatch):
     monkeypatch.setattr(live_test.QMessageBox, "warning", lambda *a, **k: None)
     monkeypatch.setattr(live_test.QMessageBox, "information", lambda *a, **k: None)
-    win = live_test.StandaloneManufacturingApp()
-    qtbot.addWidget(win)
-    win.show()
+    win = shared_app_win
 
     vw = win.planset_takeoff_tab.vis_workspace
     cv = vw.canvas
@@ -76,15 +72,13 @@ def test_takeoff_cad_shapes_calibration_and_sheet_color_keys(qtbot, monkeypatch)
     if hasattr(cv, '_inline_editor') and cv._inline_editor.isVisible():
         cv._inline_editor.hide()
 
-    win.close()
+    pass
 
 
-def test_pdf_quote_report_generation_and_admin_refresh(qtbot, monkeypatch):
+def test_pdf_quote_report_generation_and_admin_refresh(shared_app_win, qtbot, monkeypatch):
     monkeypatch.setattr(live_test.QMessageBox, "warning", lambda *a, **k: None)
     monkeypatch.setattr(live_test.QMessageBox, "information", lambda *a, **k: None)
-    win = live_test.StandaloneManufacturingApp()
-    qtbot.addWidget(win)
-    win.show()
+    win = shared_app_win
 
     with tempfile.TemporaryDirectory() as tmp:
         pdf_out = os.path.join(tmp, "customer_quote_test.pdf")
@@ -101,4 +95,4 @@ def test_pdf_quote_report_generation_and_admin_refresh(qtbot, monkeypatch):
                 getattr(win, fn_name)()
                 break
 
-    win.close()
+    pass
