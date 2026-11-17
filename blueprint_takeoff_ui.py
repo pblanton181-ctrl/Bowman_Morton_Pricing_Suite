@@ -1,3 +1,4 @@
+from ui.page_thumbnails_drawer import PageThumbnailsDrawer
 from PySide6.QtWidgets import QDoubleSpinBox
 from PySide6.QtWidgets import QFileDialog
 import os
@@ -71,6 +72,8 @@ class CadBlueprintCanvas(QLabel):
 
         self.markups = []
         self.selected_idx = -1
+        self.show_grid = False
+        self.grid_spacing_px = 28
         self._dragging_selected = False
         self._drag_last_pdf = None
 
@@ -707,6 +710,10 @@ class CadBlueprintCanvas(QLabel):
             return
         pos = self._snap_to_endpoint(ev.position().toPoint() if hasattr(ev, "position") else ev.pos())
         hit = self._hit_test_markup(pos)
+        if hit >= 0 and (ev.modifiers() & Qt.ControlModifier) and hasattr(self, 'duplicate_selected_markup'):
+            self.selected_idx = hit
+            self.duplicate_selected_markup()
+            hit = self.selected_idx
         if 0 <= hit < len(self.markups) and self.markups[hit].get("type") == "text":
             m = self.markups.pop(hit)
             self.selected_idx = -1
@@ -1072,6 +1079,11 @@ class CadBlueprintCanvas(QLabel):
             ev.accept()
             return
         super().keyPressEvent(ev)
+
+    def toggle_snap_grid(self):
+        self.show_grid = not getattr(self, 'show_grid', False)
+        self.update()
+        return self.show_grid
 
     def paintEvent(self, ev):
         super().paintEvent(ev)
