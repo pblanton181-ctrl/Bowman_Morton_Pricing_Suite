@@ -343,7 +343,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                         d_seg = math.hypot(cx - mx_s, cy - my_s)
                         if d_seg < best_dist:
                             best_dist = d_seg
-                            best_span = round(sft * 2.0) / 2.0
+                            best_span = round(sft * 4.0) / 4.0
                     if best_span:
                         meas_len = best_span
                 elif sk == "angle" and is_detail:
