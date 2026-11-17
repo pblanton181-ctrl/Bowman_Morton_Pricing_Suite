@@ -2400,13 +2400,15 @@ class VisualTakeoffWorkspace(QWidget):
         self.canvas._pdf_page_w = float(pg.rect.width)
         self.canvas._pdf_page_h = float(pg.rect.height)
         import bom_pdf_engine as _eng
-        detected_ppf = float(_eng.get_sheet_calibration(pg))
+        sheet_scales = getattr(self, "sheet_scales", {})
+        detected_ppf = float(_eng.get_sheet_calibration(pg, sheet_scales=sheet_scales))
         if pno not in self._pdf_snap_cache:
             try:
-                self._pdf_snap_cache[pno] = _eng.extract_vector_snap_nodes(pg, detected_ppf)
+                eps, mps, c_segs = _eng.extract_vector_snap_nodes(pg, detected_ppf)
+                self._pdf_snap_cache[pno] = (eps, mps, c_segs)
             except Exception:
-                self._pdf_snap_cache[pno] = ([], [])
-        self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints = self._pdf_snap_cache[pno]
+                self._pdf_snap_cache[pno] = ([], [], [])
+        self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints, self.canvas.canonical_beam_segs = self._pdf_snap_cache[pno]
         try:
             self.canvas.pts_per_ft = detected_ppf
             p_win = self.window()

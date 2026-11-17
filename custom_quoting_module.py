@@ -964,7 +964,7 @@ class PdfBomImporterDialog(QDialog):
             rec_pages = [s["page"] for s in sheets if s.get("recommended")] or [s["page"] for s in sheets]
             rows, dt, _ = eng.extract_full_bom(
                 self.pdf_path, matrix_path=get_workspace_path("steel_matrix.json"),
-                selected_pages=rec_pages, use_native_ocr=bool(use_ocr),
+                selected_pages=rec_pages, use_native_ocr=bool(use_ocr), sheet_scales=getattr(getattr(self, 'vis_workspace', None), 'sheet_scales', None),
             )
         finally:
             QApplication.restoreOverrideCursor()

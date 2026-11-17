@@ -140,8 +140,11 @@ def round_structural_ft(raw_ft):
     """Single shared 1/4-ft (3-inch) rounding rule for both BOM extraction and Measure tool."""
     return round(float(raw_ft) * 4.0) / 4.0
 
-def get_sheet_calibration(page):
+def get_sheet_calibration(page, sheet_scales=None):
     """Single source of truth for sheet scale (pts_per_ft) shared by BOM engine and Measure canvas."""
+    pno = int(getattr(page, "number", 0)) + 1
+    if isinstance(sheet_scales, dict) and pno in sheet_scales and float(sheet_scales[pno]) > 0:
+        return float(sheet_scales[pno])
     pw, ph = float(page.rect.width), float(page.rect.height)
     mx, my = pw * 0.72, ph * 0.94
     full_tb = normalize_cad_text(page.get_text("text"))
@@ -150,12 +153,14 @@ def get_sheet_calibration(page):
     return float(parse_arch_scale(all_txt))
 
 def extract_vector_snap_nodes(page, pts_per_ft=18.0):
-    """Extracts exact vector beam/wall endpoints, midpoints, and T-intersections across the full drawing."""
+    """Single canonical vector geometry extractor: returns (endpoints, midpoints, ortho_segments)
+    so OSNAP and BOM extraction measure between the exact same CAD intersection nodes."""
     pw, ph = float(page.rect.width), float(page.rect.height)
     mx_vp = pw * 0.88
     eps, mps = set(), set()
-    h_segs, v_segs = [], []
-    min_beam_pts = max(12.0, float(pts_per_ft) * 2.0)
+    raw_h, raw_v = [], []
+    min_seg_pts = max(12.0, float(pts_per_ft) * 2.0)
+
     for drw in page.get_drawings():
         for itm in drw.get("items", []):
             op = itm.__getitem__(0)
@@ -168,10 +173,11 @@ def extract_vector_snap_nodes(page, pts_per_ft=18.0):
                 eps.add((ax, ay))
                 eps.add((bx, by))
                 mps.add((round((ax + bx) * 0.5, 2), round((ay + by) * 0.5, 2)))
-                if abs(ay - by) <= 0.75 and abs(bx - ax) >= min_beam_pts:
-                    h_segs.append((min(ax, bx), max(ax, bx), ay))
-                elif abs(ax - bx) <= 0.75 and abs(by - ay) >= min_beam_pts:
-                    v_segs.append((min(ay, by), max(ay, by), ax))
+                dx, dy = abs(bx - ax), abs(by - ay)
+                if dy <= 1.2 and dx >= min_seg_pts:
+                    raw_h.append((min(ax, bx), max(ax, bx), round((ay + by) * 0.5, 2)))
+                elif dx <= 1.2 and dy >= min_seg_pts:
+                    raw_v.append((min(ay, by), max(ay, by), round((ax + bx) * 0.5, 2)))
             elif op == "re" and len(itm) >= 2:
                 rc = itm.__getitem__(1)
                 if rc.x0 > mx_vp:
@@ -189,11 +195,44 @@ def extract_vector_snap_nodes(page, pts_per_ft=18.0):
                 p_a, p_b = itm.__getitem__(1), itm.__getitem__(4)
                 eps.add((round(float(p_a.x), 2), round(float(p_a.y), 2)))
                 eps.add((round(float(p_b.x), 2), round(float(p_b.y), 2)))
-    for hx0, hx1, hy in h_segs:
-        for vy0, vy1, vx in v_segs:
+
+    # Merge collinear horizontal & vertical beam segments across small symbol/girder breaks
+    merged_h, merged_v = [], []
+    for x0, x1, y in sorted(raw_h, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
+        if merged_h and abs(merged_h[-1].__getitem__(2) - y) <= 1.5 and x0 <= merged_h[-1].__getitem__(1) + 14.0:
+            px0, px1, py = merged_h[-1]
+            merged_h[-1] = (px0, max(px1, x1), py)
+        else:
+            merged_h.append((x0, x1, y))
+    for y0, y1, x in sorted(raw_v, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
+        if merged_v and abs(merged_v[-1].__getitem__(2) - x) <= 1.5 and y0 <= merged_v[-1].__getitem__(1) + 14.0:
+            py0, py1, px = merged_v[-1]
+            merged_v[-1] = (py0, max(py1, y1), px)
+        else:
+            merged_v.append((y0, y1, x))
+
+    # Compute exact beam-to-girder / wall T-intersection nodes & add them to OSNAP endpoints
+    for hx0, hx1, hy in merged_h:
+        for vy0, vy1, vx in merged_v:
             if (hx0 - 2.5) <= vx <= (hx1 + 2.5) and (vy0 - 2.5) <= hy <= (vy1 + 2.5):
                 eps.add((vx, hy))
-    return list(eps), list(mps)
+
+    # Build canonical beam segments clipped to their exact intersecting OSNAP nodes
+    canonical_segs = []
+    for x0, x1, y in merged_h:
+        nodes_x = sorted({nx for nx, ny in eps if abs(ny - y) <= 1.5 and (x0 - 2.0) <= nx <= (x1 + 2.0)})
+        nx0 = nodes_x.__getitem__(0) if nodes_x else x0
+        nx1 = nodes_x[-1] if nodes_x else x1
+        if (nx1 - nx0) >= min_seg_pts:
+            canonical_segs.append((nx0, y, nx1, y, (nx1 - nx0) / pts_per_ft, "h"))
+    for y0, y1, x in merged_v:
+        nodes_y = sorted({ny for nx, ny in eps if abs(nx - x) <= 1.5 and (y0 - 2.0) <= ny <= (y1 + 2.0)})
+        ny0 = nodes_y.__getitem__(0) if nodes_y else y0
+        ny1 = nodes_y[-1] if nodes_y else y1
+        if (ny1 - ny0) >= min_seg_pts:
+            canonical_segs.append((x, ny0, x, ny1, (ny1 - ny0) / pts_per_ft, "v"))
+
+    return list(eps), list(mps), canonical_segs
 
 def scan_region_windows_native_ocr(page, clip_rect=None, dpi=200):
     pw, ph = float(page.rect.width), float(page.rect.height)
@@ -255,7 +294,7 @@ def inspect_pdf_sheets(pdf_path):
         sheets.append({"page": pno + 1, "sheet": sh or f"P.{pno+1}", "mode": mode, "recommended": is_struct})
     return sheets
 
-def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=None, region_clip=None, use_native_ocr=True):
+def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None):
     t0 = time.perf_counter()
     fp = _file_fingerprint(pdf_path)
     sel_key = "all" if not selected_pages else "_".join(str(p) for p in sorted(selected_pages))
@@ -318,40 +357,11 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
         if sheet_lbl in ("S-0", "S-1") or "SHEET S-1" not in all_txt and "GENERAL STRUCTURAL NOTES" in all_txt:
             continue
         is_detail = sheet_lbl.startswith("SD")
-        pts_per_ft = get_sheet_calibration(pg)
+        pts_per_ft = get_sheet_calibration(pg, sheet_scales=sheet_scales)
 
         segs = []
         if not is_detail:
-            raw_h, raw_v = [], []
-            for d in pg.get_drawings():
-                for it in d.get("items", []):
-                    if isinstance(it, tuple) and len(it) >= 3 and it.__getitem__(0) == "l":
-                        _, p1, p2 = it[:3]
-                        if p1.x < mx and p1.y < my and p2.x < mx and p2.y < my:
-                            dx, dy = abs(p2.x - p1.x), abs(p2.y - p1.y)
-                            sl = math.hypot(dx, dy)
-                            if sl >= pts_per_ft * 2.5:
-                                if dy <= 1.2:
-                                    raw_h.append((min(p1.x, p2.x), max(p1.x, p2.x), (p1.y + p2.y) * 0.5))
-                                elif dx <= 1.2:
-                                    raw_v.append((min(p1.y, p2.y), max(p1.y, p2.y), (p1.x + p2.x) * 0.5))
-                                else:
-                                    segs.append((p1.x, p1.y, p2.x, p2.y, sl / pts_per_ft, "diag"))
-            # Merge collinear horizontal & vertical segments separated by small girder/symbol gaps (<= 14 pts)
-            for x0, x1, y in sorted(raw_h, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
-                if segs and segs[-1].__getitem__(5) == "h" and abs(segs[-1].__getitem__(1) - y) <= 1.5 and x0 <= segs[-1].__getitem__(2) + 14.0:
-                    px0, py0, px1, py1, _, _ = segs[-1]
-                    nx1 = max(px1, x1)
-                    segs[-1] = (px0, py0, nx1, py1, (nx1 - px0) / pts_per_ft, "h")
-                else:
-                    segs.append((x0, y, x1, y, (x1 - x0) / pts_per_ft, "h"))
-            for y0, y1, x in sorted(raw_v, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
-                if segs and segs[-1].__getitem__(5) == "v" and abs(segs[-1].__getitem__(0) - x) <= 1.5 and y0 <= segs[-1].__getitem__(3) + 14.0:
-                    px0, py0, px1, py1, _, _ = segs[-1]
-                    ny1 = max(py1, y1)
-                    segs[-1] = (px0, py0, px1, ny1, (ny1 - py0) / pts_per_ft, "v")
-                else:
-                    segs.append((x, y0, x, y1, (y1 - y0) / pts_per_ft, "v"))
+            _, _, segs = extract_vector_snap_nodes(pg, pts_per_ft)
 
         det_pts = []
         for cx, cy, t in items:

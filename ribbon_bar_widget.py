@@ -415,6 +415,12 @@ class BowmanMortonRibbonBar(QFrame):
             cv = getattr(vw, "canvas", None) if vw else None
             if cv and ppf:
                 cv.pts_per_ft = float(ppf)
+                if vw is not None:
+                    sc_map = getattr(vw, "sheet_scales", None)
+                    if sc_map is None:
+                        sc_map = {}
+                        vw.sheet_scales = sc_map
+                    sc_map[int(vw.get_page_fn())] = float(ppf)
         self._update_telemetry()
 
     def _update_telemetry(self, mode_label=None):
