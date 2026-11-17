@@ -842,7 +842,7 @@ class CadBlueprintCanvas(QLabel):
             return
 
         if getattr(self, "_pending_cad_shape", None) is not None and btn == Qt.LeftButton:
-            px, py = self._to_pdf_pt(pos)
+            px, py = self._to_pdf_pt(self._hover_pt or pos)
             sh = dict(self._pending_cad_shape)
             sh["x"] = px
             sh["y"] = py
@@ -1697,13 +1697,19 @@ class CadBlueprintCanvas(QLabel):
             else:
                 gw = max(6.0, ps.get("w_pts", 24.0) * inv)
                 gh = max(6.0, ps.get("h_pts", 24.0) * inv)
-                kind = ps.get("shape", {}).get("kind", "right")
+                sd = ps.get("shape", {})
+                kind = sd.get("kind", "right")
                 if kind == "circle":
                     p.drawEllipse(QRectF(gx, gy, gw, gh))
-                elif kind == "right":
-                    p.drawPolygon([QPointF(gx, gy + gh), QPointF(gx + gw, gy + gh), QPointF(gx + gw, gy)])
+                    n_b = max(2, int(sd.get("n", 8)))
+                    cx_g, cy_g, r_g = gx + gw * 0.5, gy + gh * 0.5, min(gw, gh) * 0.5
+                    for bi in range(n_b):
+                        ang_b = (2.0 * math.pi * bi) / n_b - math.pi * 0.5
+                        p.drawEllipse(QPointF(cx_g + r_g * math.cos(ang_b), cy_g + r_g * math.sin(ang_b)), 3.0, 3.0)
+                elif kind == "oblique":
+                    p.drawPolygon([QPointF(gx, gy + gh), QPointF(gx + gw, gy + gh), QPointF(gx + gw * 0.38, gy)])
                 else:
-                    p.drawRect(QRectF(gx, gy, gw, gh))
+                    p.drawPolygon([QPointF(gx, gy + gh), QPointF(gx + gw, gy + gh), QPointF(gx + gw, gy)])
                 p.setFont(QFont("Cascadia Mono", 8, QFont.Bold))
                 p.setPen(QColor("#0369a1"))
                 p.drawText(int(gx), int(gy - 6), "Click to place (1:1 Plan Scale) | R = Rotate | Esc = Cancel")

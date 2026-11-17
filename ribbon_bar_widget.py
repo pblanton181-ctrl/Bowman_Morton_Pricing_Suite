@@ -695,7 +695,6 @@ class BowmanMortonRibbonBar(QFrame):
                     cv._pending_cad_shape = {"type": "cad_shape", "x": 0.0, "y": 0.0, "w_pts": w_pts, "h_pts": h_pts, "shape": dict(shape_data), "label": summary_txt, "color": QColor(cv.active_color), "line_width": float(cv.active_line_width)}
                 else:
                     cv._pending_cad_shape = {"type": "text", "x": 0.0, "y": 0.0, "text": summary_txt, "color": QColor(cv.active_color), "font_family": cv.font_family, "font_size": cv.font_size, "bold": True, "italic": False}
-                self._switch_workspace(0)
                 cv.setFocus()
                 cv.update()
         dlg = emd.EngineeringTrigGeometryDialog(on_stamp_note=_stamp_cb, parent=self.app)
