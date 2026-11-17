@@ -215,9 +215,9 @@ class AddonRowWidget(QWidget):
         self.in_qty.setFixedWidth(36)
         top_line.addWidget(self.in_qty)
 
-        self.btn_delete = QPushButton("X")
-        self.btn_delete.setFixedWidth(28)
-        self.btn_delete.setStyleSheet("background-color: rgba(220, 38, 38, 0.2); color: #ef4444; border: 1px solid #dc2626;")
+        self.btn_delete = QPushButton("✕")
+        self.btn_delete.setFixedSize(26, 24)
+        self.btn_delete.setStyleSheet("QPushButton { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 4px; padding: 0px; font-weight: 800; font-size: 12px; } QPushButton:hover { background-color: #fecaca; color: #7f1d1d; }")
         self.btn_delete.clicked.connect(lambda: self.remove_callback(self))
         top_line.addWidget(self.btn_delete)
         top_line.addStretch()
