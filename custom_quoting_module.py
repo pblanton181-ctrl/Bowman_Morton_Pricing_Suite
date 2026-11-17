@@ -258,7 +258,13 @@ class AddonRowWidget(QWidget):
         self.combo_weld_size.setVisible(shop_welded)
     def populate_surcharges_by_shape(self, shape_key):
         try:
-            self.type_select.currentIndexChanged.disconnect()
+            try:
+                try:
+                    self.type_select.currentIndexChanged.disconnect()
+                except Exception:
+                    pass
+            except Exception:
+                pass
         except (RuntimeError, TypeError):
             pass
         self.type_select.clear()

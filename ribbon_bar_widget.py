@@ -716,14 +716,33 @@ class BowmanMortonRibbonBar(QFrame):
         if not hasattr(self, "_sum_vals"):
             return
         pt = getattr(self.app, "planset_takeoff_tab", None)
-        if pt:
-            pg_cnt = max(1, pt.sheet_combo.count()) if hasattr(pt, "sheet_combo") else 1
-            self._sum_vals["sheets"].setText(str(pg_cnt))
-            bom_items = getattr(pt, "bom_items", None) or getattr(pt, "staged_bom_items", [])
-            tot_pcs = sum(int(float(x.get("qty", 1) or 1)) for x in bom_items)
-            self._sum_vals["members"].setText(f"{tot_pcs} pcs")
-            tot_wt = sum(float(x.get("total_weight", 0) or x.get("weight", 0) or 0) for x in bom_items)
-            self._sum_vals["weight"].setText(f"{tot_wt:,.0f} lbs")
-            cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None)
-            if cv:
-                self._sum_vals["marks"].setText(str(len(getattr(cv, "markups", []))))
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        bom = (getattr(pt, "bom_items", None) or getattr(pt, "staged_bom_items", None) or getattr(vw, "bom_items", None) or []) if pt else []
+        bom_pcs = sum(int(x.get("qty", 1) or 1) for x in bom) if bom else 0
+        bom_lbs = sum(float(x.get("total_weight", x.get("weight", 0.0)) or 0.0) for x in bom) if bom else 0.0
+        if bom_pcs == 0 and pt and hasattr(pt, "tree"):
+            for i in range(pt.tree.topLevelItemCount()):
+                p_it = pt.tree.topLevelItem(i)
+                for j in range(p_it.childCount()):
+                    ch = p_it.child(j)
+                    try:
+                        bom_pcs += int(float(ch.text(2) or 1))
+                        bom_lbs += float(str(ch.text(5)).replace(",", "") or 0.0)
+                    except Exception:
+                        pass
+        self._sum_vals["members"].setText(f"{bom_pcs:,} pcs")
+        self._sum_vals["takeoff_wt"].setText(f"{bom_lbs:,.0f} lbs")
+        cat_items = getattr(getattr(self.app, "data_core", None), "rfq_ledger_items", []) or []
+        cat_tot = 0.0
+        for it in cat_items:
+            try:
+                cat_tot += float(str(it.get("cost", 0)).replace("$", "").replace(",", "").strip() or 0.0)
+            except Exception:
+                pass
+        self._sum_vals["cat_tot"].setText(f"${cat_tot:,.2f}")
+        sq = getattr(self.app, "custom_quoting_tab", None)
+        st_items = getattr(sq, "current_project_items", []) or []
+        st_tot = sum(float(x.get("total_price", x.get("price", 0.0)) or 0.0) for x in st_items)
+        self._sum_vals["struct_tot"].setText(f"${st_tot:,.2f}")
+        quotes = getattr(self.app, "custom_ledger_pool", []) or []
+        self._sum_vals["ledger_cnt"].setText(f"{len(quotes)} quotes")
