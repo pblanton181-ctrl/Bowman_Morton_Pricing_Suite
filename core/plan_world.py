@@ -229,7 +229,7 @@ def _ocr_tile_worker(args):
             w_pen = round(float(drw.get("width") or 0.0), 2)
             col = drw.get("color") or ()
             is_blk = (len(col) >= 3 and col.__getitem__(0) < 0.1 and col.__getitem__(1) < 0.1 and col.__getitem__(2) < 0.1)
-            if is_blk and 0.24 <= w_pen <= 0.85 and r.width <= 12.0 and r.height <= 12.0:
+            if is_blk and 0.15 <= w_pen <= 1.0 and r.width <= 24.0 and r.height <= 24.0:
                 shx_strokes.append((w_pen, drw.get("items", ())))
 
         if len(shx_strokes) >= 12:
