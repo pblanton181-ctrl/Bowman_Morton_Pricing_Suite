@@ -910,7 +910,17 @@ class PdfBomImporterDialog(QDialog):
         if ok and known_ft > 0:
             new_ppf = pdf_pts / known_ft
             self.viewport.pts_per_ft = new_ppf
-            self.lbl_summary.setText(f"Custom Scale Calibrated: {new_ppf:.2f} pts/ft ({known_ft:.2f} ft reference).")
+            vw = getattr(self, "vis_workspace", None)
+            if vw is not None and hasattr(vw, "world_model"):
+                pg_n = int(vw.get_page_fn())
+                vw.world_model.set_sheet_scale(pg_n, new_ppf)
+                if getattr(vw, "_doc", None):
+                    ws_new = vw.world_model.get_sheet(vw._doc, pg_n)
+                    self.viewport.world_state = ws_new
+                    self.viewport.pdf_snap_endpoints = ws_new.snap_endpoints
+                    self.viewport.pdf_snap_midpoints = ws_new.snap_midpoints
+                    self.viewport.canonical_beam_segs = ws_new.bay_segments
+            self.lbl_summary.setText(f"Calibrated Sheet Scale: {new_ppf:.2f} pts/ft ({known_ft:.2f} ft) — synced to BOM & Measure.")
         self._set_takeoff_mode("measure")
 
     def _update_viewport_scale(self):
@@ -1078,8 +1088,11 @@ class PdfBomImporterDialog(QDialog):
             self.pdf_path = fp
             self._doc = pymupdf.open(fp)
             if hasattr(self, "vis_workspace"):
+                from core.plan_world import PlanWorldModel
                 self.vis_workspace.pdf_path = fp
                 self.vis_workspace._doc = self._doc
+                self.vis_workspace.world_model = PlanWorldModel(fp)
+                self.vis_workspace.sheet_scales = self.vis_workspace.world_model.sheet_scales
                 self.vis_workspace.page_markups = {}
             if hasattr(self, "sheet_combo"):
                 self.sheet_combo.blockSignals(True)

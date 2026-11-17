@@ -514,6 +514,7 @@ class CadBlueprintCanvas(QLabel):
         self._apply_zoom()
 
     def fit_to_viewport(self):
+        self._user_zoomed = False
         if not self._base_pix or self._base_pix.isNull() or not self.scroll_area:
             return
         vw = max(200, self.scroll_area.viewport().width() - 24)
@@ -522,6 +523,7 @@ class CadBlueprintCanvas(QLabel):
         self._apply_zoom()
 
     def set_zoom(self, z, anchor_vp=None):
+        self._user_zoomed = True
         old_z = self.zoom
         new_z = max(0.25, min(3.5, float(z)))
         if abs(new_z - old_z) < 1e-4:
@@ -543,34 +545,33 @@ class CadBlueprintCanvas(QLabel):
         self.resize(w, h)
         self.update()
 
-    def _to_pdf_pt(self, qpt):
+    def _world_to_screen_tx(self):
+        from PySide6.QtGui import QTransform
         pm = self.pixmap()
         w_px = float(pm.width()) if (pm and not pm.isNull() and pm.width() > 0) else float(self.width())
         h_px = float(pm.height()) if (pm and not pm.isNull() and pm.height() > 0) else float(self.height())
         ws = getattr(self, "world_state", None)
-        if ws is not None and w_px > 0 and h_px > 0:
-            return ws.px_to_world(qpt.x(), qpt.y(), w_px, h_px)
-        pw = getattr(self, "_pdf_page_w", 0.0)
-        ph = getattr(self, "_pdf_page_h", 0.0)
+        pw = float(ws.width_pt) if ws is not None else float(getattr(self, "_pdf_page_w", 0.0))
+        ph = float(ws.height_pt) if ws is not None else float(getattr(self, "_pdf_page_h", 0.0))
+        tx = QTransform()
         if pw > 0 and ph > 0 and w_px > 0 and h_px > 0:
-            return float(qpt.x()) * (pw / w_px), float(qpt.y()) * (ph / h_px)
+            tx.scale(w_px / pw, h_px / ph)
+        else:
+            inv = (self.render_dpi * self.zoom) / 72.0
+            tx.scale(inv, inv)
+        return tx
+
+    def _to_pdf_pt(self, qpt):
+        inv_tx, ok = self._world_to_screen_tx().inverted()
+        if ok:
+            wp = inv_tx.map(QPointF(qpt))
+            return float(wp.x()), float(wp.y())
         sc = 72.0 / (self.render_dpi * self.zoom)
         return float(qpt.x()) * sc, float(qpt.y()) * sc
 
     def _from_pdf_pt(self, px, py):
-        pm = self.pixmap()
-        w_px = float(pm.width()) if (pm and not pm.isNull() and pm.width() > 0) else float(self.width())
-        h_px = float(pm.height()) if (pm and not pm.isNull() and pm.height() > 0) else float(self.height())
-        ws = getattr(self, "world_state", None)
-        if ws is not None and w_px > 0 and h_px > 0:
-            fx, fy = ws.world_to_px(px, py, w_px, h_px)
-            return QPoint(int(round(fx)), int(round(fy)))
-        pw = getattr(self, "_pdf_page_w", 0.0)
-        ph = getattr(self, "_pdf_page_h", 0.0)
-        if pw > 0 and ph > 0 and w_px > 0 and h_px > 0:
-            return QPoint(int(round(float(px) * (w_px / pw))), int(round(float(py) * (h_px / ph))))
-        inv = (self.render_dpi * self.zoom) / 72.0
-        return QPoint(int(round(px * inv)), int(round(py * inv)))
+        sp = self._world_to_screen_tx().map(QPointF(float(px), float(py)))
+        return QPoint(int(round(sp.x())), int(round(sp.y())))
 
     @staticmethod
     def _format_ft_in(ft_val):
@@ -2448,7 +2449,7 @@ class VisualTakeoffWorkspace(QWidget):
 
     def resizeEvent(self, ev):
         super().resizeEvent(ev)
-        if hasattr(self, "canvas") and self.canvas._base_pix and self.scroll:
+        if hasattr(self, "canvas") and self.canvas._base_pix and self.scroll and not getattr(self.canvas, "_user_zoomed", False):
             vw = max(200, self.scroll.viewport().width() - 24)
             vh = max(200, self.scroll.viewport().height() - 24)
             self.canvas.zoom = max(0.25, min(2.5, min(vw / float(self.canvas._base_pix.width()), vh / float(self.canvas._base_pix.height()))))

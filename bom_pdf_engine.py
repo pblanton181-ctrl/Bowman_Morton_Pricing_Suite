@@ -169,8 +169,14 @@ def inspect_pdf_sheets(pdf_path):
 def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None):
     t0 = time.perf_counter()
     fp = _file_fingerprint(pdf_path)
+    wm_cal = PlanWorldModel(pdf_path)
+    merged_scales = dict(wm_cal.sheet_scales)
+    if isinstance(sheet_scales, dict):
+        merged_scales.update({int(k): float(v) for k, v in sheet_scales.items() if float(v) > 0})
+    sheet_scales = merged_scales
+    sc_sig = hashlib.sha256(json.dumps(sorted(sheet_scales.items())).encode("utf-8")).hexdigest()[:10] if sheet_scales else "auto"
     sel_key = "all" if not selected_pages else "_".join(str(p) for p in sorted(selected_pages))
-    cache_file = os.path.join(_cache_dir(), f"{fp}_{sel_key}.json")
+    cache_file = os.path.join(_cache_dir(), f"{fp}_{sel_key}_{sc_sig}.json")
     if region_clip is None and os.path.exists(cache_file):
         with open(cache_file, encoding="utf-8") as f:
             return json.load(f)["rows"], time.perf_counter() - t0, True

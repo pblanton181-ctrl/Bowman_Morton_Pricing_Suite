@@ -248,11 +248,45 @@ class PlanWorldModel:
         self.pdf_path = pdf_path
         self.sheet_scales = {}
         self._states = {}
+        self._load_calibrations()
+
+    def _calib_file(self):
+        if not self.pdf_path or not os.path.exists(str(self.pdf_path)):
+            return None
+        import hashlib
+        st = os.stat(self.pdf_path)
+        sig = hashlib.sha256(f"{os.path.basename(self.pdf_path)}:{st.st_size}:{int(st.st_mtime)}".encode("utf-8")).hexdigest()[:20]
+        base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
+        cdir = os.path.join(base, "BowmanMortonPricingSuite", "calibrations")
+        os.makedirs(cdir, exist_ok=True)
+        return os.path.join(cdir, f"{sig}.json")
+
+    def _load_calibrations(self):
+        cf = self._calib_file()
+        if cf and os.path.exists(cf):
+            try:
+                import json
+                with open(cf, "r", encoding="utf-8") as f:
+                    raw = json.load(f)
+                self.sheet_scales = {int(k): float(v) for k, v in raw.items() if float(v) > 0}
+            except Exception:
+                pass
+
+    def _save_calibrations(self):
+        cf = self._calib_file()
+        if cf:
+            try:
+                import json
+                with open(cf, "w", encoding="utf-8") as f:
+                    json.dump({str(k): float(v) for k, v in self.sheet_scales.items()}, f, indent=2)
+            except Exception:
+                pass
 
     def set_sheet_scale(self, page_num, pts_per_ft):
         pno = int(page_num)
         self.sheet_scales[pno] = float(pts_per_ft)
         self._states.pop(pno, None)
+        self._save_calibrations()
 
     def get_sheet(self, doc, page_num):
         pno = int(page_num)
