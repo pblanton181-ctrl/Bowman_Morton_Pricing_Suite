@@ -1,5 +1,5 @@
-﻿import os
-import fitz
+import os
+import pymupdf as fitz
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QImage, QPixmap, QIcon
 from PySide6.QtWidgets import (

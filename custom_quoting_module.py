@@ -1,3 +1,4 @@
+from PySide6.QtCore import SIGNAL
 from ui.excel_components import FormulaHudBar, apply_excel_table_style
 import pymupdf
 import os
@@ -260,7 +261,10 @@ class AddonRowWidget(QWidget):
         try:
             try:
                 try:
-                    self.type_select.currentIndexChanged.disconnect()
+                    import warnings as _w
+                    with _w.catch_warnings():
+                        _w.simplefilter('ignore', RuntimeWarning)
+                        self.type_select.currentIndexChanged.disconnect()
                 except Exception:
                     pass
             except Exception:
