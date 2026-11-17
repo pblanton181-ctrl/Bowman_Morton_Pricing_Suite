@@ -11,6 +11,7 @@ import pymupdf
 from PySide6.QtCore import Qt, QRect, QPoint, QPointF, QSize
 from PySide6.QtGui import QColor, QPainter, QPen, QFont, QImage, QPixmap, QIcon
 from PySide6.QtWidgets import (
+    QToolButton,
     QWidget, QLabel, QPushButton, QComboBox, QLineEdit, QScrollArea,
     QVBoxLayout, QHBoxLayout, QInputDialog, QFrame,
     QListWidget, QListWidgetItem, QColorDialog, QFontComboBox, QSpinBox
