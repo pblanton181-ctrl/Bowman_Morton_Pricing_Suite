@@ -237,105 +237,110 @@ class MarketingTrailerDirector:
 
         self.caption.show_step(
             "SHOT 3 OF 7 • GLOBAL STEEL COLOR KEY & SMART LOOKUP",
-            "Enabling Attached Beam Line Highlights & Auto-Coloring All BOM Steel",
+            "Enabling 'Highlight Attached Beam Lines' & Auto-Coloring All BOM Steel",
             "Color-coding every profile across the entire planset in one click",
         )
 
-        # Step A: Glide to 'Highlight Attached Beam Lines' checkbox and check it
-        def _step_a_check_lines():
-            if hasattr(vw, "chk_hl_lines") and not vw.chk_hl_lines.isChecked():
-                vw.chk_hl_lines.setChecked(True)
+        # 1. Visibly click 'Highlight Attached Beam Lines' checkbox
+        chk_hl = getattr(vw, "chk_hl_lines", None)
+
+        def _click_auto_color():
+            if chk_hl is not None and not chk_hl.isChecked():
+                chk_hl.setChecked(True)
                 QApplication.processEvents()
 
-            # Step B: Glide to 'Auto-Color All BOM Steel (Whole Planset)' button and click it
-            btn_auto_col = self._find_visible_button(vw, "Auto-Color All BOM Steel")
+            btn_auto = self._find_visible_button(vw, "Auto-Color All BOM Steel")
 
-            def _step_b_auto_color():
+            def _after_auto_color():
                 vw._auto_color_all_bom_profiles()
                 QApplication.processEvents()
+                QTimer.singleShot(750, _flip_opening_pages)
 
-                # Step C: Flip Page 1 -> Page 2 via 'Next Sheet' so viewer sees standard page turning
-                self.caption.show_step(
-                    "SHOT 3 OF 7 • SMART STEEL LOOKUP NAVIGATION",
-                    "Flipping Opening Sheets — Then Jumping Straight to Steel Framing via Color Key",
-                    "Click any steel profile in the Color Key to jump directly to its framing sheet",
-                )
-                btn_next = self._find_visible_button(vw, "Next Sheet")
+            self.cursor.glide_to_widget(btn_auto, duration_ms=650, click_pulse=True, on_done=_after_auto_color)
 
-                def _step_c_flip_page():
-                    if pt.sheet_combo.count() > 1:
-                        pt.sheet_combo.setCurrentIndex(1)
-                        vw.render_sheet(2)
-                        QApplication.processEvents()
+        def _flip_opening_pages():
+            self.caption.show_step(
+                "SHOT 3 OF 7 • SMART STEEL COLOR KEY NAVIGATION",
+                "Flipping Opening Sheets — Then Jumping Straight to Steel via Smart Lookup",
+                "Click any steel profile in the Color Key to reveal its framing sheet pills",
+            )
+            btn_next = self._find_visible_button(vw, "Next Sheet")
 
-                    # Step D: Locate a structural framing beam (Pg 30+) in vw.key_list and click it!
-                    structural_profiles = set()
-                    for top_i in range(pt.tree.topLevelItemCount()):
-                        p_item = pt.tree.topLevelItem(top_i)
-                        for c_i in range(p_item.childCount()):
-                            ch = p_item.child(c_i)
-                            sh_txt = ch.text(1).strip().upper()
-                            prof_txt = ch.text(3).strip().upper()
-                            if (sh_txt.startswith("S") or any(k in sh_txt for k in ("31", "32", "33", "34", "35"))) and (prof_txt.startswith("W") or prof_txt.startswith("HSS")):
-                                structural_profiles.add(re.sub(r"\s+", "", prof_txt))
+            def _do_flip():
+                if pt.sheet_combo.count() > 1:
+                    pt.sheet_combo.setCurrentIndex(1)
+                    vw.render_sheet(2)
+                    QApplication.processEvents()
+                QTimer.singleShot(750, _click_w16x57_in_key_list)
 
-                    target_item = None
-                    best_score = -1
-                    for idx in range(vw.key_list.count()):
-                        it = vw.key_list.item(idx)
-                        txt = (it.text() or "").upper()
-                        prof_key = re.sub(r"\s+", "", txt.split("—").__getitem__(0))
-                        if prof_key.startswith("W") or prof_key.startswith("HSS"):
-                            m_cnt = re.search(r"\((\d+)\)", txt)
-                            cnt = int(m_cnt.group(1)) if m_cnt else 1
-                            score = cnt + (100 if prof_key in structural_profiles else 0)
-                            if score > best_score:
-                                best_score = score
-                                target_item = it
-                    if target_item is None and vw.key_list.count() > 0:
-                        target_item = vw.key_list.item(0)
+            self.cursor.glide_to_widget(btn_next, duration_ms=600, click_pulse=True, on_done=_do_flip)
 
-                    def _step_d_click_key_item():
-                        if target_item is not None:
-                            vw.key_list.setCurrentItem(target_item)
-                            vw._on_key_item_clicked(target_item)
-                            prof_name = (target_item.text() or "").split("—").__getitem__(0).strip()
-                            norm_p = re.sub(r"\s+", "", prof_name.upper())
-                            target_pg = 35
-                            for p_idx in range(len(vw._doc)):
-                                pg_t = vw._doc.load_page(p_idx)
-                                mx_t = float(pg_t.rect.width) * 0.72
-                                if any(wx0 < mx_t and re.sub(r"\s+", "", wstr.upper()) == norm_p for wx0, _, _, _, wstr, *_ in pg_t.get_text("words")):
-                                    if p_idx + 1 >= 25:
-                                        target_pg = p_idx + 1
-                                        break
-                                    target_pg = p_idx + 1
-                            vw._jump_page_from_pill(target_pg)
-                            QApplication.processEvents()
-                            self.caption.show_step(
-                                "SHOT 3 OF 7 • SMART LOOKUP JUMPED TO STRUCTURAL FRAMING PLAN",
-                                f"Clicked '{prof_name}' -> Jumped Straight to Sheet Pg {target_pg}!",
-                                "Color-coded beam callouts & attached steel lines highlighted live on drawing",
-                            )
+        def _click_w16x57_in_key_list():
+            # Target W16X57 (or the primary framing beam on Pg 35) inside vw.key_list
+            target_item = None
+            for idx in range(vw.key_list.count()):
+                it = vw.key_list.item(idx)
+                txt = (it.text() or "").upper()
+                if "W16X57" in txt:
+                    target_item = it
+                    break
+            if target_item is None:
+                for idx in range(vw.key_list.count()):
+                    it = vw.key_list.item(idx)
+                    if (it.text() or "").strip().upper().startswith(("W16", "W14", "W12")):
+                        target_item = it
+                        break
+            if target_item is None and vw.key_list.count() > 0:
+                target_item = vw.key_list.item(0)
 
-                        if self.single_scene == 3:
-                            QTimer.singleShot(1800, self._shutdown_and_open_exports)
-                        else:
-                            QTimer.singleShot(1400, self._shot_4_measure_highlighted_beam)
+            if target_item is None:
+                QTimer.singleShot(400, self._shot_4_measure_highlighted_beam)
+                return
 
-                    if target_item is not None:
-                        vw.key_list.scrollToItem(target_item)
-                        rect = vw.key_list.visualItemRect(target_item)
-                        item_gpos = vw.key_list.viewport().mapToGlobal(rect.center())
-                        QTimer.singleShot(650, lambda: self.cursor.glide_to(item_gpos, duration_ms=800, click_pulse=True, on_done=_step_d_click_key_item))
+            vw.key_list.scrollToItem(target_item)
+            QApplication.processEvents()
+            rect = vw.key_list.visualItemRect(target_item)
+            item_gpos = vw.key_list.viewport().mapToGlobal(rect.center())
+
+            def _on_key_row_clicked():
+                vw.key_list.setCurrentItem(target_item)
+                vw._on_key_item_clicked(target_item)
+                QApplication.processEvents()
+                prof_name = (target_item.text() or "").split("—").__getitem__(0).strip()
+
+                # Find the blue 'Pg 35' (or structural sheet) pill button that just appeared in prof_sheets_bar!
+                pill_btn = None
+                for i in range(vw.prof_sheets_bar.count()):
+                    w_item = vw.prof_sheets_bar.itemAt(i).widget()
+                    if isinstance(w_item, QAbstractButton) and w_item.isVisible():
+                        pill_btn = w_item
+                        if any(p in w_item.text() for p in ("31", "32", "33", "34", "35", "36", "37")):
+                            break
+
+                def _on_pill_clicked():
+                    if pill_btn is not None:
+                        pill_btn.click()
                     else:
-                        _step_d_click_key_item()
+                        vw._jump_page_from_pill(35)
+                    QApplication.processEvents()
+                    self.caption.show_step(
+                        "SHOT 3 OF 7 • SMART LOOKUP JUMPED TO STRUCTURAL FRAMING PLAN",
+                        f"Clicked '{prof_name}' -> Clicked '{pill_btn.text() if pill_btn else 'Pg 35'}' -> Landed on Framing Plan!",
+                        "Color-coded steel callouts & attached beam lines highlighted live on drawing",
+                    )
+                    if self.single_scene == 3:
+                        QTimer.singleShot(1800, self._shutdown_and_open_exports)
+                    else:
+                        QTimer.singleShot(1200, self._shot_4_measure_highlighted_beam)
 
-                QTimer.singleShot(550, lambda: self.cursor.glide_to_widget(btn_next, duration_ms=650, click_pulse=True, on_done=_step_c_flip_page))
+                QTimer.singleShot(550, lambda: self.cursor.glide_to_widget(pill_btn, duration_ms=650, click_pulse=True, on_done=_on_pill_clicked))
 
-            QTimer.singleShot(450, lambda: self.cursor.glide_to_widget(btn_auto_col, duration_ms=650, click_pulse=True, on_done=_step_b_auto_color))
+            self.cursor.glide_to(item_gpos, duration_ms=680, click_pulse=True, on_done=_on_key_row_clicked)
 
-        self.cursor.glide_to_widget(getattr(vw, "chk_hl_lines", None), duration_ms=650, click_pulse=True, on_done=_step_a_check_lines)
+        if chk_hl is not None and chk_hl.isVisible():
+            self.cursor.glide_to_widget(chk_hl, duration_ms=600, click_pulse=True, on_done=_click_auto_color)
+        else:
+            _click_auto_color()
 
     def _dispatch_canvas_mouse(self, cv, ev_type, local_pt, btn=Qt.LeftButton, buttons=Qt.LeftButton):
         g_pt = cv.mapToGlobal(local_pt)
