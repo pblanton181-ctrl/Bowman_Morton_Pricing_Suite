@@ -304,44 +304,6 @@ class BowmanMortonRibbonBar(QFrame):
         self.grp_selected_ctx.setVisible(True)
         self._show_floating_mini_toolbar()
 
-    def _show_floating_mini_toolbar(self):
-        pt = getattr(self.app, "planset_takeoff_tab", None)
-        cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
-        if not cv or not (0 <= cv.selected_idx < len(cv.markups)):
-            return
-        if not getattr(self, "_mini_bar", None):
-            bar = QFrame(cv)
-            bar.setStyleSheet(
-                "QFrame { background-color: #ffffff; border: 1px solid #94a3b8; border-radius: 6px; } "
-                "QPushButton { background: transparent; border: none; color: #0f172a; font-size: 11px; font-weight: 600; padding: 4px 7px; border-radius: 4px; } "
-                "QPushButton:hover { background-color: #e0f2fe; color: #0369a1; }"
-            )
-            hl = QHBoxLayout(bar); hl.setContentsMargins(4, 3, 4, 3); hl.setSpacing(2)
-            for lbl, fn in [
-                ("Clone", lambda: self._canvas_call("duplicate_selected_markup")),
-                ("Rotate", lambda: self._canvas_call("rotate_selected_markup")),
-                ("Red", lambda: self._recolor_selected("#dc2626")),
-                ("Blue", lambda: self._recolor_selected("#0284c7")),
-                ("Green", lambda: self._recolor_selected("#107c41")),
-                ("Delete", lambda: self._canvas_call("delete_selected_markup")),
-            ]:
-                b = QPushButton(lbl); b.setCursor(Qt.PointingHandCursor); b.clicked.connect(fn); hl.addWidget(b)
-            bar.adjustSize()
-            self._mini_bar = bar
-        bb = cv._markup_bbox_px(cv.markups[cv.selected_idx])
-        if not bb.isNull():
-            x = max(8, min(cv.width() - self._mini_bar.width() - 8, bb.left()))
-            y = max(8, bb.top() - self._mini_bar.height() - 8)
-            self._mini_bar.move(x, y)
-            self._mini_bar.show()
-            self._mini_bar.raise_()
-
-    def _recolor_selected(self, hex_col):
-        pt = getattr(self.app, "planset_takeoff_tab", None)
-        cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
-        if cv and 0 <= cv.selected_idx < len(cv.markups):
-            cv.markups[cv.selected_idx]["color"] = QColor(hex_col)
-            cv.update()
         self._show_floating_mini_toolbar()
 
     def _show_floating_mini_toolbar(self):

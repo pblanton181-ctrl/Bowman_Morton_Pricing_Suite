@@ -287,11 +287,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                             b_in, h_in = float(mh.group(1)), float(mh.group(2))
                             t_in = float(mh.group(3)) / float(mh.group(4))
                             uw = round(max(1.5, 2.0 * (b_in + h_in - 2.0 * t_in) * t_in * 3.4), 2)
-                        mh = re.match(r"HSS(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)X(\d+)/(\d+)", prof)
-                        if mh and float(mh.group(4)) > 0:
-                            b_in, h_in = float(mh.group(1)), float(mh.group(2))
-                            t_in = float(mh.group(3)) / float(mh.group(4))
-                            uw = round(max(1.5, 2.0 * (b_in + h_in - 2.0 * t_in) * t_in * 3.4), 2)
+
                     elif prof.startswith("L"):
                         sk, uw = "angle", 20.0
                     elif prof.startswith(("C", "MC")):

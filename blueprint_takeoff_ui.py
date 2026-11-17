@@ -2385,25 +2385,7 @@ class VisualTakeoffWorkspace(QWidget):
         self._active_key_dict().clear()
         self._refresh_color_key_ui()
 
-    def _on_key_item_clicked(self, item):
-        prof = item.data(Qt.UserRole)
-        eff = self._effective_key_for_page(self.get_page_fn())
-        if prof in eff:
-            self._set_canvas_pen(eff[prof])
-        self._populate_profile_sheet_pills(prof)
 
-    def _remove_selected_key(self):
-        cur = self.key_list.currentItem()
-        if not cur:
-            return
-        prof = cur.data(Qt.UserRole)
-        self._active_key_dict().pop(prof, None)
-        self.global_color_key.pop(prof, None)
-        self._refresh_color_key_ui()
-
-    def _clear_active_key(self):
-        self._active_key_dict().clear()
-        self._refresh_color_key_ui()
 
     def render_sheet(self, page_num):
         pno = max(0, int(page_num) - 1)

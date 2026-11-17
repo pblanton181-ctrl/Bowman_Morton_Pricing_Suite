@@ -234,9 +234,41 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
                 rect = pymupdf.Rect(tx0, ty0, tx1, ty1)
                 max_side = max(1.0, rect.width, rect.height)
                 safe_dpi = max(200, min(int(dpi), int((2200.0 * 72.0) / max_side)))
-                pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
+                from PIL import Image, ImageDraw
+                sc = safe_dpi / 72.0
+                shx_paths = []
+                for drw in page.get_drawings():
+                    r_d = drw.get("rect")
+                    if not r_d or not rect.intersects(r_d) or r_d.width > 24.0 or r_d.height > 24.0:
+                        continue
+                    w_pen = round(float(drw.get("width") or 0.0), 2)
+                    col = drw.get("color") or ()
+                    fil = drw.get("fill") or ()
+                    has_dark_stroke = (len(col) >= 3 and col.__getitem__(0) < 0.2 and col.__getitem__(1) < 0.2 and col.__getitem__(2) < 0.2 and w_pen <= 1.0)
+                    has_dark_fill = (len(fil) >= 3 and fil.__getitem__(0) < 0.2 and fil.__getitem__(1) < 0.2 and fil.__getitem__(2) < 0.2)
+                    if has_dark_stroke or has_dark_fill:
+                        shx_paths.append((max(0.35, w_pen), drw.get("items", ()), has_dark_fill))
                 t_png = os.path.join(tmp_dir, f"t_{r_i}_{c_i}.png")
-                pix.save(t_png)
+                if len(shx_paths) >= 12:
+                    clean_im = Image.new("RGB", (max(32, int(round(rect.width * sc))), max(32, int(round(rect.height * sc)))), (255, 255, 255))
+                    dr = ImageDraw.Draw(clean_im)
+                    for w_pen, itms, is_f in shx_paths:
+                        lw = max(2, int(round(w_pen * sc * 1.4)))
+                        for itm in itms:
+                            op = itm.__getitem__(0)
+                            if op == "l" and len(itm) >= 3:
+                                p1, p2 = itm.__getitem__(1), itm.__getitem__(2)
+                                dr.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
+                            elif op == "c" and len(itm) >= 5:
+                                p1, p2 = itm.__getitem__(1), itm.__getitem__(4)
+                                dr.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
+                            elif op == "re" and len(itm) >= 2:
+                                rc = itm.__getitem__(1)
+                                dr.rectangle([(rc.x0 - rect.x0) * sc, (rc.y0 - rect.y0) * sc, (rc.x1 - rect.x0) * sc, (rc.y1 - rect.y0) * sc], fill=(0, 0, 0) if is_f else None, outline=(0, 0, 0), width=lw)
+                    clean_im.save(t_png)
+                else:
+                    pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
+                    pix.save(t_png)
                 tile_meta.append((t_png, tx0, ty0, 72.0 / float(safe_dpi)))
 
         angles = "0,90,270,45,315" if multi_angle else "0,90,270"

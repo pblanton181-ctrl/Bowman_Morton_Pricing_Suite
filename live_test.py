@@ -1473,15 +1473,6 @@ class StandaloneManufacturingApp(QMainWindow):
             if hasattr(self, _qattr): getattr(self, _qattr).setText("1")
         self.update_rfq_ledger_view()
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        w = max(800, self.width())
-        for sp in (getattr(self, "t1_splitter", None), getattr(getattr(self, "custom_quoting_tab", None), "t2_splitter", None)):
-            if sp is not None:
-                try:
-                    sp.setSizes([int(w * 0.52), int(w * 0.48)])
-                except RuntimeError:
-                    pass
 
     def dragEnterEvent(self, ev):
         if ev.mimeData().hasUrls():
@@ -2896,8 +2887,12 @@ QComboBox, QLineEdit {
             if getattr(self, "_last_compact_state", None) != is_compact and hasattr(rb, 'adapt_to_width'):
                 self._last_compact_state = is_compact
                 rb.adapt_to_width(w_px)
-        if hasattr(self, "t1_splitter") and w_px > 400 and self.master_tabs.currentIndex() == 1:
-            self.t1_splitter.setSizes(list((int(w_px * 0.48), int(w_px * 0.52))))
+        for sp in (getattr(self, 't1_splitter', None), getattr(getattr(self, 'custom_quoting_tab', None), 't2_splitter', None)):
+            if sp is not None and w_px > 400:
+                try:
+                    sp.setSizes([int(w_px * 0.50), int(w_px * 0.50)])
+                except RuntimeError:
+                    pass
 
 if __name__ == "__main__":
     # Hardware D3D11 enabled for smooth frameless window drag
