@@ -544,22 +544,29 @@ class CadBlueprintCanvas(QLabel):
         self.update()
 
     def _to_pdf_pt(self, qpt):
-        pw = getattr(self, "_pdf_page_w", 0.0)
-        ph = getattr(self, "_pdf_page_h", 0.0)
         pm = self.pixmap()
         w_px = float(pm.width()) if (pm and not pm.isNull() and pm.width() > 0) else float(self.width())
         h_px = float(pm.height()) if (pm and not pm.isNull() and pm.height() > 0) else float(self.height())
+        ws = getattr(self, "world_state", None)
+        if ws is not None and w_px > 0 and h_px > 0:
+            return ws.px_to_world(qpt.x(), qpt.y(), w_px, h_px)
+        pw = getattr(self, "_pdf_page_w", 0.0)
+        ph = getattr(self, "_pdf_page_h", 0.0)
         if pw > 0 and ph > 0 and w_px > 0 and h_px > 0:
             return float(qpt.x()) * (pw / w_px), float(qpt.y()) * (ph / h_px)
         sc = 72.0 / (self.render_dpi * self.zoom)
         return float(qpt.x()) * sc, float(qpt.y()) * sc
 
     def _from_pdf_pt(self, px, py):
-        pw = getattr(self, "_pdf_page_w", 0.0)
-        ph = getattr(self, "_pdf_page_h", 0.0)
         pm = self.pixmap()
         w_px = float(pm.width()) if (pm and not pm.isNull() and pm.width() > 0) else float(self.width())
         h_px = float(pm.height()) if (pm and not pm.isNull() and pm.height() > 0) else float(self.height())
+        ws = getattr(self, "world_state", None)
+        if ws is not None and w_px > 0 and h_px > 0:
+            fx, fy = ws.world_to_px(px, py, w_px, h_px)
+            return QPoint(int(round(fx)), int(round(fy)))
+        pw = getattr(self, "_pdf_page_w", 0.0)
+        ph = getattr(self, "_pdf_page_h", 0.0)
         if pw > 0 and ph > 0 and w_px > 0 and h_px > 0:
             return QPoint(int(round(float(px) * (w_px / pw))), int(round(float(py) * (h_px / ph))))
         inv = (self.render_dpi * self.zoom) / 72.0
@@ -1985,6 +1992,9 @@ class VisualTakeoffWorkspace(QWidget):
         else:
             self._doc = pymupdf.open()
             self._doc.new_page(width=1224, height=792)
+        from core.plan_world import PlanWorldModel
+        self.world_model = PlanWorldModel(pdf_path)
+        self.sheet_scales = self.world_model.sheet_scales
         self.page_markups = {}
         self.global_color_key = {}
         self.sheet_color_keys = {}
@@ -2407,15 +2417,12 @@ class VisualTakeoffWorkspace(QWidget):
         self.canvas._pdf_page_w = float(pg.rect.width)
         self.canvas._pdf_page_h = float(pg.rect.height)
         import bom_pdf_engine as _eng
-        sheet_scales = getattr(self, "sheet_scales", {})
-        detected_ppf = float(_eng.get_sheet_calibration(pg, sheet_scales=sheet_scales))
-        if pno not in self._pdf_snap_cache:
-            try:
-                eps, mps, c_segs = _eng.extract_vector_snap_nodes(pg, detected_ppf)
-                self._pdf_snap_cache[pno] = (eps, mps, c_segs)
-            except Exception:
-                self._pdf_snap_cache[pno] = ([], [], [])
-        self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints, self.canvas.canonical_beam_segs = self._pdf_snap_cache[pno]
+        ws = self.world_model.get_sheet(self._doc, page_num)
+        detected_ppf = float(ws.pts_per_ft)
+        self.canvas.world_state = ws
+        self.canvas.pdf_snap_endpoints = ws.snap_endpoints
+        self.canvas.pdf_snap_midpoints = ws.snap_midpoints
+        self.canvas.canonical_beam_segs = ws.bay_segments
         try:
             self.canvas.pts_per_ft = detected_ppf
             p_win = self.window()
@@ -2495,40 +2502,11 @@ class VisualTakeoffWorkspace(QWidget):
                     cx, cy = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
                     txt_horiz = (wx1 - wx0) >= (wy1 - wy0)
                     best_seg, best_d = None, 7.5
-                    ppf_hl = max(1.0, float(getattr(self.canvas, "pts_per_ft", 18.0)))
-                    max_hl_pts = 32.0 * ppf_hl
-                    for sx1, sy1, sx2, sy2, seg_horiz in segs:
-                        if seg_horiz != txt_horiz:
-                            continue
-                        abx, aby = sx2 - sx1, sy2 - sy1
-                        ab2 = abx * abx + aby * aby
-                        t = ((cx - sx1) * abx + (cy - sy1) * aby) / max(1.0, ab2)
-                        if -0.02 <= t <= 1.02:
-                            tc = max(0.0, min(1.0, t))
-                            perp_d = math.hypot(cx - (sx1 + tc * abx), cy - (sy1 + tc * aby))
-                            if perp_d < best_d:
-                                # Clip highlight segment to the single bay around this callout using orthogonal nodes
-                                csx1, csy1, csx2, csy2 = sx1, sy1, sx2, sy2
-                                if seg_horiz:
-                                    lx0, lx1 = min(sx1, sx2), max(sx1, sx2)
-                                    cuts = sorted({nx for nx, ny in getattr(self.canvas, "pdf_snap_endpoints", []) if abs(ny - sy1) <= 2.0 and (lx0 + 12.0) < nx < (lx1 - 12.0)})
-                                    left_b = max([lx0] + [c for c in cuts if c <= cx])
-                                    right_b = min([lx1] + [c for c in cuts if c >= cx])
-                                    if (right_b - left_b) > max_hl_pts:
-                                        left_b = max(lx0, cx - max_hl_pts * 0.5)
-                                        right_b = min(lx1, cx + max_hl_pts * 0.5)
-                                    csx1, csx2 = left_b, right_b
-                                else:
-                                    ly0, ly1 = min(sy1, sy2), max(sy1, sy2)
-                                    cuts = sorted({ny for nx, ny in getattr(self.canvas, "pdf_snap_endpoints", []) if abs(nx - sx1) <= 2.0 and (ly0 + 12.0) < ny < (ly1 - 12.0)})
-                                    top_b = max([ly0] + [c for c in cuts if c <= cy])
-                                    bot_b = min([ly1] + [c for c in cuts if c >= cy])
-                                    if (bot_b - top_b) > max_hl_pts:
-                                        top_b = max(ly0, cy - max_hl_pts * 0.5)
-                                        bot_b = min(ly1, cy + max_hl_pts * 0.5)
-                                    csy1, csy2 = top_b, bot_b
-                                if math.hypot(csx2 - csx1, csy2 - csy1) <= max_hl_pts:
-                                    best_d, best_seg = perp_d, (csx1, csy1, csx2, csy2)
+                    ws_ck = getattr(self.canvas, "world_state", None)
+                    if ws_ck is not None and (not hasattr(self, "chk_hl_lines") or self.chk_hl_lines.isChecked()):
+                        att = ws_ck.attach_beam_to_callout(cx, cy, is_horiz=txt_horiz, max_perp_pts=8.5, max_span_ft=34.0)
+                        if att is not None:
+                            best_seg = (att.__getitem__(0), att.__getitem__(1), att.__getitem__(2), att.__getitem__(3))
                     dup = False
                     for h_prev in highlights:
                         if h_prev["profile"] == nw:

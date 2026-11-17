@@ -10,6 +10,7 @@ import subprocess
 
 try:
     import pymupdf
+from core.plan_world import PlanWorldModel, scan_world_ocr, round_structural_ft, parse_arch_scale
 except ImportError:
     import fitz as pymupdf
 
@@ -139,133 +140,19 @@ def round_structural_ft(raw_ft):
     return round(float(raw_ft) * 4.0) / 4.0
 
 def get_sheet_calibration(page, sheet_scales=None):
-    """Single source of truth for sheet scale (pts_per_ft) shared by BOM engine and Measure canvas."""
     pno = int(getattr(page, "number", 0)) + 1
     if isinstance(sheet_scales, dict) and pno in sheet_scales and float(sheet_scales[pno]) > 0:
         return float(sheet_scales[pno])
-    pw, ph = float(page.rect.width), float(page.rect.height)
-    mx, my = pw * 0.72, ph * 0.94
-    full_tb = normalize_cad_text(page.get_text("text"))
-    vp_words = [normalize_cad_text(wstr) for wx0, wy0, wx1, wy1, wstr, *_ in page.get_text("words") if wx0 < mx and wy0 < my]
-    all_txt = full_tb + " " + " ".join(vp_words)
-    return float(parse_arch_scale(all_txt))
+    from core.plan_world import SheetWorldState
+    return SheetWorldState(page, pno).pts_per_ft
 
 def extract_vector_snap_nodes(page, pts_per_ft=18.0):
-    pw, ph = float(page.rect.width), float(page.rect.height)
-    mx_vp = pw * 0.88
-    eps, mps = set(), set()
-    raw_h, raw_v = [], []
-    min_seg_pts = max(24.0, float(pts_per_ft) * 3.0)
-
-    for drw in page.get_drawings():
-        for itm in drw.get("items", []):
-            op = itm.__getitem__(0)
-            if op == "l" and len(itm) >= 3:
-                p_a, p_b = itm.__getitem__(1), itm.__getitem__(2)
-                if p_a.x > mx_vp and p_b.x > mx_vp:
-                    continue
-                ax, ay = round(float(p_a.x), 2), round(float(p_a.y), 2)
-                bx, by = round(float(p_b.x), 2), round(float(p_b.y), 2)
-                dx, dy = abs(bx - ax), abs(by - ay)
-                if math.hypot(dx, dy) >= 12.0:
-                    eps.add((ax, ay)); eps.add((bx, by))
-                    mps.add((round((ax + bx) * 0.5, 2), round((ay + by) * 0.5, 2)))
-                if dy <= 1.0 and dx >= 3.0:
-                    raw_h.append((min(ax, bx), max(ax, bx), round((ay + by) * 0.5, 2)))
-                elif dx <= 1.0 and dy >= 3.0:
-                    raw_v.append((min(ay, by), max(ay, by), round((ax + bx) * 0.5, 2)))
-            elif op == "re" and len(itm) >= 2:
-                rc = itm.__getitem__(1)
-                if rc.x0 > mx_vp:
-                    continue
-                x0, y0 = round(float(rc.x0), 2), round(float(rc.y0), 2)
-                x1, y1 = round(float(rc.x1), 2), round(float(rc.y1), 2)
-                eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
-                mps.update([(round((x0 + x1) * 0.5, 2), y0), (round((x0 + x1) * 0.5, 2), y1), (x0, round((y0 + y1) * 0.5, 2)), (x1, round((y0 + y1) * 0.5, 2))])
-            elif op == "c" and len(itm) >= 5:
-                p_a, p_b = itm.__getitem__(1), itm.__getitem__(4)
-                eps.add((round(float(p_a.x), 2), round(float(p_a.y), 2)))
-                eps.add((round(float(p_b.x), 2), round(float(p_b.y), 2)))
-
-    merged_h, merged_v = [], []
-    for x0, x1, y in sorted(raw_h, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
-        if merged_h and abs(merged_h[-1].__getitem__(2) - y) <= 1.2 and x0 <= merged_h[-1].__getitem__(1) + 10.5:
-            px0, px1, py = merged_h[-1]
-            merged_h[-1] = (px0, max(px1, x1), py)
-        else:
-            merged_h.append((x0, x1, y))
-    for y0, y1, x in sorted(raw_v, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
-        if merged_v and abs(merged_v[-1].__getitem__(2) - x) <= 1.2 and y0 <= merged_v[-1].__getitem__(1) + 10.5:
-            py0, py1, px = merged_v[-1]
-            merged_v[-1] = (py0, max(py1, y1), px)
-        else:
-            merged_v.append((y0, y1, x))
-
-    merged_h = [s for s in merged_h if (s.__getitem__(1) - s.__getitem__(0)) >= min_seg_pts]
-    merged_v = [s for s in merged_v if (s.__getitem__(1) - s.__getitem__(0)) >= min_seg_pts]
-
-    for x0, x1, y in merged_h:
-        eps.add((x0, y)); eps.add((x1, y))
-        mps.add((round((x0 + x1) * 0.5, 2), y))
-    for y0, y1, x in merged_v:
-        eps.add((x, y0)); eps.add((x, y1))
-        mps.add((x, round((y0 + y1) * 0.5, 2)))
-
-    for hx0, hx1, hy in merged_h:
-        for vy0, vy1, vx in merged_v:
-            if (hx0 - 2.5) <= vx <= (hx1 + 2.5) and (vy0 - 2.5) <= hy <= (vy1 + 2.5):
-                eps.add((vx, hy))
-
-    canonical_segs = [(x0, y, x1, y, (x1 - x0) / pts_per_ft, "h") for x0, x1, y in merged_h]
-    canonical_segs += [(x, y0, x, y1, (y1 - y0) / pts_per_ft, "v") for y0, y1, x in merged_v]
-    return list(eps), list(mps), canonical_segs
+    from core.plan_world import SheetWorldState
+    st = SheetWorldState(page, int(getattr(page, "number", 0)) + 1, pts_per_ft=pts_per_ft)
+    return st.snap_endpoints, st.snap_midpoints, st.bay_segments
 
 def scan_region_windows_native_ocr(page, clip_rect=None, dpi=200):
-    pw, ph = float(page.rect.width), float(page.rect.height)
-    rect = clip_rect or pymupdf.Rect(0, 0, pw * 0.88, ph * 0.94)
-    pix = page.get_pixmap(dpi=int(dpi), clip=rect, alpha=False)
-    tmp_png = os.path.join(tempfile.gettempdir(), f"bm_winocr_{os.getpid()}.png")
-    pix.save(tmp_png)
-    scale = 72.0 / float(dpi)
-
-    ps_script = (
-        "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
-        "$null = [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime];"
-        "$null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime];"
-        "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"
-        "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"
-        f"$f = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync('{tmp_png}')) ([Windows.Storage.StorageFile]);"
-        "$st = Await ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream]);"
-        "$dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($st)) ([Windows.Graphics.Imaging.BitmapDecoder]);"
-        "$bmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"
-        "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
-        "$res = Await ($eng.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult]);"
-        "foreach($l in $res.Lines){$w=$l.Words; if($w.Count -gt 0){$r=$w[0].BoundingRect; Write-Output (\"{0}|{1}|{2}\" -f [math]::Round($r.X,1),[math]::Round($r.Y,1),$l.Text)}}"
-    )
-    hits = []
-    try:
-        out = subprocess.check_output(
-            ["powershell", "-NoProfile", "-Command", ps_script],
-            stderr=subprocess.DEVNULL,
-            text=True,
-            timeout=15,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        for ln in out.splitlines():
-            parts = ln.split("|", 2)
-            if len(parts) == 3:
-                cx = rect.x0 + float(parts.__getitem__(0)) * scale
-                cy = rect.y0 + float(parts.__getitem__(1)) * scale
-                hits.append((cx, cy, normalize_cad_text(parts.__getitem__(2))))
-    except Exception:
-        pass
-    finally:
-        if os.path.exists(tmp_png):
-            try:
-                os.remove(tmp_png)
-            except OSError:
-                pass
-    return hits
+    return [(wx0, wy0, txt) for wx0, wy0, wx1, wy1, txt in scan_world_ocr(page, world_rect=clip_rect, dpi=dpi)]
 
 def inspect_pdf_sheets(pdf_path):
     doc = pymupdf.open(pdf_path)
@@ -416,29 +303,14 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
 
                 if not is_plate and segs:
                     is_vert_lbl = any(w_txt == prof and math.hypot(cx - vx, cy - vy) < 6.0 for vx, vy, w_txt in vert_words)
-                    want_orient = "v" if is_vert_lbl else "h"
-                    min_ft = 8.0 if sk == "beam" else 4.0
-                    best_span = None
-                    best_dist = 65.0
-                    for sx1, sy1, sx2, sy2, sft, orient in segs:
-                        if orient not in (want_orient, "diag") or not (min_ft <= sft <= 35.0):
-                            continue
-                        # Perpendicular distance from callout center to the beam line
-                        if orient == "v":
-                            if not (min(sy1, sy2) - 12.0 <= cy <= max(sy1, sy2) + 12.0):
-                                continue
-                            d_seg = abs(cx - sx1)
-                        elif orient == "h":
-                            if not (min(sx1, sx2) - 12.0 <= cx <= max(sx1, sx2) + 12.0):
-                                continue
-                            d_seg = abs(cy - sy1)
-                        else:
-                            d_seg = math.hypot(cx - (sx1 + sx2) * 0.5, cy - (sy1 + sy2) * 0.5)
-                        if d_seg < best_dist:
-                            best_dist = d_seg
-                            best_span = round_structural_ft(sft)
-                    if best_span:
-                        meas_len = best_span
+                    from core.plan_world import SheetWorldState
+                    _st = getattr(pg, "_world_state_cache", None)
+                    if _st is None:
+                        _st = SheetWorldState(pg, pno + 1, pts_per_ft=pts_per_ft)
+                        pg._world_state_cache = _st
+                    attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=9.5, max_span_ft=34.0)
+                    if attached is not None:
+                        meas_len = attached.__getitem__(4)
                 elif sk == "angle" and is_detail:
                     if "TREAD" in near_txt and len(t) <= 12:
                         continue

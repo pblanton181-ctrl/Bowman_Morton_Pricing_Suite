@@ -415,12 +415,15 @@ class BowmanMortonRibbonBar(QFrame):
             cv = getattr(vw, "canvas", None) if vw else None
             if cv and ppf:
                 cv.pts_per_ft = float(ppf)
-                if vw is not None:
-                    sc_map = getattr(vw, "sheet_scales", None)
-                    if sc_map is None:
-                        sc_map = {}
-                        vw.sheet_scales = sc_map
-                    sc_map[int(vw.get_page_fn())] = float(ppf)
+                if vw is not None and hasattr(vw, "world_model"):
+                    pg_n = int(vw.get_page_fn())
+                    vw.world_model.set_sheet_scale(pg_n, float(ppf))
+                    if getattr(vw, "_doc", None):
+                        ws_new = vw.world_model.get_sheet(vw._doc, pg_n)
+                        cv.world_state = ws_new
+                        cv.pdf_snap_endpoints = ws_new.snap_endpoints
+                        cv.pdf_snap_midpoints = ws_new.snap_midpoints
+                        cv.canonical_beam_segs = ws_new.bay_segments
         self._update_telemetry()
 
     def _update_telemetry(self, mode_label=None):
