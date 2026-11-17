@@ -203,7 +203,8 @@ class SheetWorldState:
 
 
 def _ocr_tile_worker(args):
-    """Runs Windows Native OCR on one bite-size tile (<= 2200px) across 0, 90, 270, +-45 deg."""
+    """Runs Windows Native OCR on one bite-size tile (<= 2000px, rotated diagonal <= 2820px < 4096px)
+    at 320 DPI with 1.5x bicubic stroke enhancement across 0, 90, 270, +-45 deg."""
     pdf_path, page_num, rect_tuple, dpi, angles, tile_id = args
     rx0, ry0, rx1, ry1 = rect_tuple
     rect = pymupdf.Rect(rx0, ry0, rx1, ry1)
@@ -211,15 +212,15 @@ def _ocr_tile_worker(args):
     try:
         page = doc.load_page(int(page_num) - 1)
         max_side_pt = max(1.0, float(rect.width), float(rect.height))
-        safe_dpi = min(int(dpi), int((2600.0 * 72.0) / max_side_pt))
-        safe_dpi = max(150, safe_dpi)
+        safe_dpi = min(int(dpi), int((1850.0 * 72.0) / max_side_pt))
+        safe_dpi = max(240, safe_dpi)
         pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
     finally:
         doc.close()
 
     tmp_png = os.path.join(tempfile.gettempdir(), f"bm_tile_{os.getpid()}_{tile_id}.png")
     pix.save(tmp_png)
-    scale = 72.0 / float(safe_dpi)
+    scale = 72.0 / (float(safe_dpi) * 1.5)
 
     ps_script = (
         "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
@@ -229,8 +230,13 @@ def _ocr_tile_worker(args):
         "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"
         "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"
         "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
-        f"$baseBmp = New-Object System.Drawing.Bitmap('{tmp_png}');"
-        "$bw = $baseBmp.Width; $bh = $baseBmp.Height;"
+        f"$rawBmp = New-Object System.Drawing.Bitmap('{tmp_png}');"
+        "$bw = [int]($rawBmp.Width * 1.5); $bh = [int]($rawBmp.Height * 1.5);"
+        "$baseBmp = New-Object System.Drawing.Bitmap($bw, $bh);"
+        "$g0 = [System.Drawing.Graphics]::FromImage($baseBmp);"
+        "$g0.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic;"
+        "$g0.DrawImage($rawBmp, 0, 0, $bw, $bh);"
+        "$g0.Dispose(); $rawBmp.Dispose();"
         f"foreach($ang in @({angles})) {{"
         "  $rotPng = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.png');"
         "  $bmpDraw = $null;"
@@ -311,10 +317,10 @@ def _ocr_tile_worker(args):
     return hits
 
 
-def scan_world_ocr(page, world_rect=None, dpi=250, multi_angle=True):
-    """Dynamic Neighbor-Aware Grid OCR: computes bite-size tiles (~580x580 PDF pts)
-    directly from the sheet's actual page dimensions with 15% neighbor overlap,
-    so every tile runs at native 1:1 sharpness and deduplicates across borders."""
+def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
+    """Unified Dynamic Neighbor-Aware Grid OCR: pads drag-box selections by +18 PDF pts
+    and subdivides ANY region (drag-box OR full sheet) into overlapping <=420pt tiles
+    at 320 DPI so every single callout gets identical 1:1 optical sharpness."""
     from concurrent.futures import ThreadPoolExecutor
 
     pdf_path = getattr(getattr(page, "parent", None), "name", None)
@@ -323,27 +329,31 @@ def scan_world_ocr(page, world_rect=None, dpi=250, multi_angle=True):
 
     if world_rect is not None:
         r = pymupdf.Rect(world_rect)
-        if pdf_path and os.path.exists(pdf_path):
-            return _ocr_tile_worker((pdf_path, page_num, (r.x0, r.y0, r.x1, r.y1), max(300, int(dpi)), "0,90,270,45,315", "box"))
+        rx0 = max(0.0, r.x0 - 18.0)
+        ry0 = max(0.0, r.y0 - 18.0)
+        rx1 = min(pw, r.x1 + 18.0)
+        ry1 = min(ph, r.y1 + 18.0)
+    else:
+        rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.90, ph * 0.95
 
-    vp_w, vp_h = pw * 0.90, ph * 0.95
-    target_tile_pts = 460.0
-    cols = max(1, int(math.ceil(vp_w / target_tile_pts)))
-    rows = max(1, int(math.ceil(vp_h / target_tile_pts)))
-    tile_w, tile_h = vp_w / cols, vp_h / rows
-    ov_x, ov_y = tile_w * 0.15, tile_h * 0.15
+    span_w, span_h = max(1.0, rx1 - rx0), max(1.0, ry1 - ry0)
+    target_tile_pts = 420.0
+    cols = max(1, int(math.ceil(span_w / target_tile_pts)))
+    rows = max(1, int(math.ceil(span_h / target_tile_pts)))
+    tile_w, tile_h = span_w / cols, span_h / rows
+    ov_x, ov_y = (tile_w * 0.16 if cols > 1 else 0.0), (tile_h * 0.16 if rows > 1 else 0.0)
 
     tasks = []
     for r_i in range(rows):
         for c_i in range(cols):
-            x0 = max(0.0, c_i * tile_w - (ov_x if c_i > 0 else 0.0))
-            y0 = max(0.0, r_i * tile_h - (ov_y if r_i > 0 else 0.0))
-            x1 = min(vp_w, (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
-            y1 = min(vp_h, (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
-            tasks.append((pdf_path, page_num, (x0, y0, x1, y1), 300, "0,90,270,45,315", f"r{r_i}c{c_i}"))
+            tx0 = max(rx0, rx0 + c_i * tile_w - (ov_x if c_i > 0 else 0.0))
+            ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
+            tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
+            ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
+            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,45,315", f"r{r_i}c{c_i}"))
 
     merged_hits = []
-    with ThreadPoolExecutor(max_workers=min(4, len(tasks))) as pool:
+    with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
         for t_hits in pool.map(_ocr_tile_worker, tasks):
             for hx0, hy0, hx1, hy1, htxt in t_hits:
                 hcx, hcy = (hx0 + hx1) * 0.5, (hy0 + hy1) * 0.5
