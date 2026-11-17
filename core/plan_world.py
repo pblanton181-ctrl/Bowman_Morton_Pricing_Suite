@@ -210,13 +210,16 @@ def _ocr_tile_worker(args):
     doc = pymupdf.open(pdf_path)
     try:
         page = doc.load_page(int(page_num) - 1)
-        pix = page.get_pixmap(dpi=int(dpi), clip=rect, alpha=False)
+        max_side_pt = max(1.0, float(rect.width), float(rect.height))
+    safe_dpi = min(int(dpi), int((2600.0 * 72.0) / max_side_pt))
+    safe_dpi = max(150, safe_dpi)
+    pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
     finally:
         doc.close()
 
     tmp_png = os.path.join(tempfile.gettempdir(), f"bm_tile_{os.getpid()}_{tile_id}.png")
     pix.save(tmp_png)
-    scale = 72.0 / float(dpi)
+    scale = 72.0 / float(safe_dpi)
 
     ps_script = (
         "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
@@ -321,10 +324,10 @@ def scan_world_ocr(page, world_rect=None, dpi=250, multi_angle=True):
     if world_rect is not None:
         r = pymupdf.Rect(world_rect)
         if pdf_path and os.path.exists(pdf_path):
-            return _ocr_tile_worker((pdf_path, page_num, (r.x0, r.y0, r.x1, r.y1), max(250, int(dpi)), "0,90,270,45,315", "box"))
+            return _ocr_tile_worker((pdf_path, page_num, (r.x0, r.y0, r.x1, r.y1), max(300, int(dpi)), "0,90,270,45,315", "box"))
 
     vp_w, vp_h = pw * 0.90, ph * 0.95
-    target_tile_pts = 580.0
+    target_tile_pts = 460.0
     cols = max(1, int(math.ceil(vp_w / target_tile_pts)))
     rows = max(1, int(math.ceil(vp_h / target_tile_pts)))
     tile_w, tile_h = vp_w / cols, vp_h / rows
@@ -337,7 +340,7 @@ def scan_world_ocr(page, world_rect=None, dpi=250, multi_angle=True):
             y0 = max(0.0, r_i * tile_h - (ov_y if r_i > 0 else 0.0))
             x1 = min(vp_w, (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
             y1 = min(vp_h, (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
-            tasks.append((pdf_path, page_num, (x0, y0, x1, y1), 250, "0,90,270,45,315", f"r{r_i}c{c_i}"))
+            tasks.append((pdf_path, page_num, (x0, y0, x1, y1), 300, "0,90,270,45,315", f"r{r_i}c{c_i}"))
 
     merged_hits = []
     with ThreadPoolExecutor(max_workers=min(4, len(tasks))) as pool:
