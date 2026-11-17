@@ -208,25 +208,6 @@ class CadBlueprintCanvas(QLabel):
         self._inline_editor.resize(w, h)
 
     def _start_inline_text(self, qpos, initial_text=""):
-        if getattr(self, "_pending_cad_shape", None) is not None:
-            if ev.key() == Qt.Key_Escape:
-                self._pending_cad_shape = None
-                self.update()
-                ev.accept()
-                return
-            if ev.key() == Qt.Key_R:
-                ps = self._pending_cad_shape
-                if "w_pts" in ps and "h_pts" in ps:
-                    ps["w_pts"], ps["h_pts"] = ps["h_pts"], ps["w_pts"]
-                self.update()
-                ev.accept()
-                return
-        if ev.key() == Qt.Key_Escape and getattr(self, "selected_indices", None):
-            self.selected_indices.clear()
-            self.selected_idx = -1
-            self.update()
-            ev.accept()
-            return
         if self._inline_editor.isVisible():
             self._commit_inline_text()
         self._inline_pdf_pt = self._to_pdf_pt(qpos)

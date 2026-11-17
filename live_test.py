@@ -6,13 +6,14 @@ from ui.excel_components import FormulaHudBar, apply_excel_table_style
 import os
 import sys
 import json
+import time
 import shutil
 import datetime
 import webbrowser
 import urllib.parse
 import custom_quoting_module as cqm
 
-from PySide6.QtCore import Qt, QSize, QPoint, QRect, QTimer, QFileSystemWatcher
+from PySide6.QtCore import Qt, QTimer, QSize, QPoint, QRect, QTimer, QFileSystemWatcher
 from PySide6.QtGui import QFont, QColor, QAction
 from PySide6.QtWidgets import (
     QHeaderView,

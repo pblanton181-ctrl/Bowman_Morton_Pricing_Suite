@@ -9,3 +9,6 @@ venv/
 *.log
 *.tmp
 temp_exports/
+
+htmlcov/
+.coverage
