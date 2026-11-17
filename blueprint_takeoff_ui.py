@@ -81,6 +81,7 @@ class CadBlueprintCanvas(QLabel):
         self._marquee_start = None
         self._marquee_cur = None
         self._pending_cad_shape = None
+        self._skew_pts = []
 
         self.legend_pdf_pos = [18.0, 18.0]
         self._legend_rect_px = QRect()
@@ -394,6 +395,10 @@ class CadBlueprintCanvas(QLabel):
                 return QRect()
             xs, ys = [p.x() for p in pts], [p.y() for p in pts]
             return QRect(min(xs), min(ys), max(1, max(xs) - min(xs)), max(1, max(ys) - min(ys)))
+        if mt == "hanger_skew":
+            pts = [self._from_pdf_pt(m["hx1"], m["hy1"]), self._from_pdf_pt(m["hx2"], m["hy2"]), self._from_pdf_pt(m["jx"], m["jy"])]
+            xs, ys = [p.x() for p in pts], [p.y() for p in pts]
+            return QRect(min(xs), min(ys), max(1, max(xs) - min(xs)), max(1, max(ys) - min(ys)))
         if "x1" in m and "y1" in m and "x2" in m and "y2" in m:
             return QRect(self._from_pdf_pt(m["x1"], m["y1"]), self._from_pdf_pt(m["x2"], m["y2"])).normalized()
         return QRect()
@@ -456,6 +461,9 @@ class CadBlueprintCanvas(QLabel):
                 w_est = max(60, len(m.get("text", "")) * int(m.get("font_size", 13) * self.zoom * 0.85))
                 h_est = max(22, int(m.get("font_size", 13) * self.zoom * 1.8))
                 if QRect(t0.x() - 6, t0.y() - h_est, w_est + 12, h_est + 10).contains(qpt):
+                    return i
+            elif mt == "hanger_skew":
+                if self._markup_screen_rect(m).adjusted(-10, -10, 10, 10).contains(qpt):
                     return i
             elif mt in ("span", "arrow", "line", "angle", "dashed", "callout", "weld", "centerline"):
                 a, b = self._from_pdf_pt(m["x1"], m["y1"]), self._from_pdf_pt(m["x2"], m["y2"])
@@ -805,6 +813,8 @@ class CadBlueprintCanvas(QLabel):
     def mousePressEvent(self, ev):
         if ev.button() == Qt.RightButton and self.mode == "polyline" and len(self._pline_pts) >= 2:
             self._finish_polyline(False); ev.accept(); return
+        if ev.button() == Qt.RightButton and self.mode == "hanger_skew" and self._skew_pts:
+            self._skew_pts.clear(); self.update(); ev.accept(); return
         if ev.button() == Qt.RightButton and self.mode in ("line", "dashed", "centerline", "arrow") and self._p1 is not None:
             self._p1 = None; self._p2 = None; self._dyn_input_buf = ""; self._dyn_ang_buf = ""; self.update(); ev.accept(); return
         if ev.button() == Qt.RightButton and self.mode == "area" and len(self._poly_pts) >= 3:
@@ -816,7 +826,7 @@ class CadBlueprintCanvas(QLabel):
         self.setFocus(Qt.MouseFocusReason)
         btn = ev.button()
         raw_pos = ev.position().toPoint() if hasattr(ev, "position") else ev.pos()
-        pos = self._snap_to_endpoint(raw_pos) if self.mode in ("measure", "polyline", "calibrate", "line", "arrow", "dashed", "centerline", "weld", "callout") else raw_pos
+        pos = self._snap_to_endpoint(raw_pos) if self.mode in ("measure", "polyline", "calibrate", "line", "arrow", "dashed", "centerline", "weld", "callout", "hanger_skew") else raw_pos
         gpos = ev.globalPosition().toPoint() if hasattr(ev, "globalPosition") else ev.globalPos()
         shift_held = bool(ev.modifiers() & Qt.ShiftModifier) or getattr(self, 'ortho_lock', False)
 
@@ -948,6 +958,49 @@ class CadBlueprintCanvas(QLabel):
                 self.markups.append({"type": "grid_bubble", "x": px, "y": py, "label": lbl.strip().upper(), "color": QColor(self.active_color), "line_width": float(self.active_line_width)})
                 self.selected_idx = len(self.markups) - 1
                 self.update()
+        elif self.mode == "hanger_skew":
+            px, py = self._to_pdf_pt(pos)
+            self._skew_pts.append((px, py))
+            if len(self._skew_pts) == 3:
+                (hx1, hy1), (hx2, hy2), (jx, jy) = self._skew_pts
+                self._skew_pts.clear()
+                vx, vy = hx2 - hx1, hy2 - hy1
+                vlen = math.hypot(vx, vy)
+                if vlen > 2.0:
+                    ux, uy = vx / vlen, vy / vlen
+                    # Project joist endpoint onto header line to find true T-intersection root
+                    t_proj = ((jx - hx1) * ux + (jy - hy1) * uy)
+                    rx, ry = hx1 + t_proj * ux, hy1 + t_proj * uy
+                    # Two unit normals to header; pick the one on the same side as (jx, jy)
+                    nx, ny = -uy, ux
+                    sx, sy = jx - rx, jy - ry
+                    if (sx * nx + sy * ny) < 0:
+                        nx, ny = -nx, -ny
+                    slen = max(1.0, math.hypot(sx, sy))
+                    # Signed angle from 90° perpendicular normal (+ = Right, - = Left looking from header out)
+                    dot_n = max(-1.0, min(1.0, (sx * nx + sy * ny) / slen))
+                    cross_n = (nx * sy - ny * sx) / slen
+                    skew_deg = math.degrees(math.acos(dot_n))
+                    if skew_deg < 1.0:
+                        skew_deg = 0.0
+                        lbl = "0.0° STD (90°)"
+                    else:
+                        side = "RIGHT" if cross_n > 0 else "LEFT"
+                        lbl = f"SKEW {side} {skew_deg:.1f}°"
+                    self.markups.append({
+                        "type": "hanger_skew",
+                        "hx1": hx1, "hy1": hy1, "hx2": hx2, "hy2": hy2,
+                        "rx": rx, "ry": ry, "jx": jx, "jy": jy,
+                        "nx": nx, "ny": ny, "slen": slen,
+                        "label": lbl, "skew_deg": skew_deg,
+                        "color": QColor(self.active_color),
+                        "line_width": float(self.active_line_width),
+                        "font_size": int(self.font_size)
+                    })
+                    self.selected_idx = len(self.markups) - 1
+                    self.selected_indices = {self.selected_idx}
+            self.update()
+            return
         elif self.mode in ("measure", "calibrate"):
             if self._p1 is None or self._p2 is not None:
                 self._p1 = pos
@@ -970,7 +1023,7 @@ class CadBlueprintCanvas(QLabel):
 
     def mouseMoveEvent(self, ev):
         raw_pos = ev.position().toPoint() if hasattr(ev, "position") else ev.pos()
-        pos = self._snap_to_endpoint(raw_pos) if self.mode in ("measure", "polyline", "calibrate", "line", "arrow", "dashed", "centerline", "weld", "callout") else raw_pos
+        pos = self._snap_to_endpoint(raw_pos) if self.mode in ("measure", "polyline", "calibrate", "line", "arrow", "dashed", "centerline", "weld", "callout", "hanger_skew") else raw_pos
         gpos = ev.globalPosition().toPoint() if hasattr(ev, "globalPosition") else ev.globalPos()
         shift_held = bool(ev.modifiers() & Qt.ShiftModifier) or getattr(self, 'ortho_lock', False)
         if self.mode == "polyline" and self._pline_pts:
@@ -1011,6 +1064,9 @@ class CadBlueprintCanvas(QLabel):
                     m = self.markups[idx]
                     if m.get("type") in ("span", "arrow", "line", "highlight", "ellipse", "angle", "cloud", "filled_box", "dashed", "callout", "weld", "centerline"):
                         m["x1"] += dx; m["y1"] += dy; m["x2"] += dx; m["y2"] += dy
+                    elif m.get("type") == "hanger_skew":
+                        for kx in ("hx1", "hx2", "rx", "jx"): m[kx] += dx
+                        for ky in ("hy1", "hy2", "ry", "jy"): m[ky] += dy
                     elif m.get("type") in ("area", "free_highlight", "polyline"):
                         m["pts"] = [(px + dx, py + dy) for px, py in m.get("pts", [])]
                     else:
@@ -1127,6 +1183,60 @@ class CadBlueprintCanvas(QLabel):
             elif cur_mode == "box" and (rx1 - rx0) > 15.0 and (ry1 - ry0) > 15.0:
                 self.on_box_selected(pymupdf.Rect(rx0, ry0, rx1, ry1))
             self.update()
+
+    def _draw_hanger_skew_diagram(self, p, qh1, qh2, qj, col, lw=2.0, font_pt=10):
+        p.setPen(QPen(col, max(2.2, lw * 1.25), Qt.SolidLine, Qt.RoundCap))
+        p.drawLine(qh1, qh2)
+        vx, vy = float(qh2.x() - qh1.x()), float(qh2.y() - qh1.y())
+        vlen = math.hypot(vx, vy)
+        if vlen < 2.0:
+            return
+        ux, uy = vx / vlen, vy / vlen
+        t_proj = ((qj.x() - qh1.x()) * ux + (qj.y() - qh1.y()) * uy)
+        qr = QPointF(qh1.x() + t_proj * ux, qh1.y() + t_proj * uy)
+        nx, ny = -uy, ux
+        sx, sy = float(qj.x() - qr.x()), float(qj.y() - qr.y())
+        if (sx * nx + sy * ny) < 0:
+            nx, ny = -nx, -ny
+        slen = max(12.0, math.hypot(sx, sy))
+        dot_n = max(-1.0, min(1.0, (sx * nx + sy * ny) / slen))
+        cross_n = (nx * sy - ny * sx) / slen
+        skew_deg = math.degrees(math.acos(dot_n))
+        if skew_deg < 1.0:
+            skew_deg = 0.0
+            lbl = "0.0° STD (90°)"
+            qj_draw = QPointF(qr.x() + nx * slen, qr.y() + ny * slen)
+        else:
+            side = "RIGHT" if cross_n > 0 else "LEFT"
+            lbl = f"SKEW {side} {skew_deg:.1f}°"
+            qj_draw = QPointF(qj)
+
+        q_norm_end = QPointF(qr.x() + nx * slen, qr.y() + ny * slen)
+        p.setPen(QPen(QColor("#16a34a"), max(1.3, lw * 0.75), Qt.DashLine))
+        p.drawLine(qr, q_norm_end)
+
+        sq = min(11.0, slen * 0.22)
+        p.drawPolyline([
+            QPointF(qr.x() + ux * sq, qr.y() + uy * sq),
+            QPointF(qr.x() + ux * sq + nx * sq, qr.y() + uy * sq + ny * sq),
+            QPointF(qr.x() + nx * sq, qr.y() + ny * sq),
+        ])
+
+        p.setPen(QPen(col, max(2.0, lw), Qt.SolidLine, Qt.RoundCap))
+        p.drawLine(qr, qj_draw)
+
+        p.setFont(QFont("Cascadia Mono", max(8, font_pt), QFont.Bold))
+        fm = p.fontMetrics()
+        tw = fm.horizontalAdvance(lbl) + 14
+        th = fm.height() + 6
+        bx = int(qj_draw.x() + 10)
+        by = int(qj_draw.y() - th // 2)
+        badge_r = QRect(bx, by, tw, th)
+        p.setBrush(QColor(15, 23, 42, 235))
+        p.setPen(QPen(QColor("#38bdf8" if skew_deg > 0 else "#22c55e"), 1.5))
+        p.drawRoundedRect(badge_r, 4, 4)
+        p.setPen(QColor("#f8fafc"))
+        p.drawText(badge_r, Qt.AlignCenter, lbl)
 
     def _draw_cad_dimension(self, painter, qp1, qp2, label_str, color, selected=False, line_width=None, dim_font_size=None):
         dx, dy = float(qp2.x() - qp1.x()), float(qp2.y() - qp1.y())
@@ -1421,6 +1531,11 @@ class CadBlueprintCanvas(QLabel):
                 p.drawEllipse(badge)
                 p.setFont(QFont("Cascadia Mono", max(6, int(round(10 * self.zoom))), QFont.Bold))
                 p.drawText(badge, Qt.AlignCenter, str(m["num"]))
+            elif mtype == "hanger_skew":
+                qh1 = self._from_pdf_pt(m["hx1"], m["hy1"])
+                qh2 = self._from_pdf_pt(m["hx2"], m["hy2"])
+                qj = self._from_pdf_pt(m["jx"], m["jy"])
+                self._draw_hanger_skew_diagram(p, qh1, qh2, qj, col, lw=max(1.8, float(m.get("line_width", 2.0)) * self.zoom), font_pt=max(8, int(round(10 * self.zoom))))
             elif mtype == "cad_shape":
                 q0 = self._from_pdf_pt(m["x"], m["y"])
                 inv = (self.render_dpi * self.zoom) / 72.0
@@ -1587,6 +1702,19 @@ class CadBlueprintCanvas(QLabel):
             pen_style = Qt.DashLine if self.mode == "dashed" else (Qt.DashDotLine if self.mode == "centerline" else Qt.SolidLine)
             p.setPen(QPen(self.active_color, max(2.0, float(self.active_line_width) * self.zoom), pen_style, Qt.RoundCap, Qt.RoundJoin))
             p.drawLine(self._p1, hp)
+        if self.mode == "hanger_skew" and self._skew_pts and self._hover_pt is not None:
+            if len(self._skew_pts) == 1:
+                qh1 = self._from_pdf_pt(*self._skew_pts)
+                qh2 = self._snap_ortho(qh1, self._hover_pt, getattr(self, "ortho_lock", False))
+                p.setPen(QPen(self.active_color, max(2.2, float(self.active_line_width) * self.zoom), Qt.SolidLine))
+                p.drawLine(qh1, qh2)
+                p.setFont(QFont("Cascadia Mono", 9, QFont.Bold))
+                p.setPen(QColor("#0369a1"))
+                p.drawText(int(qh2.x() + 10), int(qh2.y() - 8), "Click 2: Finish carrying header / wall line")
+            elif len(self._skew_pts) == 2:
+                qh1 = self._from_pdf_pt(*self._skew_pts)
+                qh2 = self._from_pdf_pt(*self._skew_pts)
+                self._draw_hanger_skew_diagram(p, qh1, qh2, self._hover_pt, self.active_color, lw=max(2.0, float(self.active_line_width) * self.zoom), font_pt=10)
         if self.mode == "area" and self._poly_pts:
             qpts = [self._from_pdf_pt(px, py) for px, py in self._poly_pts]
             p.setPen(QPen(self.active_color, max(1.5, float(self.active_line_width) * self.zoom), Qt.SolidLine))

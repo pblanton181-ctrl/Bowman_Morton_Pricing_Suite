@@ -274,6 +274,13 @@
                       "action": "mode:angle"
                     },
                     {
+                      "type": "tile",
+                      "text": "Hanger\nSkew",
+                      "icon": "angle",
+                      "action": "mode:hanger_skew",
+                      "tip": "T-Square Hanger Skew Gauge: Click 2 points along header/wall, then swing left or right to read true hanger skew from 90\u00b0."
+                    },
+                    {
                       "text": "Circle / Ring",
                       "icon": "circle",
                       "action": "mode:ellipse"
