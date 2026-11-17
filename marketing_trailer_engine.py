@@ -363,15 +363,17 @@ class MarketingTrailerDirector:
 
         # Pick the first W or HSS beam item in vw.key_list so clicking it jumps straight to the framing plan!
         target_item = None
+        best_score = -1
         for idx in range(vw.key_list.count()):
             it = vw.key_list.item(idx)
             txt = (it.text() or "").upper()
             if txt.startswith("W") or txt.startswith("HSS"):
-                target_item = it
-                break
-        if target_item is None and vw.key_list.count() > 0:
-            target_item = vw.key_list.item(0)
-
+                import re as _re
+                m_cnt = _re.search(r"\((\d+)\)", txt)
+                cnt = int(m_cnt.group(1)) if m_cnt else 1
+                if cnt > best_score:
+                    best_score = cnt
+                    target_item = it
         if target_item is not None:
             vw.key_list.scrollToItem(target_item)
             rect = vw.key_list.visualItemRect(target_item)
@@ -425,6 +427,10 @@ class MarketingTrailerDirector:
                 rb._vis_mode("measure")
             else:
                 vw.set_mode("measure")
+            for _ in range(3):
+                if hasattr(vw, "zoom_in"):
+                    vw.zoom_in()
+            QApplication.processEvents()
 
             # Snap directly onto the real highlighted beam segment or callout box on the framing sheet!
             if cv.key_highlights:
@@ -495,6 +501,8 @@ class MarketingTrailerDirector:
     def _scene_4b_export_all_steel_pdfs(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
+        if hasattr(vw, "zoom_fit"):
+            vw.zoom_fit()
         pages_with_steel = set()
         for top_i in range(pt.tree.topLevelItemCount()):
             p_item = pt.tree.topLevelItem(top_i)
@@ -505,23 +513,37 @@ class MarketingTrailerDirector:
                     cmb_txt = pt.sheet_combo.itemText(idx)
                     if sh_txt and (sh_txt in cmb_txt or f"Pg {idx + 1}" in cmb_txt):
                         pages_with_steel.add(idx)
-        self.steel_pages = sorted(pages_with_steel) or [0]
+        self.steel_pages = sorted(pages_with_steel) if pages_with_steel else list(range(1))
+        self._export_cursor = 0
+        self._export_next_sheet_tick()
 
-        for pg_idx in self.steel_pages:
-            pt.sheet_combo.setCurrentIndex(pg_idx)
-            vw.render_sheet(pg_idx + 1)
-            pg_num = pg_idx + 1
-            sh_label = pt.sheet_combo.currentText().split("—")[0].strip().replace("/", "-")
-            out_pdf = os.path.join(EXPORT_DIR, f"3122_Broadway_{sh_label}_Pg{pg_num}_MarkedUp.pdf")
-            self._write_marked_sheet_pdf(vw, pg_num, out_pdf)
+    def _export_next_sheet_tick(self):
+        pt = self.win.planset_takeoff_tab
+        vw = pt.vis_workspace
+        if self._export_cursor >= len(self.steel_pages):
+            self.banner.show_caption(
+                "STEP 4 OF 6 • MARKED-UP STEEL SHEET PDFs EXPORTED",
+                f"Saved {len(self.steel_pages)} Color-Keyed Marked-Up Sheet PDFs",
+                "Ready for shop fabrication & customer submittal in Marketing_Trailer_Exports\\",
+            )
+            QTimer.singleShot(900, self._scene_5_send_bom_to_structural)
+            return
 
-        QApplication.processEvents()
+        pg_idx = self.steel_pages.__getitem__(self._export_cursor)
+        pt.sheet_combo.setCurrentIndex(pg_idx)
+        vw.render_sheet(pg_idx + 1)
+        pg_num = pg_idx + 1
+        sh_label = pt.sheet_combo.currentText().split("—").__getitem__(0).strip().replace("/", "-")
+        out_pdf = os.path.join(EXPORT_DIR, f"3122_Broadway_{sh_label}_Pg{pg_num}_MarkedUp.pdf")
+        self._write_marked_sheet_pdf(vw, pg_num, out_pdf)
+
         self.banner.show_caption(
-            "STEP 4 OF 6 • MARKED-UP STEEL SHEET PDFs EXPORTED",
-            f"Saved {len(self.steel_pages)} Color-Keyed Marked-Up Sheet PDFs",
-            "Ready for shop fabrication & customer submittal in Marketing_Trailer_Exports\\",
+            f"STEP 4 OF 6 • EXPORTING MARKED-UP SHEET {self._export_cursor + 1} OF {len(self.steel_pages)}",
+            f"Exported {os.path.basename(out_pdf)}",
+            "Vector highlights & steel color key baked into PDF",
         )
-        QTimer.singleShot(1100, self._scene_5_send_bom_to_structural)
+        self._export_cursor += 1
+        QTimer.singleShot(90, self._export_next_sheet_tick)
 
     def _write_marked_sheet_pdf(self, vw, pg_num, out_path):
         if not getattr(vw, "_doc", None):
