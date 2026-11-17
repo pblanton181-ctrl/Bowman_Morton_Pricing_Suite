@@ -228,9 +228,11 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                 items.extend(scan_region_windows_native_ocr(pg, clip_rect=region_clip, dpi=240))
         elif sum(len(t) for _, _, t in items) < 30 and use_native_ocr:
             items = scan_region_windows_native_ocr(pg, clip_rect=None, dpi=200)
-            if not sh and items:
-                ocr_joined = " ".join(t for _, _, t in items)
-                m_sh = re.search(r"\b(SD?-\d+(?:\.\d+)?|S\d+\.\d+)\b", ocr_joined)
+            if not sh:
+                tb_hits = scan_world_ocr(pg, world_rect=pymupdf.Rect(pw * 0.88, ph * 0.88, pw, ph), dpi=260, multi_angle=False)
+                tb_joined = " ".join(t for _, _, _, _, t in tb_hits)
+                tb_joined = re.sub(r"\b(S\d+)\.L\b", r"\1.1", re.sub(r"\b(S\d+)\.O\b", r"\1.0", tb_joined))
+                m_sh = re.search(r"\b(SD?-\d+(?:\.\d+)?|S\d+\.\d+)\b", tb_joined)
                 if m_sh:
                     sh = m_sh.group(1)
 
