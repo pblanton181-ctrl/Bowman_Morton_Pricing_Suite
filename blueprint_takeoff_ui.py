@@ -529,10 +529,18 @@ class CadBlueprintCanvas(QLabel):
         self.update()
 
     def _to_pdf_pt(self, qpt):
+        pw = getattr(self, "_pdf_page_w", 0.0)
+        ph = getattr(self, "_pdf_page_h", 0.0)
+        if pw > 0 and ph > 0 and self.width() > 0 and self.height() > 0:
+            return float(qpt.x()) * (pw / float(self.width())), float(qpt.y()) * (ph / float(self.height()))
         sc = 72.0 / (self.render_dpi * self.zoom)
         return float(qpt.x()) * sc, float(qpt.y()) * sc
 
     def _from_pdf_pt(self, px, py):
+        pw = getattr(self, "_pdf_page_w", 0.0)
+        ph = getattr(self, "_pdf_page_h", 0.0)
+        if pw > 0 and ph > 0 and self.width() > 0 and self.height() > 0:
+            return QPoint(int(round(float(px) * (float(self.width()) / pw))), int(round(float(py) * (float(self.height()) / ph))))
         inv = (self.render_dpi * self.zoom) / 72.0
         return QPoint(int(round(px * inv)), int(round(py * inv)))
 
@@ -2382,26 +2390,43 @@ class VisualTakeoffWorkspace(QWidget):
         self.canvas.load_pixmap(QPixmap.fromImage(qimg), render_dpi=150, page_markups=self.page_markups.setdefault(page_num, []))
         if not hasattr(self, "_pdf_snap_cache"):
             self._pdf_snap_cache = {}
+        self.canvas._pdf_page_w = float(pg.rect.width)
+        self.canvas._pdf_page_h = float(pg.rect.height)
         if pno not in self._pdf_snap_cache:
             eps, mps = set(), set()
+            h_segs, v_segs = [], []
+            mx_vp = float(pg.rect.width) * 0.86
             try:
                 for drw in pg.get_drawings():
                     for itm in drw.get("items", []):
-                        op = itm[0]
-                        if op == "l":
-                            p_a, p_b = itm[1], itm[2]
+                        op = itm.__getitem__(0)
+                        if op == "l" and len(itm) >= 3:
+                            p_a, p_b = itm.__getitem__(1), itm.__getitem__(2)
+                            if p_a.x > mx_vp and p_b.x > mx_vp:
+                                continue
                             ax, ay, bx, by = round(p_a.x, 1), round(p_a.y, 1), round(p_b.x, 1), round(p_b.y, 1)
                             eps.add((ax, ay)); eps.add((bx, by))
                             mps.add((round((ax + bx) * 0.5, 1), round((ay + by) * 0.5, 1)))
-                        elif op == "re":
-                            rc = itm[1]
+                            if abs(ay - by) <= 0.6 and abs(bx - ax) >= 18.0:
+                                h_segs.append((min(ax, bx), max(ax, bx), ay))
+                            elif abs(ax - bx) <= 0.6 and abs(by - ay) >= 18.0:
+                                v_segs.append((min(ay, by), max(ay, by), ax))
+                        elif op == "re" and len(itm) >= 2:
+                            rc = itm.__getitem__(1)
+                            if rc.x0 > mx_vp:
+                                continue
                             x0, y0, x1, y1 = round(rc.x0, 1), round(rc.y0, 1), round(rc.x1, 1), round(rc.y1, 1)
                             eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
                             mps.update([(round((x0 + x1) * 0.5, 1), y0), (round((x0 + x1) * 0.5, 1), y1), (x0, round((y0 + y1) * 0.5, 1)), (x1, round((y0 + y1) * 0.5, 1))])
-                        if len(eps) > 6000:
-                            break
-                    if len(eps) > 6000:
-                        break
+                        elif op == "c" and len(itm) >= 5:
+                            p_a, p_b = itm.__getitem__(1), itm.__getitem__(4)
+                            eps.add((round(p_a.x, 1), round(p_a.y, 1)))
+                            eps.add((round(p_b.x, 1), round(p_b.y, 1)))
+                # Add orthogonal beam-to-girder / column T-intersection nodes
+                for hx0, hx1, hy in h_segs[:600]:
+                    for vy0, vy1, vx in v_segs[:600]:
+                        if (hx0 - 2.0) <= vx <= (hx1 + 2.0) and (vy0 - 2.0) <= hy <= (vy1 + 2.0):
+                            eps.add((vx, hy))
             except Exception:
                 pass
             self._pdf_snap_cache[pno] = (list(eps), list(mps))
