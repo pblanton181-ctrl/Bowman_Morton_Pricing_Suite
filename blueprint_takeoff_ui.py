@@ -2406,6 +2406,27 @@ class VisualTakeoffWorkspace(QWidget):
                 pass
             self._pdf_snap_cache[pno] = (list(eps), list(mps))
         self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints = self._pdf_snap_cache[pno]
+        try:
+            import bom_pdf_engine as _eng
+            detected_ppf = float(_eng.parse_arch_scale(pg.get_text("text").upper()))
+            self.canvas.pts_per_ft = detected_ppf
+            p_win = self.window()
+            rb = getattr(p_win, "master_ribbon", None)
+            sc_cb = getattr(rb, "ribbon_scale_cb", None) if rb else None
+            if sc_cb is not None:
+                best_i, best_diff = 0, 999.0
+                for si in range(sc_cb.count()):
+                    sv = sc_cb.itemData(si) or _eng.parse_arch_scale(sc_cb.itemText(si))
+                    if abs(float(sv) - detected_ppf) < best_diff:
+                        best_diff = abs(float(sv) - detected_ppf)
+                        best_i = si
+                sc_cb.blockSignals(True)
+                sc_cb.setCurrentIndex(best_i)
+                sc_cb.blockSignals(False)
+                if hasattr(rb, "_update_telemetry"):
+                    rb._update_telemetry()
+        except Exception:
+            pass
         self._refresh_color_key_ui()
         QTimer.singleShot(0, self.canvas.fit_to_viewport)
         QTimer.singleShot(120, self.canvas.fit_to_viewport)

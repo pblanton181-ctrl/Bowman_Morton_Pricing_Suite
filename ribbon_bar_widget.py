@@ -405,7 +405,17 @@ class BowmanMortonRibbonBar(QFrame):
             if hasattr(self, "btn_max"): self.btn_max.setIcon(_win_caption_icon("restore", "#1f2937"))
 
     def _on_scale_changed(self, idx):
-        self._set_vw_idx("scale_combo", idx); self._update_telemetry()
+        if hasattr(self, "ribbon_scale_cb"):
+            ppf = self.ribbon_scale_cb.itemData(idx)
+            if not ppf:
+                import bom_pdf_engine as _eng
+                ppf = _eng.parse_arch_scale(self.ribbon_scale_cb.itemText(idx))
+            pt = getattr(self.app, "planset_takeoff_tab", None)
+            vw = getattr(pt, "vis_workspace", None) if pt else None
+            cv = getattr(vw, "canvas", None) if vw else None
+            if cv and ppf:
+                cv.pts_per_ft = float(ppf)
+        self._update_telemetry()
 
     def _update_telemetry(self, mode_label=None):
         if not hasattr(self, "lbl_live_telemetry"): return
