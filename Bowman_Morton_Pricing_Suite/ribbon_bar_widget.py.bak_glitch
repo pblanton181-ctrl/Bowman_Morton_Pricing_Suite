@@ -1,0 +1,1038 @@
+﻿# -*- coding: utf-8 -*-
+from PySide6.QtCore import Qt, QSize, QPoint
+from PySide6.QtGui import QPainter, QColor, QPen, QPixmap, QIcon
+from PySide6.QtWidgets import (
+    QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
+    QStackedWidget, QDialog, QLineEdit, QGridLayout, QSizePolicy, QToolButton, QMessageBox
+)
+
+
+def _pen_icon(nib_hex, is_highlighter=False):
+    pm = QPixmap(32, 32); pm.fill(Qt.transparent)
+    p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QPen(QColor("#1e293b"), 1.75, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    p.setBrush(Qt.NoBrush)
+    p.drawRoundedRect(11, 14, 10, 14, 2, 2)
+    p.setPen(QPen(QColor(nib_hex), 2.0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    if is_highlighter:
+        p.drawPolygon([QPoint(11, 14), QPoint(21, 14), QPoint(19, 6), QPoint(13, 8)])
+    else:
+        p.drawPolygon([QPoint(11, 14), QPoint(21, 14), QPoint(16, 4)])
+    p.end(); return QIcon(pm)
+
+def _icon(kind, hex_color="#1e293b"):
+    pm = QPixmap(32, 32); pm.fill(Qt.transparent)
+    p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing)
+    slate = QColor("#1e293b"); blue = QColor("#0284c7"); blue_soft = QColor("#bae6fd")
+    amber = QColor("#d97706"); amber_soft = QColor("#fde68a"); green = QColor("#059669")
+    green_soft = QColor("#a7f3d0"); red = QColor("#dc2626"); red_soft = QColor("#fecaca")
+    p.setPen(QPen(slate, 1.65, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+
+    if kind == "palette":
+        p.setBrush(blue_soft); p.drawRoundedRect(4, 4, 10, 10, 2, 2); p.setBrush(amber_soft); p.drawRoundedRect(18, 4, 10, 10, 2, 2)
+        p.setBrush(green_soft); p.drawRoundedRect(4, 18, 10, 10, 2, 2); p.setBrush(blue); p.setPen(QPen(blue, 1.65)); p.drawRoundedRect(18, 18, 10, 10, 2, 2)
+    elif kind == "folder":
+        p.setBrush(amber_soft); p.setPen(QPen(amber, 1.65)); p.drawPolygon([QPoint(3, 8), QPoint(12, 8), QPoint(15, 11), QPoint(29, 11), QPoint(29, 26), QPoint(3, 26)])
+        p.setBrush(QColor("#fbbf24")); p.drawRect(3, 14, 26, 12)
+    elif kind == "new":
+        p.setBrush(QColor("#ffffff")); p.drawRoundedRect(6, 3, 20, 26, 2, 2); p.setPen(QPen(blue, 2.2)); p.drawLine(16, 11, 16, 21); p.drawLine(11, 16, 21, 16)
+    elif kind == "pdf":
+        p.setBrush(QColor("#ffffff")); p.drawRoundedRect(6, 3, 20, 26, 2, 2); p.setBrush(red); p.setPen(Qt.NoPen); p.drawRoundedRect(6, 18, 20, 8, 1, 1)
+        p.setPen(QPen(slate, 1.6)); p.drawLine(10, 8, 22, 8); p.drawLine(10, 13, 19, 13)
+    elif kind == "print":
+        p.setBrush(QColor("#cbd5e1")); p.drawRoundedRect(8, 3, 16, 8, 1, 1); p.setBrush(blue_soft); p.drawRoundedRect(4, 11, 24, 11, 2, 2); p.setBrush(QColor("#ffffff")); p.drawRect(9, 18, 14, 10)
+    elif kind == "export":
+        p.setBrush(blue_soft); p.drawRoundedRect(6, 15, 20, 13, 2, 2); p.setPen(QPen(blue, 2.2)); p.drawLine(16, 21, 16, 4); p.drawLine(10, 10, 16, 4); p.drawLine(22, 10, 16, 4)
+    elif kind == "hand":
+        p.setBrush(amber_soft); p.drawRoundedRect(9, 12, 14, 14, 4, 4)
+        for fx in (10, 14, 18, 22): p.drawLine(fx, 6, fx, 13)
+    elif kind == "fit":
+        p.setBrush(blue_soft); p.setPen(Qt.NoPen); p.drawRect(8, 8, 16, 16); p.setPen(QPen(blue, 2.0))
+        p.drawLine(4, 11, 4, 4); p.drawLine(4, 4, 11, 4); p.drawLine(21, 4, 28, 4); p.drawLine(28, 4, 28, 11)
+        p.drawLine(4, 21, 4, 28); p.drawLine(4, 28, 11, 28); p.drawLine(21, 28, 28, 28); p.drawLine(28, 28, 28, 21)
+    elif kind in ("zoom_in", "zoom_out"):
+        p.setBrush(blue_soft); p.drawEllipse(5, 5, 16, 16); p.setPen(QPen(slate, 2.2)); p.drawLine(19, 19, 27, 27); p.setPen(QPen(blue, 2.0)); p.drawLine(9, 13, 17, 13)
+        if kind == "zoom_in": p.drawLine(13, 9, 13, 17)
+    elif kind == "dim":
+        p.setBrush(blue_soft); p.setPen(Qt.NoPen); p.drawRect(4, 12, 24, 8); p.setPen(QPen(slate, 1.8)); p.drawLine(4, 7, 4, 25); p.drawLine(28, 7, 28, 25); p.drawLine(4, 16, 28, 16)
+        p.setPen(QPen(blue, 2.2)); p.drawLine(2, 19, 7, 13); p.drawLine(25, 19, 30, 13)
+    elif kind == "angle":
+        p.setBrush(amber_soft); p.setPen(Qt.NoPen); p.drawPolygon([QPoint(4, 25), QPoint(26, 25), QPoint(23, 8)]); p.setPen(QPen(slate, 1.8)); p.drawLine(4, 25, 28, 25); p.drawLine(4, 25, 24, 6); p.setPen(QPen(amber, 2.0)); p.drawArc(2, 13, 20, 20, 0, 46 * 16)
+    elif kind == "count":
+        p.setBrush(green_soft); p.setPen(QPen(green, 1.8)); p.drawEllipse(6, 4, 20, 20); p.setPen(QPen(slate, 1.8)); p.drawLine(16, 24, 16, 29); p.setPen(QPen(green, 2.0)); p.drawLine(16, 9, 16, 19); p.drawLine(11, 14, 21, 14)
+    elif kind == "weld":
+        p.drawLine(4, 25, 13, 16); p.drawLine(13, 16, 29, 16); p.setBrush(blue_soft); p.setPen(QPen(blue, 1.8)); p.drawPolygon([QPoint(16, 16), QPoint(16, 7), QPoint(25, 16)])
+    elif kind == "grid":
+        p.setBrush(QColor("#ffffff")); p.setPen(QPen(blue, 1.8)); p.drawEllipse(6, 6, 20, 20); p.setPen(QPen(slate, 1.6)); p.drawLine(16, 2, 16, 6); p.drawLine(16, 26, 16, 30); p.setPen(QPen(blue, 1.8)); p.drawLine(12, 20, 16, 11); p.drawLine(16, 11, 20, 20); p.drawLine(13, 17, 19, 17)
+    elif kind == "callout":
+        p.setBrush(amber_soft); p.setPen(QPen(amber, 1.8)); p.drawRoundedRect(12, 4, 17, 13, 3, 3); p.setPen(QPen(slate, 1.8)); p.drawLine(12, 11, 4, 27); p.drawLine(4, 27, 9, 25); p.drawLine(4, 27, 5, 21)
+    elif kind == "text":
+        p.setBrush(blue_soft); p.setPen(Qt.NoPen); p.drawRoundedRect(5, 4, 22, 24, 3, 3); p.setPen(QPen(slate, 2.4)); p.drawLine(8, 8, 24, 8); p.drawLine(16, 8, 16, 25); p.drawLine(11, 25, 21, 25)
+    elif kind == "cloud":
+        p.setBrush(red_soft); p.setPen(QPen(red, 1.85)); p.drawArc(4, 9, 11, 11, 0, 180 * 16); p.drawArc(12, 6, 12, 12, 0, 180 * 16); p.drawArc(18, 11, 10, 10, 270 * 16, 180 * 16); p.drawArc(5, 13, 19, 10, 180 * 16, 180 * 16)
+    elif kind == "poly":
+        p.setBrush(blue_soft); p.setPen(QPen(blue, 1.85)); p.drawPolygon([QPoint(6, 7), QPoint(25, 5), QPoint(28, 23), QPoint(8, 26)])
+    elif kind == "arrow":
+        p.setPen(QPen(red, 2.2)); p.drawLine(6, 26, 26, 6); p.drawLine(16, 6, 26, 6); p.drawLine(26, 6, 26, 16)
+    elif kind == "line":
+        p.setPen(QPen(slate, 2.2)); p.drawLine(6, 26, 26, 6)
+    elif kind == "dashed":
+        p.setPen(QPen(blue, 2.0, Qt.DashLine)); p.drawLine(4, 16, 28, 16)
+    elif kind == "box":
+        p.setBrush(amber_soft); p.setPen(QPen(amber, 1.8)); p.drawRoundedRect(6, 7, 20, 18, 2, 2)
+    elif kind == "filled_box":
+        p.setBrush(QColor("#ffffff")); p.drawRoundedRect(6, 7, 20, 18, 2, 2); p.drawLine(6, 13, 26, 13); p.drawLine(6, 19, 26, 19)
+    elif kind == "circle":
+        p.setBrush(blue_soft); p.setPen(QPen(blue, 1.8)); p.drawEllipse(6, 6, 20, 20)
+    elif kind == "cursor":
+        p.setBrush(QColor("#ffffff")); p.drawPolygon([QPoint(8, 4), QPoint(8, 24), QPoint(14, 19), QPoint(19, 28), QPoint(22, 26), QPoint(17, 17), QPoint(24, 17)])
+    elif kind == "dup":
+        p.setBrush(blue_soft); p.drawRoundedRect(5, 9, 15, 18, 2, 2); p.setBrush(QColor("#ffffff")); p.drawRoundedRect(12, 4, 15, 18, 2, 2)
+    elif kind == "rotate":
+        p.setPen(QPen(blue, 2.0)); p.drawArc(6, 6, 20, 20, 30 * 16, 280 * 16); p.drawLine(22, 6, 27, 11); p.drawLine(22, 6, 19, 11)
+    elif kind == "undo":
+        p.setPen(QPen(amber, 2.2)); p.drawArc(7, 11, 18, 14, 0, 180 * 16); p.drawLine(7, 17, 4, 12); p.drawLine(7, 17, 12, 12)
+    elif kind == "trash":
+        p.setBrush(red_soft); p.setPen(QPen(red, 1.8)); p.drawLine(6, 8, 26, 8); p.drawRoundedRect(9, 8, 14, 19, 2, 2); p.drawLine(12, 4, 20, 4)
+    elif kind == "eraser":
+        p.setBrush(red_soft); p.drawPolygon([QPoint(6, 21), QPoint(17, 9), QPoint(26, 17), QPoint(15, 26), QPoint(6, 26)])
+    elif kind == "stamp":
+        p.setBrush(blue_soft); p.drawRoundedRect(6, 21, 20, 6, 2, 2); p.drawRoundedRect(12, 7, 8, 14, 2, 2)
+    elif kind == "add":
+        p.setBrush(green_soft); p.setPen(QPen(green, 2.0)); p.drawEllipse(5, 5, 22, 22); p.drawLine(16, 10, 16, 22); p.drawLine(10, 16, 22, 16)
+    elif kind == "check":
+        p.setBrush(green_soft); p.setPen(QPen(green, 2.0)); p.drawRoundedRect(5, 5, 22, 22, 4, 4); p.drawLine(10, 16, 14, 21); p.drawLine(14, 21, 23, 11)
+    elif kind == "excel":
+        p.setBrush(green_soft); p.setPen(QPen(green, 1.85)); p.drawRoundedRect(5, 5, 22, 22, 2, 2); p.drawLine(5, 12, 27, 12); p.drawLine(5, 19, 27, 19); p.drawLine(13, 5, 13, 27)
+    elif kind == "calc":
+        p.setBrush(blue_soft); p.drawRoundedRect(6, 3, 20, 26, 3, 3); p.setBrush(QColor("#ffffff")); p.drawRect(9, 6, 14, 6)
+    elif kind == "code":
+        p.setPen(QPen(blue, 2.2)); p.drawLine(11, 9, 5, 16); p.drawLine(5, 16, 11, 23); p.drawLine(21, 9, 27, 16); p.drawLine(27, 16, 21, 23)
+    elif kind == "search":
+        p.setBrush(blue_soft); p.setPen(QPen(blue, 2.0)); p.drawEllipse(5, 5, 16, 16); p.drawLine(19, 19, 27, 27)
+    else:
+        p.setBrush(blue_soft); p.drawRoundedRect(6, 6, 20, 20, 2, 2)
+    p.end(); return QIcon(pm)
+
+
+def _win_caption_icon(kind, color_hex="#1f2937"):
+    pm = QPixmap(16, 16); pm.fill(Qt.transparent)
+    p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing, False)
+    p.setPen(QPen(QColor(color_hex), 1.2))
+    if kind == "min":
+        p.drawLine(3, 8, 13, 8)
+    elif kind == "max":
+        p.drawRect(3, 3, 9, 9)
+    elif kind == "restore":
+        p.drawRect(5, 2, 8, 8)
+        p.drawRect(2, 5, 8, 8)
+    elif kind == "close":
+        p.setRenderHint(QPainter.Antialiasing, True)
+        p.drawLine(4, 4, 12, 12); p.drawLine(12, 4, 4, 12)
+    p.end(); return QIcon(pm)
+
+class _QuickEstimatorCalcDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Quick Shop & Structural Calculator"); self.setFixedSize(320, 360)
+        self.setStyleSheet("QDialog { background-color: #f3f4f6; border: 1px solid #9ca3af; } QLineEdit { background-color: #ffffff; color: #111827; border: 1px solid #9ca3af; border-radius: 4px; padding: 6px 8px; font-size: 18px; font-weight: 600; } QPushButton { background-color: #ffffff; border: 1px solid #d1d5db; color: #111827; font-size: 14px; font-weight: 500; border-radius: 4px; padding: 6px; } QPushButton:hover { background-color: #e5e7eb; }")
+        lay = QVBoxLayout(self); lay.setContentsMargins(12, 12, 12, 12); lay.setSpacing(8)
+        self.disp = QLineEdit(); self.disp.setAlignment(Qt.AlignRight); self.disp.setPlaceholderText("0"); self.disp.returnPressed.connect(self._eval); lay.addWidget(self.disp)
+        grid = QGridLayout(); grid.setSpacing(5)
+        for txt, r, c in [("7",0,0),("8",0,1),("9",0,2),("/",0,3),("4",1,0),("5",1,1),("6",1,2),("*",1,3),("1",2,0),("2",2,1),("3",2,2),("-",2,3),("0",3,0),(".",3,1),("C",3,2),("+",3,3)]:
+            b = QPushButton(txt)
+            if txt == "C": b.clicked.connect(self.disp.clear)
+            else: b.clicked.connect(lambda _=False, t=txt: self.disp.setText(self.disp.text() + t))
+            grid.addWidget(b, r, c)
+        lay.addLayout(grid, 1)
+        eq_btn = QPushButton("= Compute"); eq_btn.clicked.connect(self._eval); lay.addWidget(eq_btn)
+
+    def _eval(self):
+        expr = self.disp.text().strip().replace("x", "*").replace("X", "*")
+        if expr and all(ch in "0123456789.+-*/() " for ch in expr):
+            try:
+                res = eval(expr, {"__builtins__": None}, {})
+                self.disp.setText(f"{res:,.4f}".rstrip("0").rstrip(".") if isinstance(res, float) else str(res))
+            except Exception: self.disp.setText("Error")
+
+
+class FloatingSteelToolPalette(QFrame):
+    """Floating, draggable & collapsible Advance Steel-style Tool Palette."""
+    def __init__(self, ribbon_bar, parent=None):
+        super().__init__(parent)
+        self.rb = ribbon_bar
+        self._drag_pt = None
+        self._minimized = False
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)
+        self.setStyleSheet("""
+            QFrame { background-color: #e5e7eb; border: 1px solid #9ca3af; border-radius: 6px; }
+            QLabel#PalTitle { color: #111827; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; font-weight: 700; background: transparent; border: none; }
+            QPushButton { background-color: #ffffff !important; color: #1f2937 !important; border: 1px solid #cbd5e1 !important; border-radius: 4px; font-family: 'Segoe UI', Arial, sans-serif !important; font-size: 11.5px !important; font-weight: 500 !important; padding: 5px 10px !important; text-align: left; }
+            QPushButton:hover { background-color: #dbeafe !important; border-color: #0284c7 !important; color: #1e3a8a !important; }
+        """)
+        lay = QVBoxLayout(self); lay.setContentsMargins(6, 5, 6, 6); lay.setSpacing(4)
+        hdr = QHBoxLayout(); hdr.setContentsMargins(0, 0, 0, 0)
+        ttl = QLabel("BM Tool Palette"); ttl.setObjectName("PalTitle"); hdr.addWidget(ttl); hdr.addStretch()
+        self.btn_min = QPushButton("_"); self.btn_min.setFixedSize(20, 18); self.btn_min.clicked.connect(self._toggle_min)
+        btn_x = QPushButton("x"); btn_x.setFixedSize(20, 18); btn_x.clicked.connect(self.hide)
+        hdr.addWidget(self.btn_min); hdr.addWidget(btn_x); lay.addLayout(hdr)
+
+        self.body = QWidget(); bl = QVBoxLayout(self.body); bl.setContentsMargins(0, 2, 0, 0); bl.setSpacing(3)
+        items = [
+            ("Linear Dim (M)", "dim", lambda: self.rb._vis_mode("measure")),
+            ("Angle / Slope", "angle", lambda: self.rb._vis_mode("angle")),
+            ("Count Tag (C)", "count", lambda: self.rb._vis_mode("count")),
+            ("Weld Symbol (W)", "weld", lambda: self.rb._vis_mode("weld")),
+            ("Grid Bubble (G)", "grid", lambda: self.rb._vis_mode("grid_bubble")),
+            ("Callout Box (Q)", "callout", lambda: self.rb._vis_mode("callout")),
+            ("Rev Cloud (R)", "cloud", lambda: self.rb._vis_mode("cloud")),
+            ("W-Beam Member", "add", lambda: self._jump_shape("beam")),
+            ("HSS Tube Member", "box", lambda: self._jump_shape("tube")),
+            ("Plate / Gusset", "filled_box", lambda: self._jump_shape("plate")),
+            ("Trig & Roof Pitch", "calc", lambda: self.rb._open_trig_studio(0)),
+        ]
+        for lbl, ic, fn in items:
+            b = QPushButton("  " + lbl)
+            b.setIcon(_icon(ic))
+            b.setIconSize(QSize(16, 16))
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(fn)
+            bl.addWidget(b)
+        lay.addWidget(self.body)
+        self.adjustSize()
+
+    def _jump_shape(self, cat_key):
+        self.rb._switch_page(2)
+        t2 = getattr(self.rb.app, "custom_quoting_tab", None)
+        if t2 and hasattr(t2, "active_member_card") and hasattr(t2.active_member_card, "cat_box"):
+            cb = t2.active_member_card.cat_box
+            for i in range(cb.count()):
+                if cat_key in cb.itemText(i).lower():
+                    cb.setCurrentIndex(i)
+                    break
+
+    def _toggle_min(self):
+        self._minimized = not self._minimized
+        self.body.setVisible(not self._minimized)
+        self.adjustSize()
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton and ev.position().y() <= 26:
+            self._drag_pt = ev.globalPosition().toPoint() - self.frameGeometry().topLeft()
+        super().mousePressEvent(ev)
+
+    def mouseMoveEvent(self, ev):
+        if self._drag_pt is not None and (ev.buttons() & Qt.LeftButton):
+            self.move(ev.globalPosition().toPoint() - self._drag_pt)
+        super().mouseMoveEvent(ev)
+
+    def mouseReleaseEvent(self, ev):
+        self._drag_pt = None
+        super().mouseReleaseEvent(ev)
+
+
+class BowmanMortonRibbonBar(QFrame):
+    def __init__(self, app_win, parent=None):
+        super().__init__(parent)
+        self.app = app_win; self._collapsed = False; self._drag_pos = None
+        self.setObjectName("OfficeGreyRibbon"); self.setAttribute(Qt.WA_StyledBackground, True); self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed); self.setMinimumHeight(176)
+        self.setMaximumHeight(176)
+        self.setStyleSheet("""
+            QFrame#OfficeGreyRibbon { background-color: #e2e8f0; border: none; border-bottom: 1px solid #cbd5e1; }
+            QFrame#OfficeCommandBand { background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; margin: 0px 8px 6px 8px; }
+            QFrame#OfficeGroup { background: transparent; border: none; border-right: 1px solid #e2e8f0; }
+            QLabel#OfficeGroupCap { color: #475569; background: transparent; font-family: 'Segoe UI', Arial, sans-serif; font-size: 10.5px; font-weight: 600; border: none; padding: 0px 4px; }
+        """)
+        outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
+
+        title_bar = QFrame(); title_bar.setFixedHeight(32); title_bar.setAttribute(Qt.WA_StyledBackground, True)
+        title_bar.setStyleSheet("QFrame { background-color: #e2e8f0; border: none; }")
+        tr = QHBoxLayout(title_bar); tr.setContentsMargins(10, 0, 0, 0); tr.setSpacing(4)
+
+        for q_tip, q_ic, q_slot in [("Quick Open PDF Planset", "folder", self._act_load_pdf), ("Quick Undo Markup (Ctrl+Z)", "undo", lambda: self._canvas_call("undo_last_markup")), ("Quick Export Marked PDF", "export", lambda: self._vis_click("btn_print_pdf")), ("Quick Shop Calculator", "calc", self._act_calc)]:
+            qb = QToolButton(); qb.setIcon(_icon(q_ic, "#1f2937")); qb.setIconSize(QSize(15, 15))
+            qb.setToolTip(q_tip); qb.setCursor(Qt.PointingHandCursor); qb.setFixedSize(26, 26)
+            qb.setStyleSheet("QToolButton { background: transparent; border: none; border-radius: 3px; padding: 2px; } QToolButton:hover { background-color: #c8c6c4; }")
+            qb.clicked.connect(q_slot); tr.addWidget(qb)
+
+        tr.addSpacing(8)
+        brand = QLabel("BOWMAN MORTON  |  Structural & Hanger Suite")
+        brand.setStyleSheet("color: #1f2937; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; font-weight: 600; background: transparent;")
+        tr.addWidget(brand); tr.addStretch(1)
+
+        self.search_box = QLineEdit(); self.search_box.setPlaceholderText("Search catalog parts, steel shapes, or type quick math...")
+        self.search_box.setFixedHeight(22); self.search_box.setMinimumWidth(320); self.search_box.setMaximumWidth(420)
+        self.search_box.setStyleSheet("QLineEdit { background-color: #f3f2f1; color: #111827; border: 1px solid #b3b0ad; border-radius: 4px; padding: 1px 10px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; } QLineEdit:focus { background-color: #ffffff; color: #252423; border-color: #0078d4; }")
+        self.search_box.returnPressed.connect(self._on_quick_search); tr.addWidget(self.search_box); tr.addStretch(1)
+
+        for kind, tip, slot, is_close in [("min", "Minimize", lambda: self.app.showMinimized(), False), ("max", "Maximize / Restore", self._toggle_max, False), ("close", "Close", lambda: self.app.close(), True)]:
+            wb = QPushButton(""); wb.setIcon(_win_caption_icon(kind, "#1f2937")); wb.setIconSize(QSize(14, 14))
+            wb.setToolTip(tip); wb.setFixedSize(46, 30)
+            h_bg = "#e81123" if is_close else "#c8c6c4"
+            wb.setStyleSheet(f"QPushButton {{ background: transparent !important; border: none !important; border-radius: 0px; padding: 0px; }} QPushButton:hover {{ background-color: {h_bg} !important; }}")
+            wb.clicked.connect(slot); tr.addWidget(wb)
+            if kind == "max":
+                self.btn_max = wb
+                wb.setIcon(_win_caption_icon("restore" if self.app.isMaximized() else "max", "#1f2937"))
+            elif is_close:
+                wb.enterEvent = lambda _e, b=wb: b.setIcon(_win_caption_icon("close", "#ffffff"))
+                wb.leaveEvent = lambda _e, b=wb: b.setIcon(_win_caption_icon("close", "#1f2937"))
+        outer.addWidget(title_bar)
+
+        tab_strip = QFrame(); tab_strip.setFixedHeight(30); tab_strip.setAttribute(Qt.WA_StyledBackground, True)
+        tab_strip.setStyleSheet("QFrame { background-color: #e2e8f0; border: none; }")
+        top_row = QHBoxLayout(tab_strip); top_row.setContentsMargins(10, 2, 10, 0); top_row.setSpacing(2)
+        self._tab_btns = []
+        self._mode_widgets = {}
+        for idx, name in enumerate(["Planset Takeoff", "Catalog Hangers", "Structural Quoting", "Project Ledger", "Admin Center"]):
+            tb = QPushButton(name); tb.setCursor(Qt.PointingHandCursor); tb.setFixedHeight(21)
+            tb.clicked.connect(lambda _=False, i=idx: self._switch_page(i))
+            top_row.addWidget(tb); self._tab_btns.append(tb)
+        top_row.addStretch()
+        self.btn_pin = QPushButton("Collapse"); self.btn_pin.setCursor(Qt.PointingHandCursor); self.btn_pin.setFixedHeight(24)
+        self.btn_pin.setStyleSheet("QPushButton { background: transparent !important; border: none !important; color: #1f2937 !important; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; padding: 0px 8px !important; } QPushButton:hover { background-color: #a3a8b0 !important; border-radius: 3px; }")
+        self.btn_pin.clicked.connect(self._toggle_collapse); top_row.addWidget(self.btn_pin)
+        outer.addWidget(tab_strip)
+
+        self.cmd_band = QFrame(); self.cmd_band.setObjectName("OfficeCommandBand"); self.cmd_band.setAttribute(Qt.WA_StyledBackground, True)
+        bl = QHBoxLayout(self.cmd_band); bl.setContentsMargins(6, 3, 6, 2); bl.setSpacing(6)
+        self.ctx_stack = QStackedWidget(); self.ctx_stack.setStyleSheet("background: transparent; border: none;")
+        for fn in (self._build_takeoff_strip, self._build_catalog_strip, self._build_structural_strip, self._build_ledger_strip, self._build_admin_strip):
+            self.ctx_stack.addWidget(fn())
+        bl.addWidget(self.ctx_stack, 0)
+
+        g_math, r_math = self._group("Trig & Math")
+        r_math.addWidget(self._menu_tile("Trig &\nGeometry", "angle", [
+            ("Right Triangle & Roof Pitch", "angle", lambda: self._open_trig_studio(0)),
+            ("Oblique / Gusset Triangle Solver", "poly", lambda: self._open_trig_studio(1)),
+            ("Circle, Arc & Bolt Pattern", "circle", lambda: self._open_trig_studio(2)),
+            ("Trig & Slope Converter", "calc", lambda: self._open_trig_studio(3)),
+        ]))
+        self.grp_math = g_math
+        bl.addWidget(g_math)
+
+        g_tools, r_tools = self._group("Desktop & Tools")
+        r_tools.addWidget(self._tile("Quote\nTrends", "excel", self._act_analytics))
+        r_tools.addWidget(self._tile("Shop\nCalc", "calc", self._act_calc))
+        r_tools.addLayout(self._stack2([
+            ("Open in Acrobat", "pdf", self._open_in_adobe_acrobat),
+            ("Open in Excel", "excel", self._open_ledger_in_excel),
+        ]))
+        r_tools.addWidget(self._tile("Tool\nPalette", "palette", self._toggle_tool_palette))
+        r_tools.addWidget(self._tile("Developer", "code", self._act_dev))
+        self.grp_tools = g_tools
+        bl.addWidget(g_tools)
+        from PySide6.QtWidgets import QScrollArea
+        self.btn_more_compact = self._menu_tile("More\nTools", "palette", [
+            ("Trig & Roof Pitch Studio", "angle", lambda: self._open_trig_studio(0)),
+            ("Oblique / Gusset Triangle", "poly", lambda: self._open_trig_studio(1)),
+            ("Circle & Bolt Pattern", "circle", lambda: self._open_trig_studio(2)),
+            ("Quote Analytics & Trends", "excel", self._act_analytics),
+            ("Quick Shop Calculator", "calc", self._act_calc),
+            ("Open in Adobe Acrobat", "pdf", self._open_in_adobe_acrobat),
+            ("Open Ledger in Excel", "excel", self._open_ledger_in_excel),
+            ("Toggle BM Tool Palette", "palette", self._toggle_tool_palette),
+            ("Developer Code Studio", "code", self._act_dev),
+        ])
+        self.btn_more_compact.setVisible(False)
+        bl.addWidget(self.btn_more_compact)
+        bl.addStretch(1)
+        self.cmd_scroll = QScrollArea()
+        self.cmd_scroll.setWidgetResizable(True)
+        self.cmd_scroll.setFrameShape(QFrame.NoFrame)
+        self.cmd_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.cmd_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.cmd_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollBar:horizontal { height: 5px; background: transparent; } QScrollBar::handle:horizontal { background: #a19f9d; border-radius: 2px; }")
+        self.cmd_scroll.setWidget(self.cmd_band)
+        outer.addWidget(self.cmd_scroll, 1)
+        self.set_active_tab(0)
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton and ev.position().y() <= 30: self._drag_pos = ev.globalPosition().toPoint() - self.app.frameGeometry().topLeft()
+        super().mousePressEvent(ev)
+    def mouseMoveEvent(self, ev):
+        if self._drag_pos is not None and (ev.buttons() & Qt.LeftButton):
+            if self.app.isMaximized(): self.app.showNormal()
+            self.app.move(ev.globalPosition().toPoint() - self._drag_pos)
+        super().mouseMoveEvent(ev)
+    def mouseReleaseEvent(self, ev): self._drag_pos = None; super().mouseReleaseEvent(ev)
+    def mouseDoubleClickEvent(self, ev):
+        if ev.position().y() <= 30: self._toggle_max()
+        super().mouseDoubleClickEvent(ev)
+    def _toggle_max(self):
+        if self.app.isMaximized():
+            self.app.showNormal()
+            if hasattr(self, "btn_max"):
+                self.btn_max.setIcon(_win_caption_icon("max", "#1f2937"))
+        else:
+            self.app.showMaximized()
+            if hasattr(self, "btn_max"):
+                self.btn_max.setIcon(_win_caption_icon("restore", "#1f2937"))
+
+    def _group(self, title):
+        box = QFrame(); box.setObjectName("OfficeGroup")
+        vl = QVBoxLayout(box); vl.setContentsMargins(6, 1, 8, 1); vl.setSpacing(1)
+        row = QHBoxLayout(); row.setContentsMargins(0, 0, 0, 0); row.setSpacing(4); vl.addLayout(row, 1)
+        lbl = QLabel(title); lbl.setObjectName("OfficeGroupCap"); lbl.setAlignment(Qt.AlignCenter); vl.addWidget(lbl)
+        return box, row
+
+    def _tile(self, text, icon_name, slot):
+        b = QToolButton(); b.setText(text); b.setIcon(_icon(icon_name)); b.setIconSize(QSize(24, 24))
+        b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon); b.setCursor(Qt.PointingHandCursor); b.setMinimumSize(72, 74)
+        b.setStyleSheet("QToolButton { background: transparent; border: 1px solid transparent; border-radius: 3px; color: #111827; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; font-weight: 400; padding: 3px 5px; } QToolButton:hover { background-color: #f3f2f1; border: 1px solid #d2d0ce; }")
+        b.clicked.connect(slot); return b
+
+    def _mode_tile(self, mode_key, text, icon_name):
+        b = self._tile(text, icon_name, lambda: self._vis_mode(mode_key))
+        self._mode_widgets.setdefault(mode_key, []).append(b)
+        return b
+
+    def _split_tile(self, text, icon_obj, default_slot, entries):
+        from PySide6.QtWidgets import QMenu
+        b = QToolButton(); b.setText(text); b.setIcon(icon_obj); b.setIconSize(QSize(24, 24))
+        b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon); b.setCursor(Qt.PointingHandCursor); b.setMinimumSize(72, 74)
+        b.setPopupMode(QToolButton.MenuButtonPopup)
+        b.setStyleSheet("QToolButton { background: transparent; border: 1px solid transparent; border-radius: 4px; color: #202020; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; font-weight: 400; padding: 3px 10px 3px 5px; } QToolButton:hover { background-color: #f3f2f1; border: 1px solid #d2d0ce; } QToolButton::menu-button { border: none; width: 14px; }")
+        b.clicked.connect(default_slot)
+        menu = QMenu(b)
+        menu.setStyleSheet("QMenu { background-color: #ffffff; color: #202020; border: 1px solid #d2d0ce; padding: 4px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; } QMenu::item { padding: 5px 14px 5px 8px; border-radius: 3px; } QMenu::item:selected { background-color: #d2e3fc; color: #1e3a8a; }")
+        b._cur_slot = default_slot
+        b.clicked.disconnect()
+        b.clicked.connect(lambda: b._cur_slot())
+        for label, ic, slot in entries:
+            act = menu.addAction(_icon(ic), label)
+            def _make_pick(lbl_t, ic_t, fn_t):
+                def _picked():
+                    short_lbl = lbl_t.split("(")[0].strip().replace(" ", "\n", 1)
+                    b.setText(short_lbl)
+                    b.setIcon(_icon(ic_t))
+                    b._cur_slot = fn_t
+                    fn_t()
+                return _picked
+            act.triggered.connect(_make_pick(label, ic, slot))
+        b.setMenu(menu); return b
+
+    def _menu_tile(self, text, icon_name, entries):
+        from PySide6.QtWidgets import QMenu
+        b = QToolButton(); b.setText(text); b.setIcon(_icon(icon_name)); b.setIconSize(QSize(24, 24))
+        b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon); b.setCursor(Qt.PointingHandCursor); b.setMinimumSize(72, 74)
+        b.setPopupMode(QToolButton.InstantPopup)
+        b.setStyleSheet("QToolButton { background: transparent; border: 1px solid transparent; border-radius: 3px; color: #111827; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; font-weight: 400; padding: 3px 5px; } QToolButton:hover { background-color: #f3f2f1; border: 1px solid #d2d0ce; } QToolButton::menu-indicator { image: none; }")
+        menu = QMenu(b)
+        menu.setStyleSheet("QMenu { background-color: #ffffff; color: #111827; border: 1px solid #cbd5e1; padding: 4px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; } QMenu::item { padding: 5px 14px 5px 8px; border-radius: 3px; } QMenu::item:selected { background-color: #dbeafe; color: #1e3a8a; }")
+        for label, ic, slot in entries:
+            act = menu.addAction(_icon(ic), label); act.triggered.connect(slot)
+        b.setMenu(menu); return b
+
+    def _stack3(self, items):
+        col = QVBoxLayout(); col.setContentsMargins(2, 1, 2, 1); col.setSpacing(1)
+        for text, ic_name, slot in items:
+            b = QPushButton(" " + text)
+            b.setIcon(_icon(ic_name, "#252423"))
+            b.setIconSize(QSize(15, 15))
+            b.setCursor(Qt.PointingHandCursor)
+            b.setFixedHeight(21)
+            b.setStyleSheet("QPushButton { background: transparent !important; border: 1px solid transparent !important; color: #252423 !important; font-family: 'Segoe UI', Arial, sans-serif !important; font-size: 11.5px !important; font-weight: 400 !important; border-radius: 3px; padding: 0px 6px; text-align: left; } QPushButton:hover { background-color: #f3f2f1 !important; border: 1px solid #d2d0ce !important; }")
+            b.clicked.connect(slot)
+            col.addWidget(b)
+        return col
+
+    def _stack2(self, items):
+        col = QVBoxLayout(); col.setContentsMargins(2, 1, 2, 1); col.setSpacing(2)
+        for entry in items:
+            if len(entry) == 3: text, ic_name, slot = entry
+            else: text, slot = entry; ic_name = None
+            b = QPushButton(" " + text if ic_name else text)
+            if ic_name: b.setIcon(_icon(ic_name)); b.setIconSize(QSize(15, 15))
+            b.setCursor(Qt.PointingHandCursor); b.setFixedHeight(21)
+            b.setStyleSheet("QPushButton { background: transparent !important; border: 1px solid transparent !important; color: #252423 !important; font-family: 'Segoe UI', Arial, sans-serif !important; font-size: 11.5px !important; font-weight: 400 !important; border-radius: 4px; padding: 1px 6px; text-align: left; } QPushButton:hover { background-color: #f3f2f1 !important; border: 1px solid #d2d0ce !important; }")
+            b.clicked.connect(slot); col.addWidget(b)
+        return col
+
+    def _build_takeoff_strip(self):
+        from PySide6.QtWidgets import QComboBox, QFontComboBox, QSpinBox, QDoubleSpinBox
+        from PySide6.QtGui import QFont
+        w = QWidget(); hl = QHBoxLayout(w); hl.setContentsMargins(0,0,0,0); hl.setSpacing(4)
+
+        g1, r1 = self._group("Planset & View")
+        r1.addWidget(self._tile("Load PDF\nPlanset", "folder", self._act_load_pdf))
+        r1.addWidget(self._tile("Auto-Scan\nSheet", "search", self._act_scan_pdf))
+        sh_col = QVBoxLayout(); sh_col.setContentsMargins(2, 2, 2, 2); sh_col.setSpacing(4)
+        self.ribbon_sheet_cb = QComboBox(); self.ribbon_sheet_cb.setFixedHeight(24); self.ribbon_sheet_cb.setMinimumWidth(145)
+        self.ribbon_sheet_cb.setStyleSheet("QComboBox { background-color: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1px 6px; font-size: 11.5px; }")
+        self.ribbon_sheet_cb.addItem("Pg 1 (Blank Sheet)", 0)
+        self.ribbon_sheet_cb.currentIndexChanged.connect(self._on_ribbon_sheet_changed)
+        sh_col.addWidget(self.ribbon_sheet_cb)
+        nav_row = QHBoxLayout(); nav_row.setContentsMargins(0,0,0,0); nav_row.setSpacing(4)
+        for nav_txt, d_sh in [("? Prev", -1), ("Next ?", 1)]:
+            nb = QPushButton(nav_txt); nb.setFixedHeight(22); nb.setCursor(Qt.PointingHandCursor)
+            nb.setStyleSheet("QPushButton { background-color: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 11px; border-radius: 4px; padding: 0px 8px; } QPushButton:hover { background-color: #e0f2fe; border-color: #0284c7; }")
+            nb.clicked.connect(lambda _=False, d=d_sh: self._step_sheet(d)); nav_row.addWidget(nb)
+        sh_col.addLayout(nav_row)
+        r1.addLayout(sh_col)
+        r1.addLayout(self._stack3([("Hand Pan", "hand", lambda: self._vis_mode("pan")), ("Fit Page", "fit", lambda: self._vis_click("btn_fit")), ("BOM Tree", "excel", lambda: self._tk_click("btn_tab_bom"))]))
+        hl.addWidget(g1)
+
+        g2, r2 = self._group("Takeoff & Scale")
+        r2.addWidget(self._mode_tile("measure", "Linear\nDim (M)", "dim"))
+        r2.addWidget(self._mode_tile("angle", "Angle /\nSlope", "angle"))
+        r2.addWidget(self._mode_tile("count", "Count\nTag (C)", "count"))
+        sc_col = QVBoxLayout(); sc_col.setContentsMargins(2,2,2,2); sc_col.setSpacing(4)
+        top_sc = QHBoxLayout(); top_sc.setContentsMargins(0,0,0,0); top_sc.setSpacing(4)
+        for lbl_s, md_s in [("Box OCR", "box"), ("Calibrate", "calibrate")]:
+            bs = QPushButton(lbl_s); bs.setFixedHeight(26); bs.setCursor(Qt.PointingHandCursor)
+            bs.setStyleSheet("QPushButton { background-color: #f3f2f1 !important; border: 1px solid #d2d0ce !important; color: #252423 !important; font-size: 11.5px !important; font-weight: 400 !important; border-radius: 4px; padding: 1px 8px; } QPushButton:hover { background-color: #c8c6c4 !important; border-color: #8a8886 !important; }")
+            bs.clicked.connect(lambda _=False, m=md_s: self._vis_mode(m)); top_sc.addWidget(bs)
+        sc_col.addLayout(top_sc)
+        self.ribbon_scale_cb = QComboBox(); self.ribbon_scale_cb.setFixedHeight(21)
+        self.ribbon_scale_cb.setStyleSheet("QComboBox { background-color: #ffffff; color: #252423; border: 1px solid #d2d0ce; border-radius: 4px; padding: 1px 6px; font-size: 11.5px; }")
+        for lbl_s, pts_s in [('1/8" = 1\'-0"', 9.0), ('3/16" = 1\'-0"', 13.5), ('1/4" = 1\'-0"', 18.0), ('3/8" = 1\'-0"', 27.0), ('1/2" = 1\'-0"', 36.0), ('3/4" = 1\'-0"', 54.0), ('1" = 1\'-0"', 72.0), ('1-1/2" = 1\'-0"', 108.0), ('3" = 1\'-0"', 216.0)]:
+            self.ribbon_scale_cb.addItem(lbl_s, pts_s)
+        self.ribbon_scale_cb.setCurrentIndex(2); self.ribbon_scale_cb.currentIndexChanged.connect(lambda i: self._set_vw_idx("scale_combo", i))
+        sc_col.addWidget(self.ribbon_scale_cb)
+        snap_row = QHBoxLayout(); snap_row.setContentsMargins(0,0,0,0); snap_row.setSpacing(4)
+        self.btn_ortho_lock = QPushButton("Ortho 90"); self.btn_ortho_lock.setCheckable(True); self.btn_ortho_lock.setFixedHeight(22); self.btn_ortho_lock.setCursor(Qt.PointingHandCursor)
+        self.btn_ortho_lock.setToolTip("Lock orthogonal 45/90 degree snapping without holding Shift")
+        self.btn_ortho_lock.toggled.connect(self._toggle_ortho_lock)
+        self.btn_ep_snap = QPushButton("Snap"); self.btn_ep_snap.setCheckable(True); self.btn_ep_snap.setChecked(True); self.btn_ep_snap.setFixedHeight(22); self.btn_ep_snap.setCursor(Qt.PointingHandCursor)
+        self.btn_ep_snap.setToolTip("Snap cursor to nearby markup endpoints")
+        self.btn_ep_snap.toggled.connect(self._toggle_endpoint_snap)
+        snap_row.addWidget(self.btn_ortho_lock); snap_row.addWidget(self.btn_ep_snap)
+        sc_col.addLayout(snap_row)
+        r2.addLayout(sc_col); hl.addWidget(g2)
+
+        g3, r3 = self._group("Font & Color")
+        font_col = QVBoxLayout(); font_col.setContentsMargins(2,2,2,2); font_col.setSpacing(4)
+        f_top = QHBoxLayout(); f_top.setContentsMargins(0,0,0,0); f_top.setSpacing(3)
+        self.rib_font_cb = QFontComboBox(); self.rib_font_cb.setCurrentFont(QFont("Arial")); self.rib_font_cb.setFixedHeight(25); self.rib_font_cb.setMaximumWidth(114)
+        self.rib_font_cb.setStyleSheet("QFontComboBox { background-color: #ffffff; color: #252423; border: 1px solid #d2d0ce; border-radius: 3px; padding: 1px 4px; font-size: 11.5px; }")
+        self.rib_font_cb.currentFontChanged.connect(lambda f: self._set_vw_font(f)); f_top.addWidget(self.rib_font_cb)
+        self.rib_font_sz = QSpinBox(); self.rib_font_sz.setRange(8, 72); self.rib_font_sz.setValue(18); self.rib_font_sz.setSuffix(" pt"); self.rib_font_sz.setFixedSize(70, 25)
+        self.rib_font_sz.setStyleSheet("QSpinBox { background-color: #ffffff; color: #252423; border: 1px solid #d2d0ce; border-radius: 3px; padding: 1px 4px; font-size: 11.5px; }")
+        self.rib_font_sz.valueChanged.connect(lambda v: self._set_vw_prop("font_size_spin", v)); f_top.addWidget(self.rib_font_sz)
+        self.rib_line_w = QDoubleSpinBox(); self.rib_line_w.setRange(0.5, 12.0); self.rib_line_w.setSingleStep(0.5); self.rib_line_w.setValue(2.0); self.rib_line_w.setSuffix(" px"); self.rib_line_w.setFixedSize(70, 25)
+        self.rib_line_w.setStyleSheet("QDoubleSpinBox { background-color: #ffffff; color: #252423; border: 1px solid #d2d0ce; border-radius: 3px; padding: 1px 4px; font-size: 11.5px; }")
+        self.rib_line_w.valueChanged.connect(lambda v: self._set_vw_prop("line_width_spin", v)); f_top.addWidget(self.rib_line_w)
+        font_col.addLayout(f_top)
+
+        f_bot = QHBoxLayout(); f_bot.setContentsMargins(0,0,0,0); f_bot.setSpacing(3)
+        self._biu_btns = {}
+        for lbl_bi, slot_bi, extra_css in [("B", self._toggle_bold, "font-weight: 700;"), ("I", self._toggle_italic, "font-style: italic;"), ("U", self._toggle_underline, "text-decoration: underline;")]:
+            b_bi = QPushButton(lbl_bi); b_bi.setFixedSize(22, 22); b_bi.setCursor(Qt.PointingHandCursor)
+            b_bi.setProperty("extra_css", extra_css)
+            b_bi.clicked.connect(slot_bi); f_bot.addWidget(b_bi)
+            self._biu_btns[lbl_bi] = b_bi
+        self._refresh_biu_styles()
+        for hx, s_tip in [("#111827", "Black Ink"), ("#dc2626", "Red Markup"), ("#0284c7", "Blue Steel"), ("#059669", "Emerald Green"), ("#ea580c", "Safety Orange"), ("#7c3aed", "Purple"), ("#eab308", "Yellow Highlight"), ("#ffffff", "Pure White / Whiteout")]:
+            sw = QPushButton(""); sw.setFixedSize(16, 16); sw.setCursor(Qt.PointingHandCursor); sw.setToolTip(s_tip)
+            brd_col = "#475569" if hx == "#ffffff" else "#8a8886"
+            sw.setStyleSheet(f"QPushButton {{ background-color: {hx} !important; border: 1.5px solid {brd_col} !important; border-radius: 2px; padding: 0px !important; }} QPushButton:hover {{ border: 2px solid #0078d4 !important; }}")
+            sw.clicked.connect(lambda _=False, c=hx: self._set_vw_color(c)); f_bot.addWidget(sw)
+        b_wheel = QPushButton("+"); b_wheel.setFixedSize(20, 20); b_wheel.setCursor(Qt.PointingHandCursor); b_wheel.setToolTip("Custom Color Wheel")
+        b_wheel.setStyleSheet("QPushButton { background-color: #ffffff !important; border: 1px solid #8a8886 !important; color: #252423 !important; font-size: 11.5px !important; font-weight: 700 !important; border-radius: 3px; padding: 0px !important; } QPushButton:hover { background-color: #eff6fc !important; border-color: #0078d4 !important; }")
+        b_wheel.clicked.connect(self._pick_ribbon_color_before_use); f_bot.addWidget(b_wheel)
+        font_col.addLayout(f_bot); r3.addLayout(font_col); hl.addWidget(g3)
+
+        g4, r4 = self._group("Detailing & Shapes")
+        r4.addWidget(self._mode_tile("text", "Text\nNote (T)", "text"))
+        r4.addWidget(self._mode_tile("callout", "Callout\nBox (Q)", "callout"))
+        r4.addWidget(self._mode_tile("weld", "Weld\nSymbol", "weld"))
+        r4.addWidget(self._mode_tile("grid_bubble", "Grid\nBubble", "grid"))
+        r4.addLayout(self._stack3([("Leader Arrow (A)", "arrow", lambda: self._vis_mode("arrow")), ("Straight Line (L)", "line", lambda: self._vis_mode("line")), ("Centerline (CL)", "dashed", lambda: self._vis_mode("centerline"))]))
+        hl.addWidget(g4)
+
+        g4b, r4b = self._group("Markup & Pens")
+        r4 = r4b
+        r4.addWidget(self._split_tile("Rev\nCloud", _icon("cloud"), lambda: self._vis_mode("cloud"), [("Revision Cloud (R)", "cloud", lambda: self._vis_mode("cloud")), ("Highlight Box", "box", lambda: self._vis_mode("highlight")), ("Whiteout / Cover Box", "filled_box", lambda: self._vis_mode("filled_box")), ("Circle / Ring", "circle", lambda: self._vis_mode("ellipse")), ("Area / Sq Ft Polygon", "poly", lambda: self._vis_mode("area")), ("Quick Review Stamp", "stamp", self._stamp_review_note)]))
+        r4.addLayout(self._stack3([
+            ("W-Beam Span", "dim", lambda: self._apply_tool_chest("#0284c7", 2.5, "measure")),
+            ("HSS Column Tag", "count", lambda: self._apply_tool_chest("#059669", 2.0, "count")),
+            ("Field Weld Note", "weld", lambda: self._apply_tool_chest("#dc2626", 2.0, "weld")),
+        ]))
+        b_p1 = self._tile("Black\nPen", "line", lambda: self._arm_pen("#111827", "line")); b_p1.setIcon(_pen_icon("#111827", False)); r4.addWidget(b_p1)
+        b_p2 = self._tile("Red\nMarkup", "arrow", lambda: self._arm_pen("#dc2626", "arrow")); b_p2.setIcon(_pen_icon("#dc2626", False)); r4.addWidget(b_p2)
+        b_p3 = self._tile("High-\nlighter", "box", lambda: self._arm_pen("#eab308", "highlight")); b_p3.setIcon(_pen_icon("#eab308", True)); r4.addWidget(b_p3)
+        hl.addWidget(g4b)
+
+        g5, r5 = self._group("Modify & BOM")
+        r5.addWidget(self._tile("Create\nBOM", "check", self._act_send_bom))
+        r5.addWidget(self._menu_tile("Layer\nFilter", "palette", [
+            ("Toggle Dimensions Layer", "dim", lambda: self._toggle_markup_layer("dims")),
+            ("Toggle Welds & Grid Layer", "weld", lambda: self._toggle_markup_layer("welds")),
+            ("Toggle Notes & Clouds Layer", "text", lambda: self._toggle_markup_layer("notes")),
+            ("Show All Markup Layers", "check", lambda: self._toggle_markup_layer("all")),
+        ]))
+        r5.addLayout(self._stack3([("Select / Move (V)", "cursor", lambda: self._vis_mode("select")), ("Duplicate Item", "dup", lambda: self._canvas_call("duplicate_selected_markup")), ("Rotate +90 deg", "rotate", lambda: self._canvas_call("rotate_selected_markup"))]))
+        r5.addLayout(self._stack3([("Undo (Ctrl+Z)", "undo", lambda: self._canvas_call("undo_last_markup")), ("Delete (Del)", "trash", lambda: self._canvas_call("delete_selected_markup")), ("Clear Marks", "eraser", lambda: self._canvas_call("clear_markups"))]))
+        r5.addLayout(self._stack3([("Export PDF", "export", lambda: self._vis_click("btn_print_pdf")), ("Print Sheet", "print", lambda: self._vis_call("_print_marked_sheet")), ("Reset Sheet", "new", self._act_reset_sheet)]))
+        hl.addWidget(g5); return w
+
+    def _build_catalog_strip(self):
+        w = QWidget(); hl = QHBoxLayout(w); hl.setContentsMargins(0,0,0,0); hl.setSpacing(6)
+        g1, r1 = self._group("Catalog Quote")
+        r1.addWidget(self._tile("New\nQuote", "new", lambda: self._app_call("clear_rfq_ledger_session")))
+        r1.addWidget(self._tile("Add to\nQuote", "add", lambda: self._app_call("calculate_standalone_pricing")))
+        r1.addWidget(self._tile("Finalize\nto Ledger", "check", lambda: self._app_call("finalize_standard_catalog_to_ledger")))
+        r1.addLayout(self._stack3([("Duplicate Row", "dup", lambda: self._app_call("duplicate_selected_standard_item")), ("Edit Selected", "cursor", lambda: self._app_call("edit_selected_standard_item")), ("Expand / Collapse", "fit", lambda: self._app_call("toggle_all_std_tree_items"))]))
+        hl.addWidget(g1)
+
+        g2, r2 = self._group("Client Tier & Output")
+        r2.addLayout(self._stack3([
+            ("Construction Supply (50%)", "check", lambda: self.app.team_box.setCurrentIndex(0) if hasattr(self.app, "team_box") else None),
+            ("Lumber Yard (40%)", "check", lambda: self.app.team_box.setCurrentIndex(1) if hasattr(self.app, "team_box") else None),
+            ("Standard Retail (100%)", "check", lambda: self.app.team_box.setCurrentIndex(2) if hasattr(self.app, "team_box") else None),
+        ]))
+        r2.addWidget(self._tile("Export\nPDF Quote", "pdf", lambda: self._app_call("trigger_save_as_file_dialog")))
+        r2.addWidget(self._tile("Email\nQuote", "export", lambda: self._app_call("trigger_email_client_package")))
+        hl.addWidget(g2); return w
+
+    def _build_structural_strip(self):
+        w = QWidget(); hl = QHBoxLayout(w); hl.setContentsMargins(0,0,0,0); hl.setSpacing(6)
+        g1, r1 = self._group("Structural Assembly")
+        r1.addWidget(self._tile("+ Fab\nAdd-on", "add", lambda: self._t2(lambda t: t.active_member_card.add_addon_row())))
+        r1.addWidget(self._tile("Add\nMember", "check", lambda: self._t2(lambda t: t.active_member_card.submit_card_calculation())))
+        r1.addWidget(self._tile("Finalize\nBid", "check", lambda: self._t2(lambda t: t.pack_and_finalize_project_quote())))
+        r1.addLayout(self._stack3([("Duplicate Member", "dup", lambda: self._t2(lambda t: t.duplicate_selected_project_item())), ("Edit Member", "cursor", lambda: self._t2(lambda t: t.edit_selected_project_item())), ("Expand / Collapse", "fit", lambda: self._t2(lambda t: t.toggle_all_tree_items()))]))
+        hl.addWidget(g1)
+
+        g2, r2 = self._group("Finish & Workbook")
+        r2.addLayout(self._stack3([
+            ("Toggle Shop Primer", "box", lambda: self._t2(lambda t: t.active_member_card.chk_primer.toggle())),
+            ("Toggle Powder Coat (PC)", "stamp", lambda: self._t2(lambda t: t.active_member_card.chk_powder.toggle())),
+            ("Toggle Galvanized (HDG)", "weld", lambda: self._t2(lambda t: t.active_member_card.chk_galv.toggle())),
+        ]))
+        r2.addWidget(self._tile("Clear\nWorkbook", "eraser", lambda: self._t2(lambda t: t.clear_canvas_session())))
+        r2.addWidget(self._tile("Quote\nTrends", "excel", self._act_analytics))
+        hl.addWidget(g2); return w
+
+    def _build_ledger_strip(self):
+        w = QWidget(); hl = QHBoxLayout(w); hl.setContentsMargins(0,0,0,0); hl.setSpacing(6)
+        g1, r1 = self._group("Quote Documents")
+        r1.addWidget(self._tile("Export\nQuote PDF", "pdf", lambda: self._t3(lambda t: t.export_selected_quote_pdf())))
+        r1.addWidget(self._tile("Open in\nExcel", "excel", self._open_ledger_in_excel))
+        r1.addWidget(self._tile("Re-Open /\nClone Bid", "dup", lambda: self._t3(lambda t: t.reopen_selected_quote())))
+        r1.addLayout(self._stack3([("Search Ledger", "search", lambda: self._t3(lambda t: t.search_input.setFocus())), ("Quote Analytics", "calc", self._act_analytics), ("Delete Quote", "trash", lambda: self._t3(lambda t: t.delete_selected_quote()))]))
+        hl.addWidget(g1); return w
+
+    def _build_admin_strip(self):
+        w = QWidget(); hl = QHBoxLayout(w); hl.setContentsMargins(0,0,0,0); hl.setSpacing(6)
+        g1, r1 = self._group("Database Modules")
+        r1.addWidget(self._tile("Shop\nRates", "calc", lambda: self._t4(lambda t: t.switch_admin_subview(0))))
+        r1.addWidget(self._tile("Hangers\nMatrix", "excel", lambda: self._t4(lambda t: t.switch_admin_subview(1))))
+        r1.addWidget(self._tile("Steel\nShapes", "add", lambda: self._t4(lambda t: t.switch_admin_subview(2))))
+        hl.addWidget(g1)
+
+        g2, r2 = self._group("Excel Data Sync")
+        r2.addWidget(self._tile("Excel\nTemplate", "excel", self._act_dl_tpl))
+        r2.addWidget(self._tile("Import\nExcel", "export", self._act_imp_xl))
+        hl.addWidget(g2); return w
+
+    def _switch_page(self, idx):
+        if hasattr(self.app, "master_tabs"): self.app.master_tabs.setCurrentIndex(idx)
+        self.set_active_tab(idx)
+
+    def set_active_tab(self, idx):
+        if 0 <= idx < self.ctx_stack.count():
+            self.ctx_stack.setCurrentIndex(idx)
+            for i, b in enumerate(self._tab_btns):
+                if i == idx:
+                    b.setStyleSheet("QPushButton { background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important; border-bottom: 2px solid #0284c7 !important; color: #0369a1 !important; font-family: 'Segoe UI', Arial, sans-serif !important; font-size: 12px !important; font-weight: 700 !important; border-top-left-radius: 6px; border-top-right-radius: 6px; padding: 3px 15px !important; }")
+                else:
+                    b.setStyleSheet("QPushButton { background: transparent !important; border: none !important; color: #334155 !important; font-family: 'Segoe UI', Arial, sans-serif !important; font-size: 12px !important; font-weight: 500 !important; border-radius: 6px; padding: 3px 15px !important; } QPushButton:hover { background-color: #cbd5e1 !important; color: #0f172a !important; }")
+
+    def adapt_to_width(self, w_px):
+        compact = (w_px < 1580)
+        if hasattr(self, "grp_math"): self.grp_math.setVisible(not compact)
+        if hasattr(self, "grp_tools"): self.grp_tools.setVisible(not compact)
+        if hasattr(self, "btn_more_compact"): self.btn_more_compact.setVisible(compact)
+
+    def _toggle_collapse(self):
+        self._collapsed = not self._collapsed; self.cmd_scroll.setVisible(not self._collapsed)
+        self.setMinimumHeight(62 if self._collapsed else 176)
+        self.setMaximumHeight(62 if self._collapsed else 176)
+        self.btn_pin.setText("Expand" if self._collapsed else "Collapse")
+
+    def _toggle_markup_layer(self, layer_key):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
+        if not cv: return
+        if layer_key == "all": cv.hidden_layers.clear()
+        elif layer_key in cv.hidden_layers: cv.hidden_layers.remove(layer_key)
+        else: cv.hidden_layers.add(layer_key)
+        cv.update()
+
+    def _on_ribbon_sheet_changed(self, idx):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        cb = getattr(pt, "sheet_combo", None) if pt else None
+        if cb and 0 <= idx < cb.count() and cb.currentIndex() != idx:
+            cb.setCurrentIndex(idx)
+
+    def sync_sheet_list(self, items_with_data, cur_idx=0):
+        if not hasattr(self, "ribbon_sheet_cb"): return
+        self.ribbon_sheet_cb.blockSignals(True)
+        self.ribbon_sheet_cb.clear()
+        for txt, dat in items_with_data:
+            self.ribbon_sheet_cb.addItem(txt, dat)
+        if 0 <= cur_idx < self.ribbon_sheet_cb.count():
+            self.ribbon_sheet_cb.setCurrentIndex(cur_idx)
+        self.ribbon_sheet_cb.blockSignals(False)
+
+    def _step_sheet(self, delta):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        cb = getattr(pt, "sheet_combo", None) if pt else None
+        if cb and cb.count() > 0:
+            nxt = max(0, min(cb.count() - 1, cb.currentIndex() + delta))
+            cb.setCurrentIndex(nxt)
+            if hasattr(self, "ribbon_sheet_cb"):
+                self.ribbon_sheet_cb.blockSignals(True)
+                self.ribbon_sheet_cb.setCurrentIndex(nxt)
+                self.ribbon_sheet_cb.blockSignals(False)
+
+    def _toggle_ortho_lock(self, checked):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
+        if cv: cv.ortho_lock = bool(checked)
+        bg = "#bfd7f5" if checked else "#f3f2f1"
+        brd = "#0078d4" if checked else "#d2d0ce"
+        self.btn_ortho_lock.setStyleSheet(f"QPushButton {{ background-color: {bg} !important; border: 1px solid {brd} !important; color: #111827 !important; font-size: 11px !important; font-weight: {'700' if checked else '400'} !important; border-radius: 3px; padding: 0px 6px; }}")
+
+    def _toggle_endpoint_snap(self, checked):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
+        if cv: cv.endpoint_snap = bool(checked)
+        bg = "#bfd7f5" if checked else "#f3f2f1"
+        brd = "#0078d4" if checked else "#d2d0ce"
+        self.btn_ep_snap.setStyleSheet(f"QPushButton {{ background-color: {bg} !important; border: 1px solid {brd} !important; color: #111827 !important; font-size: 11px !important; font-weight: {'700' if checked else '400'} !important; border-radius: 3px; padding: 0px 6px; }}")
+
+    def _on_quick_search(self):
+        q = self.search_box.text().strip()
+        if not q:
+            return
+        ql = q.lower()
+        cad_aliases = {
+            "dim": "measure", "measure": "measure", "m": "measure",
+            "weld": "weld", "w": "weld",
+            "cnt": "count", "count": "count", "c": "count",
+            "txt": "text", "text": "text", "t": "text",
+            "call": "callout", "callout": "callout", "q": "callout",
+            "cld": "cloud", "cloud": "cloud", "r": "cloud",
+            "grid": "grid_bubble", "g": "grid_bubble",
+            "pan": "pan", "esc": "pan",
+        }
+        if ql in cad_aliases:
+            self._switch_page(0)
+            self._vis_mode(cad_aliases[ql])
+            self.search_box.clear()
+            return
+        if any(op in q for op in ("+", "-", "*", "/")) and all(ch in "0123456789.+-*/() " for ch in q):
+            try:
+                res = eval(q, {"__builtins__": None}, {})
+                QMessageBox.information(self.app, "Quick Calculation", f"{q}  =  {res:,.4f}".rstrip("0").rstrip("."))
+                return
+            except Exception:
+                pass
+        if ql in ("takeoff", "planset", "pdf", "blueprint"):
+            self._switch_page(0)
+            return
+        if ql in ("catalog", "hangers", "hanger", "standard"):
+            self._switch_page(1)
+            if hasattr(self.app, "smart_lookup_input"):
+                self.app.smart_lookup_input.setFocus()
+            return
+        if ql in ("structural", "custom", "beams", "steel"):
+            self._switch_page(2)
+            return
+        if ql in ("ledger", "quotes", "quote", "history", "archive"):
+            self._switch_page(3)
+            if hasattr(self.app, "custom_ledger_tab") and hasattr(self.app.custom_ledger_tab, "search_input"):
+                self.app.custom_ledger_tab.search_input.setFocus()
+            return
+        if ql in ("admin", "rates", "settings"):
+            self._switch_page(4)
+            return
+        if ql in ("trends", "analytics"):
+            self._act_analytics()
+            return
+        if hasattr(self.app, "smart_lookup_input"):
+            self._switch_page(1)
+            self.app.smart_lookup_input.setText(q)
+            if hasattr(self.app, "model_box") and self.app.model_box.count() > 1:
+                self.app.model_box.setCurrentIndex(1)
+
+    def _app_call(self, fn_name):
+        fn = getattr(self.app, fn_name, None)
+        if callable(fn):
+            fn()
+
+    def _is_admin_unlocked(self):
+        t = getattr(self.app, "custom_admin_tab", None)
+        if t is None or t.stack.currentIndex() == 0:
+            QMessageBox.warning(self.app, "Admin Locked", "Please unlock the Unified Admin Center first before accessing admin tools.")
+            return False
+        return True
+
+    def _click(self, a):
+        w = getattr(self.app, a, None)
+        if w is not None: w.click()
+    def _vis_mode(self, mode_name):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt is not None:
+            if hasattr(pt, "btn_tab_vis"): pt.btn_tab_vis.click()
+            vw = getattr(pt, "vis_workspace", None)
+            if vw and hasattr(vw, "set_mode"): vw.set_mode(mode_name)
+        self._highlight_active_mode(mode_name)
+
+    def _highlight_active_mode(self, mode_name):
+        for m_key, widgets in self._mode_widgets.items():
+            is_act = (m_key == mode_name)
+            for w in widgets:
+                if hasattr(w, "setToolButtonStyle"):
+                    bg = "#e0f2fe" if is_act else "transparent"
+                    brd = "#0284c7" if is_act else "transparent"
+                    w.setStyleSheet(f"QToolButton {{ background-color: {bg}; border: 1px solid {brd}; border-radius: 3px; color: #111827; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; font-weight: {'600' if is_act else '400'}; padding: 3px 5px; }} QToolButton:hover {{ background-color: #e5e7eb; border: 1px solid #94a3b8; }}")
+
+    def _vis_call(self, fn_name):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        if vw and hasattr(vw, fn_name): getattr(vw, fn_name)()
+
+    def _canvas_call(self, fn_name):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        cv = getattr(vw, "canvas", None) if vw else None
+        if cv and hasattr(cv, fn_name): getattr(cv, fn_name)()
+
+    def _set_vw_idx(self, attr, idx):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        if vw and hasattr(vw, attr): getattr(vw, attr).setCurrentIndex(idx)
+
+    def _set_vw_font(self, qfont):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        if vw and hasattr(vw, "font_combo"): vw.font_combo.setCurrentFont(qfont)
+
+    def _stamp_review_note(self):
+        from PySide6.QtWidgets import QInputDialog
+        from PySide6.QtGui import QColor
+        import datetime
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        cv = getattr(vw, "canvas", None) if vw else None
+        if not cv:
+            return
+        today = datetime.date.today().strftime("%m/%d/%Y")
+        presets = [
+            f"VERIFIED FOR TAKEOFF - {today}",
+            f"HOLD FOR RFI / CLARIFICATION - {today}",
+            f"FIELD VERIFY DIMENSIONS - {today}",
+            f"APPROVED FOR FABRICATION - {today}",
+        ]
+        txt, ok = QInputDialog.getItem(self.app, "Stamp Blueprint Note", "Choose or type stamp text:", presets, 0, True)
+        if ok and txt.strip():
+            cv.markups.append({
+                "type": "text", "x": 60.0, "y": 60.0, "text": txt.strip(),
+                "color": QColor(cv.active_color), "font_family": cv.font_family,
+                "font_size": cv.font_size, "bold": True, "italic": False,
+            })
+            cv.selected_idx = len(cv.markups) - 1
+            cv.update()
+
+    def _refresh_biu_styles(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        cv = getattr(vw, "canvas", None) if vw else None
+        states = {
+            "B": bool(getattr(cv, "font_bold", True)),
+            "I": bool(getattr(cv, "font_italic", False)),
+            "U": bool(getattr(cv, "font_underline", False)),
+        }
+        for k, btn in getattr(self, "_biu_btns", {}).items():
+            on = states.get(k, False)
+            ex = btn.property("extra_css") or ""
+            bg = "#bfd7f5" if on else "transparent"
+            brd = "#0078d4" if on else "transparent"
+            btn.setStyleSheet(f"QPushButton {{ background-color: {bg} !important; border: 1px solid {brd} !important; color: #111827 !important; font-family: 'Segoe UI', Arial, sans-serif !important; font-size: 11.5px !important; {ex} border-radius: 3px; padding: 0px !important; margin: 0px !important; }} QPushButton:hover {{ background-color: #eff6fc !important; border-color: #0078d4 !important; }}")
+
+    def _toggle_bold(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        cv = getattr(vw, "canvas", None) if vw else None
+        if cv:
+            cv.font_bold = not getattr(cv, "font_bold", True)
+            if 0 <= cv.selected_idx < len(cv.markups) and cv.markups[cv.selected_idx].get("type") == "text":
+                cv.markups[cv.selected_idx]["bold"] = cv.font_bold
+            if cv._inline_editor.isVisible(): cv._apply_inline_style()
+            cv.update()
+        self._refresh_biu_styles()
+
+    def _toggle_italic(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        cv = getattr(vw, "canvas", None) if vw else None
+        if cv:
+            cv.font_italic = not getattr(cv, "font_italic", False)
+            if 0 <= cv.selected_idx < len(cv.markups) and cv.markups[cv.selected_idx].get("type") == "text":
+                cv.markups[cv.selected_idx]["italic"] = cv.font_italic
+            if cv._inline_editor.isVisible(): cv._apply_inline_style()
+            cv.update()
+        self._refresh_biu_styles()
+
+    def _toggle_underline(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        cv = getattr(vw, "canvas", None) if vw else None
+        if cv:
+            cv.font_underline = not getattr(cv, "font_underline", False)
+            if cv._inline_editor.isVisible(): cv._apply_inline_style()
+            cv.update()
+        self._refresh_biu_styles()
+
+    def _set_vw_prop(self, widget_attr, val):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        if vw and hasattr(vw, widget_attr):
+            getattr(vw, widget_attr).setValue(val)
+
+    def _apply_tool_chest(self, hex_c, lw, mode_name):
+        self._set_vw_color(hex_c)
+        self._set_vw_prop("line_width_spin", lw)
+        self._vis_mode(mode_name)
+
+    def _arm_pen(self, hex_c, mode_name="line"):
+        self._set_vw_color(hex_c)
+        self._vis_mode(mode_name)
+
+    def _set_vw_color(self, hex_c):
+        from PySide6.QtGui import QColor
+        qc = QColor(hex_c)
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        if vw:
+            if hasattr(vw, "_set_canvas_pen"):
+                vw._set_canvas_pen(qc)
+            if hasattr(vw, "canvas"):
+                vw.canvas.fill_color = QColor(qc)
+
+    def _pick_ribbon_color_before_use(self):
+        from PySide6.QtWidgets import QColorDialog
+        from PySide6.QtGui import QColor
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        vw = getattr(pt, "vis_workspace", None) if pt else None
+        cur = vw.canvas.active_color if (vw and hasattr(vw, "canvas")) else QColor("#111827")
+        chosen = QColorDialog.getColor(cur, self.app, "Pick Color Before Using Tool")
+        if chosen.isValid():
+            self._set_vw_color(chosen.name())
+
+    def _vis_click(self, attr):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt is not None:
+            if hasattr(pt, "btn_tab_vis"):
+                pt.btn_tab_vis.click()
+            vw = getattr(pt, "vis_workspace", None)
+            if vw is not None and hasattr(vw, attr):
+                getattr(vw, attr).click()
+
+    def _tk_click(self, a):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt is not None and hasattr(pt, a): getattr(pt, a).click()
+    def _t2(self, fn):
+        t = getattr(self.app, "custom_quoting_tab", None)
+        if t is not None: fn(t)
+    def _t3(self, fn):
+        t = getattr(self.app, "custom_ledger_tab", None)
+        if t is not None: fn(t)
+    def _t4(self, fn):
+        if not self._is_admin_unlocked(): return
+        t = getattr(self.app, "custom_admin_tab", None)
+        if t is not None: fn(t)
+
+    def _act_reset_sheet(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt and hasattr(pt, "reset_to_blank_sheet"):
+            pt.reset_to_blank_sheet()
+
+    def _act_load_pdf(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt and hasattr(pt, "load_new_pdf_planset"): pt.load_new_pdf_planset()
+    def _act_scan_pdf(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt and hasattr(pt, "btn_scan_pg"): pt.btn_scan_pg.click()
+    def _act_send_bom(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt and hasattr(pt, "_accept_checked"):
+            pt._accept_checked()
+    def _open_in_adobe_acrobat(self):
+        import os, subprocess
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        pdf_p = getattr(pt, "pdf_path", "") if pt else ""
+        if not pdf_p or not os.path.exists(pdf_p):
+            QMessageBox.information(self.app, "No PDF Loaded", "Load a PDF planset first to open it in Adobe Acrobat.")
+            return
+        acro = r"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe"
+        if os.path.exists(acro):
+            subprocess.Popen([acro, pdf_p])
+        else:
+            os.startfile(pdf_p)
+
+    def _open_ledger_in_excel(self):
+        import os, csv, tempfile, subprocess
+        quotes = getattr(self.app, "custom_ledger_pool", [])
+        if not quotes:
+            QMessageBox.information(self.app, "Empty Ledger", "No quotes logged in the Project Ledger yet.")
+            return
+        tmp_csv = os.path.join(tempfile.gettempdir(), "Bowman_Morton_Project_Ledger.csv")
+        with open(tmp_csv, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(["Quote ID", "Date", "Customer", "Project", "Weight (lbs)", "Total Quoted ($)"])
+            for q in quotes:
+                w.writerow([q.get("id", ""), q.get("timestamp", ""), q.get("customer", ""), q.get("project", ""), q.get("weight", 0), q.get("cost", 0)])
+        xl = r"C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE"
+        if os.path.exists(xl):
+            subprocess.Popen([xl, tmp_csv])
+        else:
+            os.startfile(tmp_csv)
+
+    def _act_analytics(self):
+        if hasattr(self.app, "open_ledger_analytics_dashboard"): self.app.open_ledger_analytics_dashboard()
+    def _open_trig_studio(self, tab_idx=0):
+        from PySide6.QtGui import QColor
+        import engineering_math_dialog as emd
+        def _stamp_cb(summary_txt):
+            pt = getattr(self.app, "planset_takeoff_tab", None)
+            vw = getattr(pt, "vis_workspace", None) if pt else None
+            cv = getattr(vw, "canvas", None) if vw else None
+            if cv:
+                cv.markups.append({
+                    "type": "text", "x": 72.0, "y": 84.0, "text": summary_txt,
+                    "color": QColor(cv.active_color), "font_family": cv.font_family,
+                    "font_size": cv.font_size, "bold": True, "italic": False,
+                })
+                cv.selected_idx = len(cv.markups) - 1
+                cv.update()
+        dlg = emd.EngineeringTrigGeometryDialog(on_stamp_note=_stamp_cb, parent=self.app)
+        dlg.tabs.setCurrentIndex(tab_idx)
+        dlg.exec()
+
+    def _act_calc(self): _QuickEstimatorCalcDialog(self.app).exec()
+    def _toggle_tool_palette(self):
+        if not hasattr(self, "_tool_palette") or self._tool_palette is None:
+            self._tool_palette = FloatingSteelToolPalette(self, self.app)
+        if self._tool_palette.isVisible():
+            self._tool_palette.hide()
+        else:
+            g = self.app.frameGeometry()
+            self._tool_palette.move(g.right() - 210, g.top() + 210)
+            self._tool_palette.show()
+            self._tool_palette.raise_()
+
+    def _act_dev(self):
+        if hasattr(self.app, "open_developer_code_studio"): self.app.open_developer_code_studio()
+    def _act_dl_tpl(self):
+        if not self._is_admin_unlocked(): return
+        cad = getattr(self.app, "catalog_admin_embedded", None)
+        if cad: cad.admin_download_card_excel_template()
+    def _act_imp_xl(self):
+        if not self._is_admin_unlocked(): return
+        cad = getattr(self.app, "catalog_admin_embedded", None)
+        if cad: cad.admin_bulk_import_excel_sheet()

@@ -1,0 +1,947 @@
+from PySide6.QtWidgets import QPlainTextEdit
+import math
+import re
+import pymupdf
+from PySide6.QtCore import Qt, QRect, QPoint, QPointF, QSize
+from PySide6.QtGui import QColor, QPainter, QPen, QFont, QImage, QPixmap, QIcon
+from PySide6.QtWidgets import (
+    QWidget, QLabel, QPushButton, QComboBox, QLineEdit, QScrollArea,
+    QVBoxLayout, QHBoxLayout, QInputDialog, QFrame,
+    QListWidget, QListWidgetItem, QColorDialog, QFontComboBox, QSpinBox
+)
+
+def make_swatch_icon(hex_or_qcolor, size=14):
+    qc = QColor(hex_or_qcolor)
+    pm = QPixmap(size, size)
+    pm.fill(Qt.transparent)
+    pt = QPainter(pm)
+    pt.setRenderHint(QPainter.Antialiasing, True)
+    pt.setBrush(qc)
+    pt.setPen(QPen(QColor("#ffffff"), 1.2))
+    pt.drawRoundedRect(1, 1, size - 2, size - 2, 3, 3)
+    pt.end()
+    return QIcon(pm)
+
+class CadBlueprintCanvas(QLabel):
+    def __init__(self, on_box_selected, on_span_measured, on_count_changed=None, on_calibrated=None, on_status_msg=None, scroll_area=None, parent=None):
+        super().__init__(parent)
+        self.on_box_selected = on_box_selected
+        self.on_span_measured = on_span_measured
+        self.on_count_changed = on_count_changed
+        self.on_calibrated = on_calibrated
+        self.on_status_msg = on_status_msg
+        self.scroll_area = scroll_area
+
+        self.mode = "pan"
+        self.pts_per_ft = 18.0
+        self.render_dpi = 150.0
+        self.zoom = 1.0
+        self.active_color = QColor("#0284c7")
+        self.font_family = "Arial"
+        self.font_size = 18
+        self.font_bold = True
+        self.font_italic = False
+
+        self._base_pix = None
+        self._drag_start = None
+        self._drag_cur = None
+        self._p1 = None
+        self._p2 = None
+        self._hover_pt = None
+        self._panning = False
+        self._pan_origin = None
+
+        self.markups = []
+        self.selected_idx = -1
+        self._dragging_selected = False
+        self._drag_last_pdf = None
+
+        self.legend_pdf_pos = [18.0, 18.0]
+        self._legend_rect_px = QRect()
+        self._dragging_legend = False
+        self._legend_drag_offset = QPoint()
+
+        class _CanvasNoteEditor(QPlainTextEdit):
+            def __init__(self, canvas_ref):
+                super().__init__(canvas_ref)
+                self._c = canvas_ref
+                self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                self.setFrameShape(QFrame.NoFrame)
+            def keyPressEvent(self, ev):
+                if ev.key() in (Qt.Key_Return, Qt.Key_Enter) and (ev.modifiers() & Qt.ControlModifier):
+                    self._c._commit_inline_text()
+                    ev.accept()
+                    return
+                if ev.key() == Qt.Key_Escape:
+                    self.hide()
+                    ev.accept()
+                    return
+                super().keyPressEvent(ev)
+
+        self._inline_editor = _CanvasNoteEditor(self)
+        self._inline_editor.hide()
+        self._inline_editor.textChanged.connect(self._resize_inline_editor)
+        self._inline_pdf_pt = (0.0, 0.0)
+
+        self.key_highlights = []
+        self.legend_entries = []
+
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.setMouseTracking(True)
+        self.setCursor(Qt.OpenHandCursor)
+        self.setStyleSheet("background-color: #090d16; border: 1px solid #334155;")
+
+    def _current_qfont(self, scale_with_zoom=True):
+        pt_sz = max(7, int(round(self.font_size * (self.zoom if scale_with_zoom else 1.0))))
+        f = QFont(self.font_family, pt_sz)
+        f.setBold(self.font_bold)
+        f.setItalic(self.font_italic)
+        return f
+
+    def _apply_inline_style(self):
+        c_hex = self.active_color.name()
+        wt = "bold" if self.font_bold else "normal"
+        st = "italic" if self.font_italic else "normal"
+        pt_sz = max(8, int(round(self.font_size * self.zoom)))
+        self._inline_editor.setFont(self._current_qfont(True))
+        self._inline_editor.setStyleSheet(
+            f"QPlainTextEdit {{ background-color: transparent !important; border: none !important; "
+            f"color: {c_hex} !important; font-family: '{self.font_family}'; "
+            f"font-size: {pt_sz}pt; font-weight: {wt}; font-style: {st}; padding: 0px; }}"
+        )
+
+    def _resize_inline_editor(self):
+        fm = self._inline_editor.fontMetrics()
+        lines = self._inline_editor.toPlainText().split("\n") or [""]
+        max_w = max(fm.horizontalAdvance(ln + "  ") for ln in lines)
+        w = max(180, max_w + 28)
+        h = max(30, len(lines) * (fm.lineSpacing() + 2) + 12)
+        self._inline_editor.resize(w, h)
+
+    def _start_inline_text(self, qpos, initial_text=""):
+        if self._inline_editor.isVisible():
+            self._commit_inline_text()
+        self._inline_pdf_pt = self._to_pdf_pt(qpos)
+        self._inline_editor.setPlainText(initial_text)
+        self._apply_inline_style()
+        self._resize_inline_editor()
+        self._inline_editor.move(max(4, qpos.x()), max(4, qpos.y() - 14))
+        self._inline_editor.show()
+        self._inline_editor.setFocus()
+
+    def _commit_inline_text(self):
+        if not self._inline_editor.isVisible():
+            return
+        txt = self._inline_editor.toPlainText().strip()
+        self._inline_editor.hide()
+        if txt:
+            px, py = self._inline_pdf_pt
+            self.markups.append({
+                "type": "text", "x": px, "y": py, "text": txt,
+                "color": QColor(self.active_color),
+                "font_family": self.font_family, "font_size": self.font_size,
+                "bold": self.font_bold, "italic": self.font_italic,
+            })
+            self.selected_idx = len(self.markups) - 1
+            self.update()
+
+    def set_interaction_mode(self, mode):
+        if self._inline_editor.isVisible():
+            self._commit_inline_text()
+        self.mode = mode
+        self._drag_start = None
+        self._drag_cur = None
+        self._p1 = None
+        self._p2 = None
+        self._panning = False
+        self.setCursor(Qt.OpenHandCursor if mode == "pan" else (Qt.ArrowCursor if mode == "select" else (Qt.IBeamCursor if mode == "text" else Qt.CrossCursor)))
+        self.update()
+
+    def delete_selected_markup(self):
+        if 0 <= self.selected_idx < len(self.markups):
+            removed = self.markups.pop(self.selected_idx)
+            self.selected_idx = -1
+            if removed.get("type") == "count" and self.on_count_changed:
+                self.on_count_changed(sum(1 for m in self.markups if m.get("type") == "count"))
+            self.update()
+
+    def undo_last_markup(self):
+        if self._inline_editor.isVisible():
+            self._inline_editor.hide()
+            return
+        if self.markups:
+            removed = self.markups.pop()
+            self.selected_idx = -1
+            if removed.get("type") == "count" and self.on_count_changed:
+                self.on_count_changed(sum(1 for m in self.markups if m.get("type") == "count"))
+            self.update()
+
+    def clear_markups(self):
+        self._inline_editor.hide()
+        self.markups.clear()
+        self.selected_idx = -1
+        self._p1 = None
+        self._p2 = None
+        if self.on_count_changed:
+            self.on_count_changed(0)
+        self.update()
+
+    def keyPressEvent(self, ev):
+        if ev.key() in (Qt.Key_Delete, Qt.Key_Backspace) and not self._inline_editor.isVisible():
+            if self.selected_idx >= 0:
+                self.delete_selected_markup()
+                ev.accept()
+                return
+        elif ev.key() == Qt.Key_Escape and self._inline_editor.isVisible():
+            self._inline_editor.hide()
+            ev.accept()
+            return
+        super().keyPressEvent(ev)
+
+    def _hit_test_markup(self, qpt):
+        for i in range(len(self.markups) - 1, -1, -1):
+            m = self.markups[i]
+            mt = m.get("type")
+            if mt == "count":
+                c = self._from_pdf_pt(m["x"], m["y"])
+                if math.hypot(qpt.x() - c.x(), qpt.y() - c.y()) <= 15.0:
+                    return i
+            elif mt == "text":
+                t0 = self._from_pdf_pt(m["x"], m["y"])
+                w_est = max(60, len(m.get("text", "")) * int(m.get("font_size", 13) * self.zoom * 0.85))
+                h_est = max(22, int(m.get("font_size", 13) * self.zoom * 1.8))
+                if QRect(t0.x() - 6, t0.y() - h_est, w_est + 12, h_est + 10).contains(qpt):
+                    return i
+            elif mt == "span":
+                a, b = self._from_pdf_pt(m["x1"], m["y1"]), self._from_pdf_pt(m["x2"], m["y2"])
+                abx, aby = float(b.x() - a.x()), float(b.y() - a.y())
+                ab2 = abx * abx + aby * aby
+                if ab2 > 1.0:
+                    t = max(0.0, min(1.0, ((qpt.x() - a.x()) * abx + (qpt.y() - a.y()) * aby) / ab2))
+                    if math.hypot(qpt.x() - (a.x() + t * abx), qpt.y() - (a.y() + t * aby)) <= 10.0:
+                        return i
+        return -1
+
+    def set_color_key_overlays(self, highlights, legend_entries):
+        self.key_highlights = highlights or []
+        self.legend_entries = legend_entries or []
+        self.update()
+
+    def load_pixmap(self, qpix, render_dpi=150.0, page_markups=None):
+        self._inline_editor.hide()
+        self._base_pix = qpix
+        self.render_dpi = float(render_dpi)
+        self.selected_idx = -1
+        if page_markups is not None:
+            self.markups = page_markups
+        self._apply_zoom()
+
+    def fit_to_viewport(self):
+        if not self._base_pix or self._base_pix.isNull() or not self.scroll_area:
+            return
+        vw = max(200, self.scroll_area.viewport().width() - 24)
+        vh = max(200, self.scroll_area.viewport().height() - 24)
+        self.zoom = max(0.25, min(2.5, min(vw / float(self._base_pix.width()), vh / float(self._base_pix.height()))))
+        self._apply_zoom()
+
+    def set_zoom(self, z, anchor_vp=None):
+        old_z = self.zoom
+        new_z = max(0.25, min(3.5, float(z)))
+        if abs(new_z - old_z) < 1e-4:
+            return
+        self.zoom = new_z
+        self._apply_zoom()
+        if self.scroll_area and anchor_vp is not None:
+            hbar, vbar = self.scroll_area.horizontalScrollBar(), self.scroll_area.verticalScrollBar()
+            ratio = new_z / old_z
+            hbar.setValue(int((hbar.value() + anchor_vp.x()) * ratio - anchor_vp.x()))
+            vbar.setValue(int((vbar.value() + anchor_vp.y()) * ratio - anchor_vp.y()))
+
+    def _apply_zoom(self):
+        if not self._base_pix or self._base_pix.isNull():
+            return
+        w, h = max(1, int(self._base_pix.width() * self.zoom)), max(1, int(self._base_pix.height() * self.zoom))
+        self.setPixmap(self._base_pix.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.resize(w, h)
+        self.update()
+
+    def _to_pdf_pt(self, qpt):
+        sc = 72.0 / (self.render_dpi * self.zoom)
+        return float(qpt.x()) * sc, float(qpt.y()) * sc
+
+    def _from_pdf_pt(self, px, py):
+        inv = (self.render_dpi * self.zoom) / 72.0
+        return QPoint(int(round(px * inv)), int(round(py * inv)))
+
+    @staticmethod
+    def _format_ft_in(ft_val):
+        wf = int(ft_val)
+        inc = round((ft_val - wf) * 12.0)
+        if inc == 12:
+            wf += 1
+            inc = 0
+        return f"{wf}'-{inc}\""
+
+    def _snap_ortho(self, p1, p2, shift_held):
+        if not shift_held or p1 is None or p2 is None:
+            return p2
+        dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
+        rad = math.radians(round(math.degrees(math.atan2(dy, dx)) / 45.0) * 45.0)
+        dist = math.hypot(dx, dy)
+        return QPoint(int(round(p1.x() + dist * math.cos(rad))), int(round(p1.y() + dist * math.sin(rad))))
+
+    def wheelEvent(self, ev):
+        if not self.scroll_area:
+            super().wheelEvent(ev)
+            return
+        delta, mods = ev.angleDelta().y(), ev.modifiers()
+        if mods & Qt.ControlModifier:
+            step = 1.15 if delta > 0 else (1.0 / 1.15)
+            pos = ev.position().toPoint() if hasattr(ev, "position") else ev.pos()
+            self.set_zoom(self.zoom * step, anchor_vp=self.mapTo(self.scroll_area.viewport(), pos))
+            ev.accept()
+        elif mods & Qt.ShiftModifier:
+            self.scroll_area.horizontalScrollBar().setValue(self.scroll_area.horizontalScrollBar().value() - delta)
+            ev.accept()
+        else:
+            self.scroll_area.verticalScrollBar().setValue(self.scroll_area.verticalScrollBar().value() - delta)
+            ev.accept()
+
+    def mouseDoubleClickEvent(self, ev):
+        pos = ev.position().toPoint() if hasattr(ev, "position") else ev.pos()
+        hit = self._hit_test_markup(pos)
+        if 0 <= hit < len(self.markups) and self.markups[hit].get("type") == "text":
+            m = self.markups.pop(hit)
+            self.selected_idx = -1
+            self.active_color = QColor(m.get("color", self.active_color))
+            self.font_family = m.get("font_family", self.font_family)
+            self.font_size = int(m.get("font_size", self.font_size))
+            self.font_bold = bool(m.get("bold", True))
+            self._start_inline_text(self._from_pdf_pt(m["x"], m["y"]), initial_text=m.get("text", ""))
+            ev.accept()
+            return
+        super().mouseDoubleClickEvent(ev)
+
+    def mousePressEvent(self, ev):
+        if not self._base_pix:
+            return
+        btn = ev.button()
+        pos = ev.position().toPoint() if hasattr(ev, "position") else ev.pos()
+        gpos = ev.globalPosition().toPoint() if hasattr(ev, "globalPosition") else ev.globalPos()
+        shift_held = bool(ev.modifiers() & Qt.ShiftModifier)
+
+        if btn == Qt.LeftButton and self.legend_entries and self._legend_rect_px.contains(pos):
+            self._dragging_legend = True
+            self._legend_drag_offset = pos - self._legend_rect_px.topLeft()
+            self.setCursor(Qt.ClosedHandCursor)
+            ev.accept()
+            return
+
+        if self._inline_editor.isVisible():
+            self._commit_inline_text()
+
+        if btn in (Qt.MiddleButton, Qt.RightButton) or (btn == Qt.LeftButton and self.mode == "pan"):
+            self._panning = True
+            self._pan_origin = gpos
+            self.setCursor(Qt.ClosedHandCursor)
+            ev.accept()
+            return
+        if btn != Qt.LeftButton:
+            return
+
+        if self.mode == "select":
+            self.selected_idx = self._hit_test_markup(pos)
+            if self.selected_idx >= 0:
+                self._dragging_selected = True
+                self._drag_last_pdf = self._to_pdf_pt(pos)
+                self.setCursor(Qt.SizeAllCursor)
+            self.setFocus()
+        elif self.mode == "text":
+            self._start_inline_text(pos)
+            return
+        elif self.mode == "box":
+            self._drag_start = pos
+            self._drag_cur = pos
+        elif self.mode == "count":
+            px, py = self._to_pdf_pt(pos)
+            cnt_num = sum(1 for m in self.markups if m.get("type") == "count") + 1
+            self.markups.append({"type": "count", "x": px, "y": py, "num": cnt_num, "color": QColor(self.active_color)})
+            if self.on_count_changed:
+                self.on_count_changed(cnt_num)
+        elif self.mode in ("measure", "calibrate"):
+            if self._p1 is None or self._p2 is not None:
+                self._p1 = pos
+                self._p2 = None
+            else:
+                self._p2 = self._snap_ortho(self._p1, pos, shift_held)
+                x1, y1 = self._to_pdf_pt(self._p1)
+                x2, y2 = self._to_pdf_pt(self._p2)
+                pdf_pts = math.hypot(x2 - x1, y2 - y1)
+                if self.mode == "calibrate":
+                    if self.on_calibrated and pdf_pts > 5.0:
+                        self.on_calibrated(pdf_pts)
+                else:
+                    dist_ft = round((pdf_pts / max(1.0, self.pts_per_ft)) * 4.0) / 4.0
+                    self.markups.append({"type": "span", "x1": x1, "y1": y1, "x2": x2, "y2": y2, "label": self._format_ft_in(dist_ft), "ft": dist_ft, "color": QColor(self.active_color)})
+                    self.on_span_measured(dist_ft)
+                self._p1 = None
+                self._p2 = None
+        self.update()
+
+    def mouseMoveEvent(self, ev):
+        pos = ev.position().toPoint() if hasattr(ev, "position") else ev.pos()
+        gpos = ev.globalPosition().toPoint() if hasattr(ev, "globalPosition") else ev.globalPos()
+        shift_held = bool(ev.modifiers() & Qt.ShiftModifier)
+        self._hover_pt = self._snap_ortho(self._p1, pos, shift_held) if (self.mode in ("measure", "calibrate") and self._p1) else pos
+
+        if self._dragging_legend:
+            new_tl = pos - self._legend_drag_offset
+            px, py = self._to_pdf_pt(QPoint(max(4, new_tl.x()), max(4, new_tl.y())))
+            self.legend_pdf_pos = [px, py]
+            self.update()
+            return
+
+        if self._dragging_selected and 0 <= self.selected_idx < len(self.markups) and self._drag_last_pdf:
+            cx, cy = self._to_pdf_pt(pos)
+            lx, ly = self._drag_last_pdf
+            dx, dy = cx - lx, cy - ly
+            self._drag_last_pdf = (cx, cy)
+            m = self.markups[self.selected_idx]
+            if m.get("type") == "span":
+                m["x1"] += dx; m["y1"] += dy; m["x2"] += dx; m["y2"] += dy
+            else:
+                m["x"] += dx; m["y"] += dy
+            self.update()
+            return
+
+        if self._panning and self._pan_origin is not None and self.scroll_area:
+            diff = gpos - self._pan_origin
+            self._pan_origin = gpos
+            self.scroll_area.horizontalScrollBar().setValue(self.scroll_area.horizontalScrollBar().value() - diff.x())
+            self.scroll_area.verticalScrollBar().setValue(self.scroll_area.verticalScrollBar().value() - diff.y())
+            ev.accept()
+            return
+
+        if self.legend_entries and self._legend_rect_px.contains(pos):
+            self.setCursor(Qt.OpenHandCursor)
+        elif not self._panning and not self._dragging_selected:
+            self.setCursor(Qt.OpenHandCursor if self.mode == "pan" else (Qt.ArrowCursor if self.mode == "select" else (Qt.IBeamCursor if self.mode == "text" else Qt.CrossCursor)))
+
+        if (self.mode == "box" and self._drag_start is not None) or (self.mode in ("measure", "calibrate") and self._p1 is not None):
+            self.update()
+
+    def mouseReleaseEvent(self, ev):
+        if self._dragging_legend or self._dragging_selected or self._panning:
+            self._dragging_legend = False
+            self._dragging_selected = False
+            self._panning = False
+            self._pan_origin = None
+            self.setCursor(Qt.OpenHandCursor if self.mode == "pan" else (Qt.ArrowCursor if self.mode == "select" else (Qt.IBeamCursor if self.mode == "text" else Qt.CrossCursor)))
+            ev.accept()
+            return
+        if ev.button() == Qt.LeftButton and self.mode == "box" and self._drag_start and self._drag_cur:
+            x0, y0 = self._to_pdf_pt(self._drag_start)
+            x1, y1 = self._to_pdf_pt(self._drag_cur)
+            rx0, rx1, ry0, ry1 = min(x0, x1), max(x0, x1), min(y0, y1), max(y0, y1)
+            self._drag_start = None
+            self._drag_cur = None
+            self.update()
+            if (rx1 - rx0) > 15.0 and (ry1 - ry0) > 15.0:
+                self.on_box_selected(pymupdf.Rect(rx0, ry0, rx1, ry1))
+
+    def _draw_cad_dimension(self, painter, qp1, qp2, label_str, color, selected=False):
+        dx, dy = float(qp2.x() - qp1.x()), float(qp2.y() - qp1.y())
+        length = math.hypot(dx, dy)
+        if length < 2.0:
+            return
+        ux, uy = dx / length, dy / length
+        nx, ny = -uy, ux
+        if selected:
+            painter.setPen(QPen(QColor("#fde047"), 6.0))
+            painter.drawLine(qp1, qp2)
+        painter.setPen(QPen(color, 2.2))
+        painter.drawLine(qp1, qp2)
+        ext, slash = 8.0, 6.0
+        sx, sy = (ux + nx) * slash * 0.7071, (uy + ny) * slash * 0.7071
+        for pt in (qp1, qp2):
+            painter.drawLine(QPointF(pt.x() - nx * ext, pt.y() - ny * ext), QPointF(pt.x() + nx * ext, pt.y() + ny * ext))
+            painter.drawLine(QPointF(pt.x() - sx, pt.y() - sy), QPointF(pt.x() + sx, pt.y() + sy))
+        mx, my = (qp1.x() + qp2.x()) * 0.5, (qp1.y() + qp2.y()) * 0.5
+        ang = math.degrees(math.atan2(dy, dx))
+        if ang > 90.0: ang -= 180.0
+        elif ang < -90.0: ang += 180.0
+        painter.save()
+        painter.translate(mx, my)
+        painter.rotate(ang)
+        painter.setFont(QFont("Cascadia Mono", 10, QFont.Bold))
+        tw = painter.fontMetrics().horizontalAdvance(label_str)
+        tx, ty = int(-tw * 0.5), -6
+        painter.setPen(QPen(QColor(255, 255, 255, 235), 1))
+        for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            painter.drawText(tx + ox, ty + oy, label_str)
+        painter.setPen(QPen(color.darker(115) if color.lightness() > 170 else color, 1))
+        painter.drawText(tx, ty, label_str)
+        painter.restore()
+
+    def paintEvent(self, ev):
+        super().paintEvent(ev)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+
+        for hl in self.key_highlights:
+            col = hl["color"]
+            x0, y0, x1, y1 = hl["rect"]
+            p.setBrush(QColor(col.red(), col.green(), col.blue(), 65))
+            p.setPen(QPen(col, 2))
+            p.drawRoundedRect(QRect(self._from_pdf_pt(x0, y0), self._from_pdf_pt(x1, y1)).adjusted(-3, -2, 3, 2), 3, 3)
+            if hl.get("seg"):
+                sx1, sy1, sx2, sy2 = hl["seg"]
+                p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), 190), 5, Qt.SolidLine, Qt.RoundCap))
+                p.drawLine(self._from_pdf_pt(sx1, sy1), self._from_pdf_pt(sx2, sy2))
+
+        for idx, m in enumerate(self.markups):
+            is_sel = (idx == self.selected_idx)
+            mtype = m.get("type")
+            col = m.get("color", self.active_color)
+            if mtype == "span":
+                self._draw_cad_dimension(p, self._from_pdf_pt(m["x1"], m["y1"]), self._from_pdf_pt(m["x2"], m["y2"]), m["label"], col, selected=is_sel)
+            elif mtype == "count":
+                qpc = self._from_pdf_pt(m["x"], m["y"])
+                badge = QRect(qpc.x() - 11, qpc.y() - 11, 22, 22)
+                p.setBrush(col)
+                p.setPen(QPen(QColor("#fde047") if is_sel else QColor("#ffffff"), 3 if is_sel else 2))
+                p.drawEllipse(badge)
+                p.setFont(QFont("Cascadia Mono", 9, QFont.Bold))
+                p.drawText(badge, Qt.AlignCenter, str(m["num"]))
+            elif mtype == "text":
+                qpt = self._from_pdf_pt(m["x"], m["y"])
+                pt_sz = max(7, int(round(int(m.get("font_size", 13)) * self.zoom)))
+                f_obj = QFont(m.get("font_family", "Arial"), pt_sz)
+                f_obj.setBold(bool(m.get("bold", True)))
+                f_obj.setItalic(bool(m.get("italic", False)))
+                p.setFont(f_obj)
+                txt = m["text"]
+                if is_sel:
+                    fm = p.fontMetrics()
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(QColor("#fde047"), 2, Qt.DashLine))
+                    p.drawRect(QRect(qpt.x() - 4, qpt.y() - fm.ascent() - 2, fm.horizontalAdvance(txt) + 8, fm.height() + 4))
+                fm_t = p.fontMetrics()
+                for li, line_s in enumerate(txt.split("\n")):
+                    ly = qpt.y() + li * (fm_t.lineSpacing() + 2)
+                    p.setPen(QPen(QColor(255, 255, 255, 235), 1))
+                    for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        p.drawText(qpt.x() + ox, ly + oy, line_s)
+                    p.setPen(QPen(col.darker(115) if col.lightness() > 170 else col, 1))
+                    p.drawText(qpt.x(), ly, line_s)
+
+        if self.mode == "box" and self._drag_start and self._drag_cur:
+            p.setBrush(QColor(self.active_color.red(), self.active_color.green(), self.active_color.blue(), 40))
+            p.setPen(QPen(self.active_color, 2, Qt.DashLine))
+            p.drawRect(QRect(self._drag_start, self._drag_cur).normalized())
+        elif self.mode in ("measure", "calibrate") and self._p1 and self._hover_pt:
+            x1, y1 = self._to_pdf_pt(self._p1)
+            x2, y2 = self._to_pdf_pt(self._hover_pt)
+            pts_d = math.hypot(x2 - x1, y2 - y1)
+            lbl = f"Calibrate ({pts_d:.1f} pts)" if self.mode == "calibrate" else self._format_ft_in(round((pts_d / max(1.0, self.pts_per_ft)) * 4.0) / 4.0)
+            self._draw_cad_dimension(p, self._p1, self._hover_pt, lbl, self.active_color)
+
+        if self.legend_entries:
+            p.setFont(QFont("Cascadia Mono", 9, QFont.Bold))
+            row_h = p.fontMetrics().height() + 6
+            box_w, box_h = 225, 28 + len(self.legend_entries) * row_h
+            tl = self._from_pdf_pt(self.legend_pdf_pos.__getitem__(0), self.legend_pdf_pos.__getitem__(1))
+            self._legend_rect_px = QRect(tl.x(), tl.y(), box_w, box_h)
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor("#0f172a"), 1.8))
+            p.drawRect(self._legend_rect_px)
+            p.drawLine(tl.x(), tl.y() + 23, tl.x() + box_w, tl.y() + 23)
+            p.setPen(QPen(QColor("#000000"), 1))
+            p.drawText(QRect(tl.x() + 8, tl.y() + 3, box_w - 16, 18), Qt.AlignLeft | Qt.AlignVCenter, "STEEL COLOR KEY")
+            for i, (prof, col, cnt) in enumerate(self.legend_entries):
+                ry = tl.y() + 26 + i * row_h
+                p.setBrush(col)
+                p.setPen(QPen(QColor("#0f172a"), 1.2))
+                p.drawRect(tl.x() + 10, ry + 2, 12, 12)
+                p.setPen(QPen(QColor(255, 255, 255, 230), 1))
+                for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    p.drawText(QRect(tl.x() + 28 + ox, ry + oy, box_w - 36, row_h), Qt.AlignLeft | Qt.AlignVCenter, f"{prof} ({cnt})")
+                p.setPen(QPen(QColor("#000000"), 1))
+                p.drawText(QRect(tl.x() + 28, ry, box_w - 36, row_h), Qt.AlignLeft | Qt.AlignVCenter, f"{prof} ({cnt})")
+        else:
+            self._legend_rect_px = QRect()
+        p.end()
+
+class VisualTakeoffWorkspace(QWidget):
+    SWATCH_HEXES = ["#0284c7", "#059669", "#ea580c", "#db2777", "#7c3aed", "#dc2626", "#0d9488", "#eab308"]
+
+    def __init__(self, pdf_path, steel_matrix_data, get_page_fn, on_box_ocr, on_span_measured, on_count_changed, on_calibrated, parent=None):
+        super().__init__(parent)
+        self.pdf_path = pdf_path
+        self.steel_matrix_data = steel_matrix_data
+        self.get_page_fn = get_page_fn
+        self._doc = pymupdf.open(pdf_path)
+        self.page_markups = {}
+        self.global_color_key = {}
+        self.sheet_color_keys = {}
+
+        self.setStyleSheet(self.styleSheet() + """
+            QToolTip {
+                background-color: #0f172a;
+                color: #f8fafc;
+                border: 2px solid #38bdf8;
+                border-radius: 6px;
+                padding: 8px 10px;
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 13px;
+                font-weight: 600;
+            }
+        """)
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 4, 0, 0)
+        outer.setSpacing(8)
+
+        left_w = QWidget()
+        left_l = QVBoxLayout(left_w)
+        left_l.setContentsMargins(0, 0, 0, 0)
+        left_l.setSpacing(5)
+
+        def _make_ribbon_group(title_text, accent_hex="#0284c7"):
+            box = QFrame()
+            box.setStyleSheet(
+                f"QFrame {{ background-color: #cfe4fa; border: 1px solid #60a5fa; border-top: 3px solid {accent_hex}; border-radius: 6px; }} "
+                f"QLabel {{ color: #0f172a; font-weight: bold; background: transparent; border: none; }} "
+                f"QPushButton {{ background-color: #e8f3fe; border: 1px solid #60a5fa; color: #0f172a; font-weight: bold; padding: 5px 9px; border-radius: 5px; }} "
+                f"QPushButton:hover {{ background-color: #dbeafe; border-color: {accent_hex}; color: #0f172a; }} "
+                f"QComboBox, QFontComboBox, QSpinBox {{ background-color: #ffffff; color: #0f172a; border: 1px solid #60a5fa; border-radius: 5px; padding: 4px 6px; font-weight: bold; }}"
+            )
+            vl = QVBoxLayout(box)
+            vl.setContentsMargins(8, 6, 8, 4)
+            vl.setSpacing(4)
+            row = QHBoxLayout()
+            row.setSpacing(5)
+            vl.addLayout(row)
+            cap = QLabel(title_text)
+            cap.setAlignment(Qt.AlignCenter)
+            cap.setStyleSheet("color: #334155; font-size: 10px; font-weight: 800; letter-spacing: 0.6px; border: none; background: transparent;")
+            vl.addWidget(cap)
+            return box, row
+
+        ribbon = QHBoxLayout()
+        ribbon.setSpacing(6)
+
+        # Group 1: NAVIGATION
+        g_nav, r_nav = _make_ribbon_group("NAVIGATION", "#38bdf8")
+        self.btn_pan = QPushButton("Hand Pan")
+        self.btn_pan.setToolTip("<b>Hand Pan</b><br>Click and drag to slide around the blueprint.<br><i>Tip: Hold Middle or Right-Click to pan in any mode.</i>")
+        btn_fit = QPushButton("Fit Page")
+        btn_fit.setToolTip("<b>Fit Page</b><br>Zoom the blueprint so the entire sheet fits cleanly inside the window.")
+        btn_zm = QPushButton("Zoom -")
+        btn_zm.setToolTip("<b>Zoom Out</b><br>Zoom out on the blueprint.<br><i>Shortcut: Ctrl + Mouse Wheel Down</i>")
+        btn_zp = QPushButton("Zoom +")
+        btn_zp.setToolTip("<b>Zoom In</b><br>Magnify blueprint details.<br><i>Shortcut: Ctrl + Mouse Wheel Up</i>")
+        for b in (self.btn_pan, btn_fit, btn_zm, btn_zp):
+            r_nav.addWidget(b)
+        ribbon.addWidget(g_nav)
+
+        # Group 2: TAKEOFF & MEASURE
+        g_tk, r_tk = _make_ribbon_group("TAKEOFF & MEASURE", "#34d399")
+        self.btn_meas = QPushButton("Measure Span")
+        self.btn_meas.setToolTip("<b>Measure Span</b><br>Click two endpoints to draw a CAD dimension line with ticks.<br><i>Hold Shift to snap straight (0?, 45?, 90?).</i>")
+        self.btn_count = QPushButton("Count Marks")
+        self.btn_count.setToolTip("<b>Count Marks</b><br>Click each beam or column on the plan to drop numbered badges and auto-fill Qty.")
+        self.btn_box = QPushButton("Box Read (OCR)")
+        self.btn_box.setToolTip("<b>Box Read (OCR)</b><br>Drag a box around unselectable SHX callouts on outlined or scanned sheets to extract steel sizes.")
+        self.btn_cal = QPushButton("Calibrate Scale")
+        self.btn_cal.setToolTip("<b>Calibrate Scale</b><br>Click two ends of a known dimension on the drawing and enter its real length in feet.")
+        self.scale_combo = QComboBox()
+        self.scale_combo.setToolTip("Drawing Scale: Select the architectural scale of this sheet for accurate span measurements.")
+        for sc_lbl, pts in [
+            ("1/4\" = 1'-0\"", 18.0), ("1/8\" = 1'-0\"", 9.0), ("3/16\" = 1'-0\"", 13.5),
+            ("3/8\" = 1'-0\"", 27.0), ("1/2\" = 1'-0\"", 36.0), ("3/4\" = 1'-0\"", 54.0), ("1\" = 1'-0\"", 72.0),
+        ]:
+            self.scale_combo.addItem(sc_lbl, pts)
+        self.scale_combo.currentIndexChanged.connect(lambda: setattr(self.canvas, "pts_per_ft", float(self.scale_combo.currentData() or 18.0)))
+        for w in (self.btn_meas, self.btn_count, self.btn_box, self.btn_cal, self.scale_combo):
+            r_tk.addWidget(w)
+        ribbon.addWidget(g_tk)
+
+        # Group 3: TEXT & STYLE
+        g_txt, r_txt = _make_ribbon_group("TEXT & STYLE", "#fbbf24")
+        self.btn_text = QPushButton("Text Type")
+        self.btn_text.setToolTip("<b>Text Type</b><br>Click anywhere on the sheet and type directly on the blueprint.<br><i>Enter = new line | Click outside = stamp note.</i>")
+        r_txt.addWidget(self.btn_text)
+
+        self.font_combo = QFontComboBox()
+        self.font_combo.setCurrentFont(QFont("Arial"))
+        self.font_combo.setMaximumWidth(130)
+        self.font_combo.setToolTip("Font Family: Choose the typeface for new or selected text callouts.")
+        r_txt.addWidget(self.font_combo)
+
+        self.font_size_spin = QSpinBox()
+        self.font_size_spin.setRange(8, 72)
+        self.font_size_spin.setValue(18)
+        self.font_size_spin.setSuffix(" pt")
+        self.font_size_spin.setToolTip("Font Size: Set text height in points for new or selected notes.")
+        r_txt.addWidget(self.font_size_spin)
+
+        bi_qss = (
+            "QPushButton { background-color: #e8f3fe; border: 1.5px solid #64748b; color: #0f172a; font-size: 14px; border-radius: 5px; padding: 0px; } "
+            "QPushButton:hover { border-color: #fbbf24; color: #ffffff; } "
+            "QPushButton:checked { background-color: #fbbf24; border: 1.5px solid #fef08a; color: #0f172a; }"
+        )
+        self.btn_bold = QPushButton("B")
+        self.btn_bold.setCheckable(True)
+        self.btn_bold.setChecked(True)
+        self.btn_bold.setFixedSize(34, 28)
+        self.btn_bold.setStyleSheet(bi_qss + " QPushButton { font-weight: 900; }")
+        self.btn_bold.setToolTip("<b>Bold (B)</b><br>Toggle bold lettering on active or selected text.")
+        r_txt.addWidget(self.btn_bold)
+
+        self.btn_italic = QPushButton("I")
+        self.btn_italic.setCheckable(True)
+        self.btn_italic.setFixedSize(34, 28)
+        self.btn_italic.setStyleSheet(bi_qss + " QPushButton { font-style: italic; font-weight: bold; font-family: 'Georgia', serif; }")
+        self.btn_italic.setToolTip("<b>Italic (I)</b><br>Toggle slanted italic lettering on active or selected text.")
+        r_txt.addWidget(self.btn_italic)
+
+        for hex_c in self.SWATCH_HEXES:
+            sw = QPushButton("")
+            sw.setFixedSize(20, 20)
+            sw.setToolTip(f"Pen Color ({hex_c}): Set color for new markups or recolor the selected markup.")
+            sw.setStyleSheet(f"QPushButton {{ background-color: {hex_c}; border: 1.5px solid #cbd5e1; border-radius: 3px; padding: 0px; }} QPushButton:hover {{ border: 2px solid #ffffff; }}")
+            sw.clicked.connect(lambda _=False, hc=hex_c: self._set_canvas_pen(QColor(hc)))
+            r_txt.addWidget(sw)
+        btn_custom_col = QPushButton("+")
+        btn_custom_col.setFixedSize(20, 20)
+        btn_custom_col.setToolTip("Custom Color: Open full color wheel to pick any custom pen color.")
+        btn_custom_col.clicked.connect(self._pick_custom_pen)
+        r_txt.addWidget(btn_custom_col)
+        ribbon.addWidget(g_txt)
+
+        # Group 4: EDIT & CLEANUP
+        g_ed, r_ed = _make_ribbon_group("EDIT & CLEANUP", "#f87171")
+        self.btn_sel = QPushButton("Select / Move")
+        self.btn_sel.setToolTip("<b>Select / Move</b><br>Click any dimension, badge, or note to select and drag it.<br><i>Double-click text to edit | Press Delete to remove.</i>")
+        btn_del_sel = QPushButton("Delete Selected")
+        btn_del_sel.setToolTip("<b>Delete Selected</b><br>Remove only the currently selected markup.<br><i>Shortcut: Delete key</i>")
+        btn_del_sel.setStyleSheet("QPushButton { border-color: #f87171; color: #f87171; } QPushButton:hover { background-color: rgba(248, 113, 113, 0.22); color: #ffffff; }")
+        btn_undo = QPushButton("Undo Last")
+        btn_undo.setToolTip("<b>Undo Last</b><br>Remove the most recent markup you placed on this sheet.")
+        btn_clr = QPushButton("Clear Sheet")
+        btn_clr.setToolTip("<b>Clear Sheet</b><br>Erase all user markups from the current sheet.")
+        for b in (self.btn_sel, btn_del_sel, btn_undo, btn_clr):
+            r_ed.addWidget(b)
+        ribbon.addWidget(g_ed)
+        ribbon.addStretch()
+        left_l.addLayout(ribbon)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(False)
+        self.canvas = CadBlueprintCanvas(
+            on_box_selected=on_box_ocr, on_span_measured=on_span_measured,
+            on_count_changed=on_count_changed, on_calibrated=on_calibrated,
+            scroll_area=self.scroll, parent=self.scroll,
+        )
+        self.scroll.setWidget(self.canvas)
+        left_l.addWidget(self.scroll, 1)
+
+        def _sync_font():
+            self.canvas.font_family = self.font_combo.currentFont().family()
+            self.canvas.font_size = int(self.font_size_spin.value())
+            self.canvas.font_bold = bool(self.btn_bold.isChecked())
+            self.canvas.font_italic = bool(self.btn_italic.isChecked())
+            if self.canvas._inline_editor.isVisible():
+                self.canvas._apply_inline_style()
+                self.canvas._resize_inline_editor()
+            if 0 <= self.canvas.selected_idx < len(self.canvas.markups):
+                m = self.canvas.markups[self.canvas.selected_idx]
+                if m.get("type") == "text":
+                    m["font_family"] = self.canvas.font_family
+                    m["font_size"] = self.canvas.font_size
+                    m["bold"] = self.canvas.font_bold
+                    m["italic"] = self.canvas.font_italic
+            self.canvas.update()
+
+        self.font_combo.currentFontChanged.connect(lambda *_: _sync_font())
+        self.font_size_spin.valueChanged.connect(lambda *_: _sync_font())
+        self.btn_bold.toggled.connect(lambda *_: _sync_font())
+        self.btn_italic.toggled.connect(lambda *_: _sync_font())
+
+        btn_del_sel.clicked.connect(self.canvas.delete_selected_markup)
+        btn_fit.clicked.connect(self.canvas.fit_to_viewport)
+        btn_zm.clicked.connect(lambda: self.canvas.set_zoom(self.canvas.zoom - 0.15))
+        btn_zp.clicked.connect(lambda: self.canvas.set_zoom(self.canvas.zoom + 0.15))
+        btn_undo.clicked.connect(self.canvas.undo_last_markup)
+        btn_clr.clicked.connect(self.canvas.clear_markups)
+        for b, m in ((self.btn_pan, "pan"), (self.btn_sel, "select"), (self.btn_meas, "measure"), (self.btn_count, "count"), (self.btn_text, "text"), (self.btn_box, "box"), (self.btn_cal, "calibrate")):
+            b.clicked.connect(lambda _=False, md=m: self.set_mode(md))
+
+        key_panel = QFrame()
+        key_panel.setFixedWidth(295)
+        key_panel.setStyleSheet("QFrame { background-color: #cfe4fa; border: 1px solid #60a5fa; border-top: 3px solid #0284c7; border-radius: 6px; } QLabel { color: #0f172a; font-weight: bold; border: none; background: transparent; } QComboBox { background-color: #ffffff; color: #0f172a; border: 1px solid #60a5fa; border-radius: 5px; padding: 4px 6px; font-weight: bold; } QPushButton { background-color: #e8f3fe; border: 1.5px solid #0284c7; color: #0f172a; font-weight: bold; border-radius: 5px; padding: 6px; } QPushButton:hover { background-color: #dbeafe; }")
+        kl = QVBoxLayout(key_panel)
+        kl.setContentsMargins(10, 10, 10, 10)
+        kl.setSpacing(8)
+
+        khdr = QLabel("STEEL MEMBER COLOR KEY")
+        khdr.setStyleSheet("color: #0369a1; font-size: 13px; font-weight: 800; border: none;")
+        kl.addWidget(khdr)
+
+        scope_row = QHBoxLayout()
+        scope_row.addWidget(QLabel("Scope:"))
+        self.key_scope_combo = QComboBox()
+        self.key_scope_combo.addItem("Whole Planset (All Sheets)", "global")
+        self.key_scope_combo.addItem("This Sheet Only", "sheet")
+        self.key_scope_combo.currentIndexChanged.connect(self._refresh_color_key_ui)
+        scope_row.addWidget(self.key_scope_combo, 1)
+        kl.addLayout(scope_row)
+
+        assign_row = QHBoxLayout()
+        self.key_prof_combo = QComboBox()
+        self.key_prof_combo.setEditable(True)
+        for sk in ("beam", "hss_tube", "angle", "channel", "pipe"):
+            for it in self.steel_matrix_data.get(sk, []):
+                if it.get("designation"):
+                    self.key_prof_combo.addItem(str(it["designation"]).upper())
+        assign_row.addWidget(self.key_prof_combo, 1)
+
+        self.key_col_combo = QComboBox()
+        self.key_col_combo.setIconSize(QSize(16, 16))
+        self.key_col_combo.setFixedWidth(54)
+        for chex in self.SWATCH_HEXES:
+            self.key_col_combo.addItem(make_swatch_icon(chex, 16), "", chex)
+        assign_row.addWidget(self.key_col_combo)
+        kl.addLayout(assign_row)
+
+        btn_assign = QPushButton("+ Assign Member to Color Key")
+        btn_assign.setStyleSheet("QPushButton { border-color: #34d399; color: #34d399; } QPushButton:hover { background-color: rgba(52, 211, 153, 0.18); color: #ffffff; }")
+        btn_assign.clicked.connect(self._assign_member_color)
+        kl.addWidget(btn_assign)
+
+        self.key_list = QListWidget()
+        self.key_list.setIconSize(QSize(14, 14))
+        self.key_list.setStyleSheet("QListWidget { background-color: #e8f3fe; color: #0f172a; border: 1px solid #60a5fa; font-weight: bold; }")
+        self.key_list.itemClicked.connect(self._on_key_item_clicked)
+        kl.addWidget(self.key_list, 1)
+
+        key_btns = QHBoxLayout()
+        btn_rm_key = QPushButton("Remove Selected")
+        btn_rm_key.setStyleSheet("QPushButton { border-color: #f87171; color: #f87171; }")
+        btn_rm_key.clicked.connect(self._remove_selected_key)
+        btn_clr_key = QPushButton("Clear Key")
+        btn_clr_key.clicked.connect(self._clear_active_key)
+        key_btns.addWidget(btn_rm_key)
+        key_btns.addWidget(btn_clr_key)
+        kl.addLayout(key_btns)
+
+        outer.addWidget(left_w, 1)
+        outer.addWidget(key_panel)
+        self.set_mode("pan")
+
+    def set_mode(self, mode):
+        self.canvas.set_interaction_mode(mode)
+        on_s = "QPushButton { background-color: #0284c7; border: 2px solid #0369a1; color: #ffffff; font-weight: bold; padding: 5px 8px; border-radius: 5px; }"
+        off_s = "QPushButton { background-color: #e8f3fe; border: 1px solid #60a5fa; color: #0f172a; font-weight: bold; padding: 5px 8px; border-radius: 5px; }"
+        for b, m in ((self.btn_pan, "pan"), (self.btn_sel, "select"), (self.btn_meas, "measure"), (self.btn_count, "count"), (self.btn_text, "text"), (self.btn_box, "box"), (self.btn_cal, "calibrate")):
+            b.setStyleSheet(on_s if mode == m else off_s)
+
+    def _set_canvas_pen(self, qc):
+        self.canvas.active_color = QColor(qc)
+        if self.canvas._inline_editor.isVisible():
+            self.canvas._apply_inline_style()
+        if 0 <= self.canvas.selected_idx < len(self.canvas.markups):
+            self.canvas.markups[self.canvas.selected_idx]["color"] = QColor(qc)
+        self.canvas.update()
+
+    def _pick_custom_pen(self):
+        qc = QColorDialog.getColor(self.canvas.active_color, self, "Choose Markup Pen Color")
+        if qc.isValid():
+            self._set_canvas_pen(qc)
+
+    def _active_key_dict(self):
+        pg = self.get_page_fn()
+        return self.sheet_color_keys.setdefault(pg, {}) if self.key_scope_combo.currentData() == "sheet" else self.global_color_key
+
+    def _effective_key_for_page(self, pg):
+        merged = dict(self.global_color_key)
+        merged.update(self.sheet_color_keys.get(pg, {}))
+        return merged
+
+    def _assign_member_color(self):
+        prof = re.sub(r"\s+", "", self.key_prof_combo.currentText().upper()).strip()
+        if not prof:
+            return
+        qc = QColor(self.key_col_combo.currentData() or "#0284c7")
+        self._active_key_dict()[prof] = qc
+        self._set_canvas_pen(qc)
+        self._refresh_color_key_ui()
+
+    def _on_key_item_clicked(self, item):
+        prof = item.data(Qt.UserRole)
+        eff = self._effective_key_for_page(self.get_page_fn())
+        if prof in eff:
+            self._set_canvas_pen(eff[prof])
+
+    def _remove_selected_key(self):
+        cur = self.key_list.currentItem()
+        if not cur:
+            return
+        prof = cur.data(Qt.UserRole)
+        self._active_key_dict().pop(prof, None)
+        self.global_color_key.pop(prof, None)
+        self._refresh_color_key_ui()
+
+    def _clear_active_key(self):
+        self._active_key_dict().clear()
+        self._refresh_color_key_ui()
+
+    def render_sheet(self, page_num):
+        pno = max(0, int(page_num) - 1)
+        if pno >= len(self._doc):
+            return
+        pg = self._doc.load_page(pno)
+        pix = pg.get_pixmap(dpi=150, alpha=False)
+        qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888).copy()
+        self.canvas.load_pixmap(QPixmap.fromImage(qimg), render_dpi=150, page_markups=self.page_markups.setdefault(page_num, []))
+        self._refresh_color_key_ui()
+
+    def _refresh_color_key_ui(self):
+        pg_num = self.get_page_fn()
+        eff_key = self._effective_key_for_page(pg_num)
+        self.key_list.clear()
+        for prof, qc in eff_key.items():
+            it = QListWidgetItem(make_swatch_icon(qc, 14), f" {prof}")
+            it.setData(Qt.UserRole, prof)
+            self.key_list.addItem(it)
+
+        highlights = []
+        counts = {p: 0 for p in eff_key}
+        if eff_key and 1 <= pg_num <= len(self._doc):
+            pg = self._doc.load_page(pg_num - 1)
+            mx = float(pg.rect.width) * 0.72
+            segs = []
+            for d in pg.get_drawings():
+                for item in d.get("items", []):
+                    if isinstance(item, tuple) and len(item) >= 3 and item.__getitem__(0) == "l":
+                        _, p1, p2 = item[:3]
+                        if p1.x < mx and p2.x < mx and math.hypot(p2.x - p1.x, p2.y - p1.y) >= 45.0:
+                            segs.append((p1.x, p1.y, p2.x, p2.y))
+            for wx0, wy0, wx1, wy1, wstr, *_ in pg.get_text("words"):
+                if wx0 >= mx:
+                    continue
+                nw = re.sub(r"\s+", "", wstr.upper())
+                if nw in eff_key:
+                    col = eff_key[nw]
+                    counts[nw] = counts.get(nw, 0) + 1
+                    cx, cy = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
+                    best_seg, best_d = None, 48.0
+                    for sx1, sy1, sx2, sy2 in segs:
+                        d_s = math.hypot(cx - (sx1 + sx2) * 0.5, cy - (sy1 + sy2) * 0.5)
+                        if d_s < best_d:
+                            best_d, best_seg = d_s, (sx1, sy1, sx2, sy2)
+                    highlights.append({"profile": nw, "color": col, "rect": (wx0, wy0, wx1, wy1), "seg": best_seg})
+
+        self.canvas.set_color_key_overlays(highlights, [(p, eff_key[p], counts.get(p, 0)) for p in eff_key])

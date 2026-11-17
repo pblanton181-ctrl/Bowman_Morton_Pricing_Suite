@@ -1,0 +1,299 @@
+{
+  "quick_access": [
+    {"id": "qa_open", "icon": "folder-open", "tip": "Open PDF Planset", "action": "_act_load_pdf"},
+    {"id": "qa_undo", "icon": "undo-2", "tip": "Undo Markup (Ctrl+Z)", "action": "canvas:undo_last_markup"},
+    {"id": "qa_export", "icon": "file-output", "tip": "Export Marked PDF", "action": "vis:_export_marked_pdf"},
+    {"id": "qa_calc", "icon": "calculator", "tip": "Shop Calculator", "action": "_act_calc"}
+  ],
+  "workspaces": [
+    {
+      "id": "takeoff",
+      "label": "Takeoff",
+      "tab_index": 0,
+      "subtabs": [
+        {
+          "label": "Takeoff & Measure",
+          "groups": [
+            {
+              "title": "Planset & BOM",
+              "items": [
+                {"type": "tile", "text": "Open\nPDF", "icon": "folder-open", "action": "_act_load_pdf"},
+                {"type": "menu_tile", "text": "Auto\nScan", "icon": "scan-search", "menu": [
+                  {"text": "Scan Current Sheet (Vector + OCR)", "icon": "scan-search", "action": "_act_scan_pdf"},
+                  {"text": "Vector Scan Full Planset (Fast)", "icon": "file-spreadsheet", "action": "_act_scan_planset_fast"},
+                  {"text": "Full OCR Scan Planset (SHX)", "icon": "file-text", "action": "_act_scan_planset_ocr"}
+                ]},
+                {"type": "tile", "text": "Send\nBOM", "icon": "table-2", "action": "_act_send_bom"},
+                {"type": "stack", "items": [
+                  {"text": "Blueprint View", "icon": "file-image", "action": "tk:btn_tab_vis"},
+                  {"text": "BOM Staging", "icon": "list-tree", "action": "tk:btn_tab_bom"},
+                  {"text": "New Blank Sheet", "icon": "file-plus", "action": "_act_reset_sheet"}
+                ]}
+              ]
+            },
+            {
+              "title": "Navigate",
+              "items": [
+                {"type": "mode_tile", "mode": "select", "text": "Select\n(V)", "icon": "mouse-pointer"},
+                {"type": "mode_tile", "mode": "pan", "text": "Pan\nHand", "icon": "hand"},
+                {"type": "tile", "text": "Fit\nPage", "icon": "maximize", "action": "vis_btn:btn_fit"}
+              ]
+            },
+            {
+              "title": "Measure & Takeoff",
+              "items": [
+                {"type": "mode_tile", "mode": "measure", "text": "Linear\nDim (M)", "icon": "ruler"},
+                {"type": "mode_tile", "mode": "area", "text": "Area &\nPerim", "icon": "pentagon"},
+                {"type": "mode_tile", "mode": "count", "text": "Count\nTag (C)", "icon": "hash"},
+                {"type": "mode_tile", "mode": "box", "text": "Box OCR\nRead", "icon": "scan"},
+                {"type": "mode_tile", "mode": "calibrate", "text": "Calibrate\nScale", "icon": "compass"}
+              ]
+            },
+            {"title": "Scale & Snaps", "custom_widget": "scale_snap_bar"},
+            {
+              "title": "Edit",
+              "items": [
+                {"type": "stack", "items": [
+                  {"text": "Clone (Ctrl+D)", "icon": "copy", "action": "canvas:duplicate_selected_markup"},
+                  {"text": "Rotate +90 deg", "icon": "rotate-cw", "action": "canvas:rotate_selected_markup"},
+                  {"text": "Delete (Del)", "icon": "trash-2", "action": "canvas:delete_selected_markup"}
+                ]},
+                {"type": "stack", "items": [
+                  {"text": "Undo (Ctrl+Z)", "icon": "undo-2", "action": "canvas:undo_last_markup"},
+                  {"text": "Clear Sheet", "icon": "eraser", "action": "canvas:clear_markups"}
+                ]}
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Markup & CAD",
+          "groups": [
+            {
+              "title": "Callouts & Notes",
+              "items": [
+                {"type": "mode_tile", "mode": "text", "text": "Text\nNote (T)", "icon": "type"},
+                {"type": "mode_tile", "mode": "callout", "text": "Callout\nBox (Q)", "icon": "message-square"},
+                {"type": "tile", "text": "Review\nStamp", "icon": "stamp", "action": "_stamp_review_note"}
+              ]
+            },
+            {
+              "title": "2D CAD & Steel Symbols",
+              "items": [
+                {"type": "mode_tile", "mode": "polyline", "text": "2D\nPolyline", "icon": "spline"},
+                {"type": "mode_tile", "mode": "weld", "text": "Weld\nSymbol", "icon": "flame"},
+                {"type": "stack", "items": [
+                  {"text": "Leader Arrow (A)", "icon": "arrow-up-right", "action": "mode:arrow"},
+                  {"text": "Straight Line (L)", "icon": "minus", "action": "mode:line"},
+                  {"text": "Grid Bubble (G)", "icon": "circle-dot", "action": "mode:grid_bubble"}
+                ]},
+                {"type": "stack", "items": [
+                  {"text": "Angle & Pitch", "icon": "triangle-right", "action": "mode:angle"},
+                  {"text": "Circle / Ring", "icon": "circle", "action": "mode:ellipse"},
+                  {"text": "Centerline (CL)", "icon": "more-horizontal", "action": "mode:centerline"}
+                ]}
+              ]
+            },
+            {
+              "title": "Clouds & Highlight",
+              "items": [
+                {"type": "mode_tile", "mode": "cloud", "text": "Rev\nCloud", "icon": "cloud"},
+                {"type": "stack", "items": [
+                  {"text": "Highlighter Pen", "icon": "highlighter", "action": "pen_yellow_hl"},
+                  {"text": "Highlight Box", "icon": "square-dashed", "action": "mode:highlight"},
+                  {"text": "Whiteout Box", "icon": "square", "action": "mode:filled_box"}
+                ]}
+              ]
+            },
+            {"title": "Appearance", "custom_widget": "font_appearance_bar"}
+          ]
+        }        ,
+        {
+          "label": "Engineering & Output",
+          "groups": [
+            {"title": "Sheet & Layers", "custom_widget": "sheet_nav_bar"},
+            {
+              "title": "Layer Visibility",
+              "items": [
+                {"type": "stack", "items": [
+                  {"text": "Toggle Dimensions", "icon": "ruler", "action": "layer:dims"},
+                  {"text": "Toggle Welds & Grid", "icon": "flame", "action": "layer:welds"},
+                  {"text": "Toggle Notes & Clouds", "icon": "type", "action": "layer:notes"}
+                ]},
+                {"type": "tile", "text": "Show\nAll", "icon": "eye", "action": "layer:all"}
+              ]
+            },
+            {
+              "title": "Trig & Geometry Studio",
+              "items": [
+                {"type": "tile", "text": "Right\nTriangle", "icon": "triangle-right", "action": "trig:0"},
+                {"type": "tile", "text": "Gusset\nPlate", "icon": "shapes", "action": "trig:1"},
+                {"type": "tile", "text": "Bolt\nCircle", "icon": "circle-dot", "action": "trig:2"},
+                {"type": "tile", "text": "Slope &\nBrace", "icon": "trending-up", "action": "trig:3"}
+              ]
+            },
+            {
+              "title": "Output & Desktop",
+              "items": [
+                {"type": "tile", "text": "Export\nPDF", "icon": "file-output", "action": "vis_btn:btn_print_pdf"},
+                {"type": "tile", "text": "Print\nSheet", "icon": "printer", "action": "vis:_print_marked_sheet"},
+                {"type": "stack", "items": [
+                  {"text": "Open in Acrobat", "icon": "external-link", "action": "_open_in_adobe_acrobat"},
+                  {"text": "Shop Calculator", "icon": "calculator", "action": "_act_calc"},
+                  {"text": "Developer Studio", "icon": "code-2", "action": "_act_dev"}
+                ]}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog",
+      "label": "Catalog",
+      "tab_index": 1,
+      "subtabs": [
+        {
+          "label": "Catalog Quote",
+          "groups": [
+            {
+              "title": "Session Actions",
+              "items": [
+                {"type": "tile", "text": "New\nQuote", "icon": "file-plus", "action": "app:clear_rfq_ledger_session"},
+                {"type": "tile", "text": "Add\nItem", "icon": "plus-circle", "action": "app:calculate_standalone_pricing"},
+                {"type": "tile", "text": "Finalize\nQuote", "icon": "check-circle", "action": "app:finalize_standard_catalog_to_ledger"},
+                {"type": "stack", "items": [
+                  {"text": "Duplicate Row", "icon": "copy", "action": "app:duplicate_selected_standard_item"},
+                  {"text": "Edit Selected", "icon": "edit-3", "action": "app:edit_selected_standard_item"},
+                  {"text": "Expand / Collapse", "icon": "chevrons-up-down", "action": "app:toggle_all_std_tree_items"}
+                ]}
+              ]
+            },
+            {
+              "title": "Client Pricing Tiers",
+              "items": [
+                {"type": "stack", "items": [
+                  {"text": "Construction Supply (50%)", "icon": "percent", "action": "tier:0"},
+                  {"text": "Lumber Yard (40%)", "icon": "percent", "action": "tier:1"},
+                  {"text": "Standard Retail (100%)", "icon": "percent", "action": "tier:2"}
+                ]}
+              ]
+            },
+            {
+              "title": "Export & Math",
+              "items": [
+                {"type": "tile", "text": "Export\nPDF", "icon": "file-output", "action": "app:trigger_save_as_file_dialog"},
+                {"type": "tile", "text": "Email\nQuote", "icon": "mail", "action": "app:trigger_email_client_package"},
+                {"type": "tile", "text": "Shop\nCalc", "icon": "calculator", "action": "_act_calc"}
+              ]
+            }
+          ]
+        }
+      ]
+    },    {
+      "id": "structural",
+      "label": "Structural",
+      "tab_index": 2,
+      "subtabs": [
+        {
+          "label": "Structural Bid",
+          "groups": [
+            {
+              "title": "Member Assembly",
+              "items": [
+                {"type": "tile", "text": "+ Fab\nAdd-on", "icon": "plus-circle", "action": "t2_card:add_addon_row"},
+                {"type": "tile", "text": "Add\nMember", "icon": "check-circle", "action": "t2_card:submit_card_calculation"},
+                {"type": "tile", "text": "Finalize\nBid", "icon": "lock", "action": "t2:pack_and_finalize_project_quote"},
+                {"type": "stack", "items": [
+                  {"text": "Duplicate Member", "icon": "copy", "action": "t2:duplicate_selected_project_item"},
+                  {"text": "Edit Member", "icon": "edit-3", "action": "t2:edit_selected_project_item"},
+                  {"text": "Expand / Collapse", "icon": "chevrons-up-down", "action": "t2:toggle_all_tree_items"}
+                ]}
+              ]
+            },
+            {
+              "title": "Quick Steel Shapes",
+              "items": [
+                {"type": "stack", "items": [
+                  {"text": "W-Beam Section", "icon": "plus", "action": "shape:beam"},
+                  {"text": "HSS Tube Section", "icon": "square", "action": "shape:hss_tube"},
+                  {"text": "Custom Plate Asset", "icon": "rectangle-horizontal", "action": "shape:plate"}
+                ]},
+                {"type": "stack", "items": [
+                  {"text": "Angle Iron", "icon": "triangle-right", "action": "shape:angle"},
+                  {"text": "Channel Section", "icon": "minus", "action": "shape:channel"},
+                  {"text": "Structural Pipe", "icon": "circle", "action": "shape:pipe"}
+                ]}
+              ]
+            },
+            {
+              "title": "Coatings & Tools",
+              "items": [
+                {"type": "stack", "items": [
+                  {"text": "Toggle Shop Primer", "icon": "paintbrush", "action": "finish:primer"},
+                  {"text": "Toggle Powder Coat", "icon": "sparkles", "action": "finish:pc"},
+                  {"text": "Toggle Galvanized", "icon": "flame", "action": "finish:hdg"}
+                ]},
+                {"type": "tile", "text": "Trig\nStudio", "icon": "compass", "action": "trig:0"},
+                {"type": "tile", "text": "Clear\nSheet", "icon": "eraser", "action": "t2:clear_canvas_session"}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ledger",
+      "label": "Ledger",
+      "tab_index": 3,
+      "subtabs": [
+        {
+          "label": "Project Ledger",
+          "groups": [
+            {
+              "title": "Quote Actions",
+              "items": [
+                {"type": "tile", "text": "Export\nPDF", "icon": "file-output", "action": "t3:export_selected_quote_pdf"},
+                {"type": "tile", "text": "Open in\nExcel", "icon": "file-spreadsheet", "action": "_open_ledger_in_excel"},
+                {"type": "tile", "text": "Re-Open\nBid", "icon": "copy", "action": "t3:reopen_selected_quote"},
+                {"type": "tile", "text": "Quote\nTrends", "icon": "bar-chart-3", "action": "_act_analytics"},
+                {"type": "stack", "items": [
+                  {"text": "Search Ledger", "icon": "search", "action": "t3_focus_search"},
+                  {"text": "Delete Quote", "icon": "trash-2", "action": "t3:delete_selected_quote"}
+                ]}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "admin",
+      "label": "Admin",
+      "tab_index": 4,
+      "subtabs": [
+        {
+          "label": "Database & Rates",
+          "groups": [
+            {
+              "title": "Rate & Matrix Modules",
+              "items": [
+                {"type": "tile", "text": "Shop\nRates", "icon": "calculator", "action": "admin_view:0"},
+                {"type": "tile", "text": "Hangers\nMatrix", "icon": "file-spreadsheet", "action": "admin_view:1"},
+                {"type": "tile", "text": "Steel\nShapes", "icon": "plus", "action": "admin_view:2"}
+              ]
+            },
+            {
+              "title": "Excel Sync & Studio",
+              "items": [
+                {"type": "tile", "text": "Excel\nTemplate", "icon": "file-down", "action": "_act_dl_tpl"},
+                {"type": "tile", "text": "Import\nExcel", "icon": "file-up", "action": "_act_imp_xl"},
+                {"type": "tile", "text": "Dev\nStudio", "icon": "code-2", "action": "_act_dev"}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

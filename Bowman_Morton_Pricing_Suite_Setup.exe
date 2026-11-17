@@ -1,0 +1,5 @@
+;!@Install@!UTF-8!
+Title="Bowman-Morton Pricing Suite Installation Wizard"
+BeginPrompt="Would you like to install the Bowman-Morton Pricing Suite and configure a shortcut link layout on your desktop?"
+RunProgram="pythonw live_test.py"
+;!@InstallEnd@!

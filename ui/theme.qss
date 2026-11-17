@@ -1,0 +1,195 @@
+/* ==========================================================================
+   BOWMAN MORTON PRICING SUITE — UNIFIED CAD / FLUENT GREY THEME
+   ========================================================================== */
+
+QMainWindow, QDialog {
+    background-color: #e1dfdd;
+    color: #0f172a;
+    font-family: "Segoe UI", "Inter", sans-serif;
+    font-size: 12px;
+}
+
+/* Panels & Detailing Cards */
+QFrame[role="panel"], QGroupBox {
+    background-color: #f3f2f1;
+    border: 1px solid #c8c6c4;
+    border-radius: 6px;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+QGroupBox {
+    margin-top: 10px;
+    padding-top: 12px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 4px;
+    color: #0369a1;
+    font-weight: 700;
+}
+
+/* Standard & Outlined Buttons */
+QPushButton {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    color: #0f172a;
+    font-weight: 600;
+    padding: 4px 10px;
+}
+
+QPushButton:hover {
+    background-color: #e0f2fe;
+    border-color: #0284c7;
+    color: #0369a1;
+}
+
+QPushButton:pressed {
+    background-color: #bae6fd;
+}
+
+QPushButton:disabled {
+    background-color: #e2e8f0;
+    color: #94a3b8;
+    border-color: #cbd5e1;
+}
+
+/* Semantic Button Variants via Qt Dynamic Properties */
+QPushButton[variant="primary"] {
+    background-color: #ffffff;
+    border: 1.5px solid #0284c7;
+    color: #0284c7;
+    font-weight: 700;
+}
+
+QPushButton[variant="primary"]:hover {
+    background-color: #e0f2fe;
+}
+
+QPushButton[variant="success"] {
+    background-color: #ffffff;
+    border: 1.5px solid #107c41;
+    color: #107c41;
+    font-weight: 700;
+}
+
+QPushButton[variant="success"]:hover {
+    background-color: #dcfce7;
+}
+
+QPushButton[variant="danger"] {
+    background-color: #ffffff;
+    border: 1.5px solid #dc2626;
+    color: #dc2626;
+    font-weight: 700;
+}
+
+QPushButton[variant="danger"]:hover {
+    background-color: #fee2e2;
+}
+
+/* Inputs, Dropdowns & SpinBoxes */
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    padding: 1px 6px; min-height: 22px;
+    selection-background-color: #0284c7;
+    selection-color: #ffffff;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {
+    border: 1.5px solid #0284c7;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+/* Running Ledgers & Data Tables (Cascadia Mono + Crisp Row Gridlines) */
+QTreeWidget, QTableWidget, QTableView, QListWidget {
+    background-color: #ffffff;
+    alternate-background-color: #f8fafc;
+    color: #0f172a;
+    border: 1px solid #c8c6c4;
+    border-radius: 5px;
+    gridline-color: #cbd5e1;
+    font-family: "Cascadia Code", "Cascadia Mono", "Consolas", monospace;
+    font-size: 11.5px;
+    outline: 0;
+}
+
+QTreeWidget::item, QTableWidget::item, QListWidget::item {
+    padding: 4px 6px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #0f172a;
+}
+
+QTreeWidget::item:selected, QTableWidget::item:selected, QListWidget::item:selected {
+    background-color: #e0f2fe;
+    color: #0f172a;
+    font-weight: 700;
+}
+
+QHeaderView::section {
+    background-color: #e1dfdd;
+    color: #0f172a;
+    font-family: "Segoe UI", sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 5px 8px;
+    border: none;
+    border-right: 1px solid #c8c6c4;
+    border-bottom: 1.5px solid #94a3b8;
+}
+
+/* Scrollbars */
+QScrollBar:vertical {
+    background: #f1f5f9;
+    width: 10px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background: #94a3b8;
+    min-height: 24px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #64748b;
+}
+
+QScrollBar:horizontal {
+    background: #f1f5f9;
+    height: 10px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #94a3b8;
+    min-width: 24px;
+    border-radius: 5px;
+}
+
+/* Status Bar & Splitters */
+QStatusBar {
+    background-color: #e1dfdd;
+    color: #334155;
+    border-top: 1px solid #c8c6c4;
+    font-size: 11px;
+}
+
+QSplitter::handle {
+    background-color: #c8c6c4;
+}
+
+QSplitter::handle:hover {
+    background-color: #0284c7;
+}

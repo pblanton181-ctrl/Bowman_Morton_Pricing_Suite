@@ -1,0 +1,9 @@
+PySide6==6.11.2
+pyqtdarktheme-fork==2.3.6
+qtawesome
+pymupdf
+reportlab
+Pillow
+openpyxl
+pandas
+numpy

@@ -1,0 +1,4291 @@
+{
+    "beam": [
+        {
+            "designation": "W4X13",
+            "weight_steel_lb_ft": 13.0,
+            "weight_ss304_lb_ft": 13.247,
+            "weight_ss316_lb_ft": 13.299,
+            "depth_in": 4.16,
+            "flange_width_in": 4.06,
+            "flange_thickness_in": 0.345,
+            "web_thickness_in": 0.28
+        },
+        {
+            "designation": "W5X16",
+            "weight_steel_lb_ft": 16.0,
+            "weight_ss304_lb_ft": 16.304,
+            "weight_ss316_lb_ft": 16.368,
+            "depth_in": 5.01,
+            "flange_width_in": 5.0,
+            "flange_thickness_in": 0.36,
+            "web_thickness_in": 0.24
+        },
+        {
+            "designation": "W5X19",
+            "weight_steel_lb_ft": 19.0,
+            "weight_ss304_lb_ft": 19.361,
+            "weight_ss316_lb_ft": 19.437,
+            "depth_in": 5.15,
+            "flange_width_in": 5.03,
+            "flange_thickness_in": 0.43,
+            "web_thickness_in": 0.27
+        },
+        {
+            "designation": "W6X8.5",
+            "weight_steel_lb_ft": 8.5,
+            "weight_ss304_lb_ft": 8.661,
+            "weight_ss316_lb_ft": 8.695,
+            "depth_in": 5.83,
+            "flange_width_in": 3.94,
+            "flange_thickness_in": 0.195,
+            "web_thickness_in": 0.17
+        },
+        {
+            "designation": "W6X9",
+            "weight_steel_lb_ft": 9.0,
+            "weight_ss304_lb_ft": 9.171,
+            "weight_ss316_lb_ft": 9.207,
+            "depth_in": 5.9,
+            "flange_width_in": 3.94,
+            "flange_thickness_in": 0.215,
+            "web_thickness_in": 0.17
+        },
+        {
+            "designation": "W6X12",
+            "weight_steel_lb_ft": 12.0,
+            "weight_ss304_lb_ft": 12.228,
+            "weight_ss316_lb_ft": 12.276,
+            "depth_in": 6.03,
+            "flange_width_in": 4.0,
+            "flange_thickness_in": 0.28,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W6X15",
+            "weight_steel_lb_ft": 15.0,
+            "weight_ss304_lb_ft": 15.285,
+            "weight_ss316_lb_ft": 15.345,
+            "depth_in": 5.99,
+            "flange_width_in": 5.99,
+            "flange_thickness_in": 0.26,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W6X20",
+            "weight_steel_lb_ft": 20.0,
+            "weight_ss304_lb_ft": 20.38,
+            "weight_ss316_lb_ft": 20.46,
+            "depth_in": 6.2,
+            "flange_width_in": 6.02,
+            "flange_thickness_in": 0.365,
+            "web_thickness_in": 0.26
+        },
+        {
+            "designation": "W6X25",
+            "weight_steel_lb_ft": 25.0,
+            "weight_ss304_lb_ft": 25.475,
+            "weight_ss316_lb_ft": 25.575,
+            "depth_in": 6.38,
+            "flange_width_in": 6.08,
+            "flange_thickness_in": 0.455,
+            "web_thickness_in": 0.32
+        },
+        {
+            "designation": "W8X10",
+            "weight_steel_lb_ft": 10.0,
+            "weight_ss304_lb_ft": 10.19,
+            "weight_ss316_lb_ft": 10.23,
+            "depth_in": 7.89,
+            "flange_width_in": 3.94,
+            "flange_thickness_in": 0.205,
+            "web_thickness_in": 0.17
+        },
+        {
+            "designation": "W8X13",
+            "weight_steel_lb_ft": 13.0,
+            "weight_ss304_lb_ft": 13.247,
+            "weight_ss316_lb_ft": 13.299,
+            "depth_in": 7.99,
+            "flange_width_in": 4.0,
+            "flange_thickness_in": 0.255,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W8X15",
+            "weight_steel_lb_ft": 15.0,
+            "weight_ss304_lb_ft": 15.285,
+            "weight_ss316_lb_ft": 15.345,
+            "depth_in": 8.11,
+            "flange_width_in": 4.01,
+            "flange_thickness_in": 0.315,
+            "web_thickness_in": 0.245
+        },
+        {
+            "designation": "W8X18",
+            "weight_steel_lb_ft": 18.0,
+            "weight_ss304_lb_ft": 18.342,
+            "weight_ss316_lb_ft": 18.414,
+            "depth_in": 8.14,
+            "flange_width_in": 5.25,
+            "flange_thickness_in": 0.33,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W8X21",
+            "weight_steel_lb_ft": 21.0,
+            "weight_ss304_lb_ft": 21.399,
+            "weight_ss316_lb_ft": 21.483,
+            "depth_in": 8.28,
+            "flange_width_in": 5.27,
+            "flange_thickness_in": 0.4,
+            "web_thickness_in": 0.25
+        },
+        {
+            "designation": "W8X24",
+            "weight_steel_lb_ft": 24.0,
+            "weight_ss304_lb_ft": 24.456,
+            "weight_ss316_lb_ft": 24.552,
+            "depth_in": 7.93,
+            "flange_width_in": 6.5,
+            "flange_thickness_in": 0.4,
+            "web_thickness_in": 0.245
+        },
+        {
+            "designation": "W8X28",
+            "weight_steel_lb_ft": 28.0,
+            "weight_ss304_lb_ft": 28.532,
+            "weight_ss316_lb_ft": 28.644,
+            "depth_in": 8.06,
+            "flange_width_in": 6.54,
+            "flange_thickness_in": 0.465,
+            "web_thickness_in": 0.285
+        },
+        {
+            "designation": "W8X31",
+            "weight_steel_lb_ft": 31.0,
+            "weight_ss304_lb_ft": 31.589,
+            "weight_ss316_lb_ft": 31.713,
+            "depth_in": 8.0,
+            "flange_width_in": 5.55,
+            "flange_thickness_in": 0.355,
+            "web_thickness_in": 0.212
+        },
+        {
+            "designation": "W8X35",
+            "weight_steel_lb_ft": 35.0,
+            "weight_ss304_lb_ft": 35.665,
+            "weight_ss316_lb_ft": 35.805,
+            "depth_in": 8.0,
+            "flange_width_in": 5.75,
+            "flange_thickness_in": 0.375,
+            "web_thickness_in": 0.22
+        },
+        {
+            "designation": "W8X40",
+            "weight_steel_lb_ft": 40.0,
+            "weight_ss304_lb_ft": 40.76,
+            "weight_ss316_lb_ft": 40.92,
+            "depth_in": 8.0,
+            "flange_width_in": 6.0,
+            "flange_thickness_in": 0.4,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W8X48",
+            "weight_steel_lb_ft": 48.0,
+            "weight_ss304_lb_ft": 48.912,
+            "weight_ss316_lb_ft": 49.104,
+            "depth_in": 8.5,
+            "flange_width_in": 8.11,
+            "flange_thickness_in": 0.685,
+            "web_thickness_in": 0.4
+        },
+        {
+            "designation": "W8X58",
+            "weight_steel_lb_ft": 58.0,
+            "weight_ss304_lb_ft": 59.102,
+            "weight_ss316_lb_ft": 59.334,
+            "depth_in": 8.75,
+            "flange_width_in": 8.22,
+            "flange_thickness_in": 0.81,
+            "web_thickness_in": 0.51
+        },
+        {
+            "designation": "W10X12",
+            "weight_steel_lb_ft": 12.0,
+            "weight_ss304_lb_ft": 12.228,
+            "weight_ss316_lb_ft": 12.276,
+            "depth_in": 9.87,
+            "flange_width_in": 3.96,
+            "flange_thickness_in": 0.21,
+            "web_thickness_in": 0.19
+        },
+        {
+            "designation": "W10X15",
+            "weight_steel_lb_ft": 15.0,
+            "weight_ss304_lb_ft": 15.285,
+            "weight_ss316_lb_ft": 15.345,
+            "depth_in": 10.0,
+            "flange_width_in": 5.75,
+            "flange_thickness_in": 0.275,
+            "web_thickness_in": 0.18
+        },
+        {
+            "designation": "W10X17",
+            "weight_steel_lb_ft": 17.0,
+            "weight_ss304_lb_ft": 17.323,
+            "weight_ss316_lb_ft": 17.391,
+            "depth_in": 10.0,
+            "flange_width_in": 5.85,
+            "flange_thickness_in": 0.285,
+            "web_thickness_in": 0.184
+        },
+        {
+            "designation": "W10X19",
+            "weight_steel_lb_ft": 19.0,
+            "weight_ss304_lb_ft": 19.361,
+            "weight_ss316_lb_ft": 19.437,
+            "depth_in": 10.24,
+            "flange_width_in": 4.02,
+            "flange_thickness_in": 0.395,
+            "web_thickness_in": 0.25
+        },
+        {
+            "designation": "W10X22",
+            "weight_steel_lb_ft": 22.0,
+            "weight_ss304_lb_ft": 22.418,
+            "weight_ss316_lb_ft": 22.506,
+            "depth_in": 10.17,
+            "flange_width_in": 5.75,
+            "flange_thickness_in": 0.36,
+            "web_thickness_in": 0.24
+        },
+        {
+            "designation": "W10X26",
+            "weight_steel_lb_ft": 26.0,
+            "weight_ss304_lb_ft": 26.494,
+            "weight_ss316_lb_ft": 26.598,
+            "depth_in": 10.0,
+            "flange_width_in": 6.3,
+            "flange_thickness_in": 0.33,
+            "web_thickness_in": 0.202
+        },
+        {
+            "designation": "W10X30",
+            "weight_steel_lb_ft": 30.0,
+            "weight_ss304_lb_ft": 30.57,
+            "weight_ss316_lb_ft": 30.69,
+            "depth_in": 10.0,
+            "flange_width_in": 6.5,
+            "flange_thickness_in": 0.35,
+            "web_thickness_in": 0.21
+        },
+        {
+            "designation": "W10X33",
+            "weight_steel_lb_ft": 33.0,
+            "weight_ss304_lb_ft": 33.627,
+            "weight_ss316_lb_ft": 33.759,
+            "depth_in": 10.0,
+            "flange_width_in": 6.65,
+            "flange_thickness_in": 0.365,
+            "web_thickness_in": 0.216
+        },
+        {
+            "designation": "W10X39",
+            "weight_steel_lb_ft": 39.0,
+            "weight_ss304_lb_ft": 39.741,
+            "weight_ss316_lb_ft": 39.897,
+            "depth_in": 10.0,
+            "flange_width_in": 6.95,
+            "flange_thickness_in": 0.395,
+            "web_thickness_in": 0.228
+        },
+        {
+            "designation": "W10X45",
+            "weight_steel_lb_ft": 45.0,
+            "weight_ss304_lb_ft": 45.855,
+            "weight_ss316_lb_ft": 46.035,
+            "depth_in": 10.0,
+            "flange_width_in": 7.25,
+            "flange_thickness_in": 0.425,
+            "web_thickness_in": 0.24
+        },
+        {
+            "designation": "W10X54",
+            "weight_steel_lb_ft": 54.0,
+            "weight_ss304_lb_ft": 55.026,
+            "weight_ss316_lb_ft": 55.242,
+            "depth_in": 10.1,
+            "flange_width_in": 10.0,
+            "flange_thickness_in": 0.615,
+            "web_thickness_in": 0.37
+        },
+        {
+            "designation": "W10X60",
+            "weight_steel_lb_ft": 60.0,
+            "weight_ss304_lb_ft": 61.14,
+            "weight_ss316_lb_ft": 61.38,
+            "depth_in": 10.2,
+            "flange_width_in": 10.1,
+            "flange_thickness_in": 0.68,
+            "web_thickness_in": 0.42
+        },
+        {
+            "designation": "W10X68",
+            "weight_steel_lb_ft": 68.0,
+            "weight_ss304_lb_ft": 69.292,
+            "weight_ss316_lb_ft": 69.564,
+            "depth_in": 10.4,
+            "flange_width_in": 10.1,
+            "flange_thickness_in": 0.77,
+            "web_thickness_in": 0.47
+        },
+        {
+            "designation": "W12X14",
+            "weight_steel_lb_ft": 14.0,
+            "weight_ss304_lb_ft": 14.266,
+            "weight_ss316_lb_ft": 14.322,
+            "depth_in": 12.0,
+            "flange_width_in": 6.7,
+            "flange_thickness_in": 0.27,
+            "web_thickness_in": 0.178
+        },
+        {
+            "designation": "W12X16",
+            "weight_steel_lb_ft": 16.0,
+            "weight_ss304_lb_ft": 16.304,
+            "weight_ss316_lb_ft": 16.368,
+            "depth_in": 11.99,
+            "flange_width_in": 3.99,
+            "flange_thickness_in": 0.265,
+            "web_thickness_in": 0.22
+        },
+        {
+            "designation": "W12X19",
+            "weight_steel_lb_ft": 19.0,
+            "weight_ss304_lb_ft": 19.361,
+            "weight_ss316_lb_ft": 19.437,
+            "depth_in": 12.0,
+            "flange_width_in": 6.95,
+            "flange_thickness_in": 0.295,
+            "web_thickness_in": 0.188
+        },
+        {
+            "designation": "W12X22",
+            "weight_steel_lb_ft": 22.0,
+            "weight_ss304_lb_ft": 22.418,
+            "weight_ss316_lb_ft": 22.506,
+            "depth_in": 12.0,
+            "flange_width_in": 7.1,
+            "flange_thickness_in": 0.31,
+            "web_thickness_in": 0.194
+        },
+        {
+            "designation": "W12X26",
+            "weight_steel_lb_ft": 26.0,
+            "weight_ss304_lb_ft": 26.494,
+            "weight_ss316_lb_ft": 26.598,
+            "depth_in": 12.22,
+            "flange_width_in": 6.49,
+            "flange_thickness_in": 0.42,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W12X30",
+            "weight_steel_lb_ft": 30.0,
+            "weight_ss304_lb_ft": 30.57,
+            "weight_ss316_lb_ft": 30.69,
+            "depth_in": 12.0,
+            "flange_width_in": 7.5,
+            "flange_thickness_in": 0.35,
+            "web_thickness_in": 0.21
+        },
+        {
+            "designation": "W12X35",
+            "weight_steel_lb_ft": 35.0,
+            "weight_ss304_lb_ft": 35.665,
+            "weight_ss316_lb_ft": 35.805,
+            "depth_in": 12.0,
+            "flange_width_in": 7.75,
+            "flange_thickness_in": 0.375,
+            "web_thickness_in": 0.22
+        },
+        {
+            "designation": "W12X40",
+            "weight_steel_lb_ft": 40.0,
+            "weight_ss304_lb_ft": 40.76,
+            "weight_ss316_lb_ft": 40.92,
+            "depth_in": 12.0,
+            "flange_width_in": 8.0,
+            "flange_thickness_in": 0.4,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W12X45",
+            "weight_steel_lb_ft": 45.0,
+            "weight_ss304_lb_ft": 45.855,
+            "weight_ss316_lb_ft": 46.035,
+            "depth_in": 12.0,
+            "flange_width_in": 8.25,
+            "flange_thickness_in": 0.425,
+            "web_thickness_in": 0.24
+        },
+        {
+            "designation": "W12X50",
+            "weight_steel_lb_ft": 50.0,
+            "weight_ss304_lb_ft": 50.95,
+            "weight_ss316_lb_ft": 51.15,
+            "depth_in": 12.0,
+            "flange_width_in": 8.5,
+            "flange_thickness_in": 0.45,
+            "web_thickness_in": 0.25
+        },
+        {
+            "designation": "W12X53",
+            "weight_steel_lb_ft": 53.0,
+            "weight_ss304_lb_ft": 54.007,
+            "weight_ss316_lb_ft": 54.219,
+            "depth_in": 12.0,
+            "flange_width_in": 8.65,
+            "flange_thickness_in": 0.465,
+            "web_thickness_in": 0.256
+        },
+        {
+            "designation": "W12X58",
+            "weight_steel_lb_ft": 58.0,
+            "weight_ss304_lb_ft": 59.102,
+            "weight_ss316_lb_ft": 59.334,
+            "depth_in": 12.0,
+            "flange_width_in": 8.9,
+            "flange_thickness_in": 0.49,
+            "web_thickness_in": 0.266
+        },
+        {
+            "designation": "W12X65",
+            "weight_steel_lb_ft": 65.0,
+            "weight_ss304_lb_ft": 66.235,
+            "weight_ss316_lb_ft": 66.495,
+            "depth_in": 12.1,
+            "flange_width_in": 12.0,
+            "flange_thickness_in": 0.605,
+            "web_thickness_in": 0.39
+        },
+        {
+            "designation": "W12X72",
+            "weight_steel_lb_ft": 72.0,
+            "weight_ss304_lb_ft": 73.368,
+            "weight_ss316_lb_ft": 73.656,
+            "depth_in": 12.3,
+            "flange_width_in": 12.0,
+            "flange_thickness_in": 0.67,
+            "web_thickness_in": 0.43
+        },
+        {
+            "designation": "W14X22",
+            "weight_steel_lb_ft": 22.0,
+            "weight_ss304_lb_ft": 22.418,
+            "weight_ss316_lb_ft": 22.506,
+            "depth_in": 13.74,
+            "flange_width_in": 5.0,
+            "flange_thickness_in": 0.335,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W14X26",
+            "weight_steel_lb_ft": 26.0,
+            "weight_ss304_lb_ft": 26.494,
+            "weight_ss316_lb_ft": 26.598,
+            "depth_in": 14.0,
+            "flange_width_in": 8.3,
+            "flange_thickness_in": 0.33,
+            "web_thickness_in": 0.202
+        },
+        {
+            "designation": "W14X30",
+            "weight_steel_lb_ft": 30.0,
+            "weight_ss304_lb_ft": 30.57,
+            "weight_ss316_lb_ft": 30.69,
+            "depth_in": 14.0,
+            "flange_width_in": 8.5,
+            "flange_thickness_in": 0.35,
+            "web_thickness_in": 0.21
+        },
+        {
+            "designation": "W14X34",
+            "weight_steel_lb_ft": 34.0,
+            "weight_ss304_lb_ft": 34.646,
+            "weight_ss316_lb_ft": 34.782,
+            "depth_in": 14.0,
+            "flange_width_in": 8.7,
+            "flange_thickness_in": 0.37,
+            "web_thickness_in": 0.218
+        },
+        {
+            "designation": "W14X38",
+            "weight_steel_lb_ft": 38.0,
+            "weight_ss304_lb_ft": 38.722,
+            "weight_ss316_lb_ft": 38.874,
+            "depth_in": 14.0,
+            "flange_width_in": 8.9,
+            "flange_thickness_in": 0.39,
+            "web_thickness_in": 0.226
+        },
+        {
+            "designation": "W14X43",
+            "weight_steel_lb_ft": 43.0,
+            "weight_ss304_lb_ft": 43.817,
+            "weight_ss316_lb_ft": 43.989,
+            "depth_in": 14.0,
+            "flange_width_in": 9.15,
+            "flange_thickness_in": 0.415,
+            "web_thickness_in": 0.236
+        },
+        {
+            "designation": "W14X48",
+            "weight_steel_lb_ft": 48.0,
+            "weight_ss304_lb_ft": 48.912,
+            "weight_ss316_lb_ft": 49.104,
+            "depth_in": 14.0,
+            "flange_width_in": 9.4,
+            "flange_thickness_in": 0.44,
+            "web_thickness_in": 0.246
+        },
+        {
+            "designation": "W14X53",
+            "weight_steel_lb_ft": 53.0,
+            "weight_ss304_lb_ft": 54.007,
+            "weight_ss316_lb_ft": 54.219,
+            "depth_in": 14.0,
+            "flange_width_in": 9.65,
+            "flange_thickness_in": 0.465,
+            "web_thickness_in": 0.256
+        },
+        {
+            "designation": "W14X61",
+            "weight_steel_lb_ft": 61.0,
+            "weight_ss304_lb_ft": 62.159,
+            "weight_ss316_lb_ft": 62.403,
+            "depth_in": 13.9,
+            "flange_width_in": 10.0,
+            "flange_thickness_in": 0.645,
+            "web_thickness_in": 0.375
+        },
+        {
+            "designation": "W14X68",
+            "weight_steel_lb_ft": 68.0,
+            "weight_ss304_lb_ft": 69.292,
+            "weight_ss316_lb_ft": 69.564,
+            "depth_in": 14.0,
+            "flange_width_in": 10.0,
+            "flange_thickness_in": 0.72,
+            "web_thickness_in": 0.415
+        },
+        {
+            "designation": "W14X74",
+            "weight_steel_lb_ft": 74.0,
+            "weight_ss304_lb_ft": 75.406,
+            "weight_ss316_lb_ft": 75.702,
+            "depth_in": 14.2,
+            "flange_width_in": 10.1,
+            "flange_thickness_in": 0.785,
+            "web_thickness_in": 0.45
+        },
+        {
+            "designation": "W14X82",
+            "weight_steel_lb_ft": 82.0,
+            "weight_ss304_lb_ft": 83.558,
+            "weight_ss316_lb_ft": 83.886,
+            "depth_in": 14.3,
+            "flange_width_in": 10.1,
+            "flange_thickness_in": 0.855,
+            "web_thickness_in": 0.51
+        },
+        {
+            "designation": "W16X26",
+            "weight_steel_lb_ft": 26.0,
+            "weight_ss304_lb_ft": 26.494,
+            "weight_ss316_lb_ft": 26.598,
+            "depth_in": 15.69,
+            "flange_width_in": 5.5,
+            "flange_thickness_in": 0.345,
+            "web_thickness_in": 0.25
+        },
+        {
+            "designation": "W16X31",
+            "weight_steel_lb_ft": 31.0,
+            "weight_ss304_lb_ft": 31.589,
+            "weight_ss316_lb_ft": 31.713,
+            "depth_in": 16.0,
+            "flange_width_in": 9.55,
+            "flange_thickness_in": 0.355,
+            "web_thickness_in": 0.212
+        },
+        {
+            "designation": "W16X36",
+            "weight_steel_lb_ft": 36.0,
+            "weight_ss304_lb_ft": 36.684,
+            "weight_ss316_lb_ft": 36.828,
+            "depth_in": 16.0,
+            "flange_width_in": 9.8,
+            "flange_thickness_in": 0.38,
+            "web_thickness_in": 0.222
+        },
+        {
+            "designation": "W16X40",
+            "weight_steel_lb_ft": 40.0,
+            "weight_ss304_lb_ft": 40.76,
+            "weight_ss316_lb_ft": 40.92,
+            "depth_in": 16.0,
+            "flange_width_in": 10.0,
+            "flange_thickness_in": 0.4,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W16X45",
+            "weight_steel_lb_ft": 45.0,
+            "weight_ss304_lb_ft": 45.855,
+            "weight_ss316_lb_ft": 46.035,
+            "depth_in": 16.0,
+            "flange_width_in": 10.25,
+            "flange_thickness_in": 0.425,
+            "web_thickness_in": 0.24
+        },
+        {
+            "designation": "W16X50",
+            "weight_steel_lb_ft": 50.0,
+            "weight_ss304_lb_ft": 50.95,
+            "weight_ss316_lb_ft": 51.15,
+            "depth_in": 16.0,
+            "flange_width_in": 10.5,
+            "flange_thickness_in": 0.45,
+            "web_thickness_in": 0.25
+        },
+        {
+            "designation": "W16X57",
+            "weight_steel_lb_ft": 57.0,
+            "weight_ss304_lb_ft": 58.083,
+            "weight_ss316_lb_ft": 58.311,
+            "depth_in": 16.0,
+            "flange_width_in": 10.85,
+            "flange_thickness_in": 0.485,
+            "web_thickness_in": 0.264
+        },
+        {
+            "designation": "W16X67",
+            "weight_steel_lb_ft": 67.0,
+            "depth_in": 16.33,
+            "flange_width_in": 10.235,
+            "weight_ss304_lb_ft": 68.273,
+            "weight_ss316_lb_ft": 68.541
+        },
+        {
+            "designation": "W18X35",
+            "weight_steel_lb_ft": 35.0,
+            "weight_ss304_lb_ft": 35.665,
+            "weight_ss316_lb_ft": 35.805,
+            "depth_in": 18.0,
+            "flange_width_in": 10.75,
+            "flange_thickness_in": 0.375,
+            "web_thickness_in": 0.22
+        },
+        {
+            "designation": "W18X40",
+            "weight_steel_lb_ft": 40.0,
+            "weight_ss304_lb_ft": 40.76,
+            "weight_ss316_lb_ft": 40.92,
+            "depth_in": 18.0,
+            "flange_width_in": 11.0,
+            "flange_thickness_in": 0.4,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "W18X46",
+            "weight_steel_lb_ft": 46.0,
+            "weight_ss304_lb_ft": 46.874,
+            "weight_ss316_lb_ft": 47.058,
+            "depth_in": 18.0,
+            "flange_width_in": 11.3,
+            "flange_thickness_in": 0.43,
+            "web_thickness_in": 0.242
+        },
+        {
+            "designation": "W18X50",
+            "weight_steel_lb_ft": 50.0,
+            "weight_ss304_lb_ft": 50.95,
+            "weight_ss316_lb_ft": 51.15,
+            "depth_in": 18.0,
+            "flange_width_in": 11.5,
+            "flange_thickness_in": 0.45,
+            "web_thickness_in": 0.25
+        },
+        {
+            "designation": "W18X55",
+            "weight_steel_lb_ft": 55.0,
+            "weight_ss304_lb_ft": 56.045,
+            "weight_ss316_lb_ft": 56.265,
+            "depth_in": 18.0,
+            "flange_width_in": 11.75,
+            "flange_thickness_in": 0.475,
+            "web_thickness_in": 0.26
+        },
+        {
+            "designation": "W18X60",
+            "weight_steel_lb_ft": 60.0,
+            "weight_ss304_lb_ft": 61.14,
+            "weight_ss316_lb_ft": 61.38,
+            "depth_in": 18.0,
+            "flange_width_in": 12.0,
+            "flange_thickness_in": 0.5,
+            "web_thickness_in": 0.27
+        },
+        {
+            "designation": "W18X65",
+            "weight_steel_lb_ft": 65.0,
+            "weight_ss304_lb_ft": 66.235,
+            "weight_ss316_lb_ft": 66.495,
+            "depth_in": 18.4,
+            "flange_width_in": 7.59,
+            "flange_thickness_in": 0.75,
+            "web_thickness_in": 0.45
+        },
+        {
+            "designation": "W18X71",
+            "weight_steel_lb_ft": 71.0,
+            "weight_ss304_lb_ft": 72.349,
+            "weight_ss316_lb_ft": 72.633,
+            "depth_in": 18.5,
+            "flange_width_in": 7.64,
+            "flange_thickness_in": 0.81,
+            "web_thickness_in": 0.495
+        },
+        {
+            "designation": "W21X44",
+            "weight_steel_lb_ft": 44.0,
+            "weight_ss304_lb_ft": 44.836,
+            "weight_ss316_lb_ft": 45.012,
+            "depth_in": 21.0,
+            "flange_width_in": 12.7,
+            "flange_thickness_in": 0.42,
+            "web_thickness_in": 0.238
+        },
+        {
+            "designation": "W21X50",
+            "weight_steel_lb_ft": 50.0,
+            "weight_ss304_lb_ft": 50.95,
+            "weight_ss316_lb_ft": 51.15,
+            "depth_in": 21.0,
+            "flange_width_in": 13.0,
+            "flange_thickness_in": 0.45,
+            "web_thickness_in": 0.25
+        },
+        {
+            "designation": "W21X57",
+            "weight_steel_lb_ft": 57.0,
+            "weight_ss304_lb_ft": 58.083,
+            "weight_ss316_lb_ft": 58.311,
+            "depth_in": 21.0,
+            "flange_width_in": 13.35,
+            "flange_thickness_in": 0.485,
+            "web_thickness_in": 0.264
+        },
+        {
+            "designation": "W21X62",
+            "weight_steel_lb_ft": 62.0,
+            "weight_ss304_lb_ft": 63.178,
+            "weight_ss316_lb_ft": 63.426,
+            "depth_in": 21.0,
+            "flange_width_in": 13.6,
+            "flange_thickness_in": 0.51,
+            "web_thickness_in": 0.274
+        },
+        {
+            "designation": "W21X68",
+            "weight_steel_lb_ft": 68.0,
+            "weight_ss304_lb_ft": 69.292,
+            "weight_ss316_lb_ft": 69.564,
+            "depth_in": 21.0,
+            "flange_width_in": 13.9,
+            "flange_thickness_in": 0.54,
+            "web_thickness_in": 0.286
+        },
+        {
+            "designation": "W24X55",
+            "weight_steel_lb_ft": 55.0,
+            "weight_ss304_lb_ft": 56.045,
+            "weight_ss316_lb_ft": 56.265,
+            "depth_in": 24.0,
+            "flange_width_in": 14.75,
+            "flange_thickness_in": 0.475,
+            "web_thickness_in": 0.26
+        },
+        {
+            "designation": "W24X62",
+            "weight_steel_lb_ft": 62.0,
+            "weight_ss304_lb_ft": 63.178,
+            "weight_ss316_lb_ft": 63.426,
+            "depth_in": 24.0,
+            "flange_width_in": 15.1,
+            "flange_thickness_in": 0.51,
+            "web_thickness_in": 0.274
+        },
+        {
+            "designation": "W24X68",
+            "weight_steel_lb_ft": 68.0,
+            "weight_ss304_lb_ft": 69.292,
+            "weight_ss316_lb_ft": 69.564,
+            "depth_in": 24.0,
+            "flange_width_in": 15.4,
+            "flange_thickness_in": 0.54,
+            "web_thickness_in": 0.286
+        },
+        {
+            "designation": "W24X76",
+            "weight_steel_lb_ft": 76.0,
+            "weight_ss304_lb_ft": 77.444,
+            "weight_ss316_lb_ft": 77.748,
+            "depth_in": 24.0,
+            "flange_width_in": 15.8,
+            "flange_thickness_in": 0.58,
+            "web_thickness_in": 0.302
+        },
+        {
+            "designation": "W24X84",
+            "weight_steel_lb_ft": 84.0,
+            "weight_ss304_lb_ft": 85.596,
+            "weight_ss316_lb_ft": 85.932,
+            "depth_in": 24.0,
+            "flange_width_in": 16.2,
+            "flange_thickness_in": 0.62,
+            "web_thickness_in": 0.318
+        },
+        {
+            "designation": "W24X94",
+            "weight_steel_lb_ft": 94.0,
+            "weight_ss304_lb_ft": 95.786,
+            "weight_ss316_lb_ft": 96.162,
+            "depth_in": 24.0,
+            "flange_width_in": 16.7,
+            "flange_thickness_in": 0.67,
+            "web_thickness_in": 0.338
+        },
+        {
+            "designation": "W27X84",
+            "weight_steel_lb_ft": 84.0,
+            "weight_ss304_lb_ft": 85.596,
+            "weight_ss316_lb_ft": 85.932,
+            "depth_in": 26.7,
+            "flange_width_in": 9.96,
+            "flange_thickness_in": 0.64,
+            "web_thickness_in": 0.46
+        },
+        {
+            "designation": "W30X90",
+            "weight_steel_lb_ft": 90.0,
+            "weight_ss304_lb_ft": 91.71,
+            "weight_ss316_lb_ft": 92.07,
+            "depth_in": 29.5,
+            "flange_width_in": 10.4,
+            "flange_thickness_in": 0.61,
+            "web_thickness_in": 0.47
+        },
+        {
+            "designation": "S3X5.7",
+            "depth_in": 3.0,
+            "flange_width_in": 2.33,
+            "flange_thickness_in": 0.26,
+            "web_thickness_in": 0.17,
+            "weight_steel_lb_ft": 5.7,
+            "weight_ss304_lb_ft": 5.808,
+            "weight_ss316_lb_ft": 5.831
+        },
+        {
+            "designation": "S3X7.5",
+            "weight_steel_lb_ft": 7.5,
+            "weight_ss304_lb_ft": 7.642,
+            "weight_ss316_lb_ft": 7.672,
+            "depth_in": 3.0,
+            "flange_width_in": 2.51,
+            "flange_thickness_in": 0.26,
+            "web_thickness_in": 0.349
+        },
+        {
+            "designation": "S4X7.7",
+            "depth_in": 4.0,
+            "flange_width_in": 2.66,
+            "flange_thickness_in": 0.293,
+            "web_thickness_in": 0.19,
+            "weight_steel_lb_ft": 7.7,
+            "weight_ss304_lb_ft": 7.846,
+            "weight_ss316_lb_ft": 7.877
+        },
+        {
+            "designation": "S4X9.5",
+            "weight_steel_lb_ft": 9.5,
+            "weight_ss304_lb_ft": 9.68,
+            "weight_ss316_lb_ft": 9.718,
+            "depth_in": 4.0,
+            "flange_width_in": 2.8,
+            "flange_thickness_in": 0.293,
+            "web_thickness_in": 0.326
+        },
+        {
+            "designation": "S5X10",
+            "depth_in": 5.0,
+            "flange_width_in": 3.0,
+            "flange_thickness_in": 0.326,
+            "web_thickness_in": 0.21,
+            "weight_steel_lb_ft": 10.0,
+            "weight_ss304_lb_ft": 10.19,
+            "weight_ss316_lb_ft": 10.23
+        },
+        {
+            "designation": "S6X12.5",
+            "depth_in": 6.0,
+            "flange_width_in": 3.33,
+            "flange_thickness_in": 0.359,
+            "web_thickness_in": 0.23,
+            "weight_steel_lb_ft": 12.5,
+            "weight_ss304_lb_ft": 12.737,
+            "weight_ss316_lb_ft": 12.787
+        },
+        {
+            "designation": "S6X17.25",
+            "weight_steel_lb_ft": 17.25,
+            "weight_ss304_lb_ft": 17.578,
+            "weight_ss316_lb_ft": 17.647,
+            "depth_in": 6.0,
+            "flange_width_in": 3.57,
+            "flange_thickness_in": 0.359,
+            "web_thickness_in": 0.465
+        },
+        {
+            "designation": "S8X18.4",
+            "depth_in": 8.0,
+            "flange_width_in": 4.0,
+            "flange_thickness_in": 0.425,
+            "web_thickness_in": 0.27,
+            "weight_steel_lb_ft": 18.4,
+            "weight_ss304_lb_ft": 18.75,
+            "weight_ss316_lb_ft": 18.823
+        },
+        {
+            "designation": "S8X23",
+            "weight_steel_lb_ft": 23.0,
+            "weight_ss304_lb_ft": 23.437,
+            "weight_ss316_lb_ft": 23.529,
+            "depth_in": 8.0,
+            "flange_width_in": 4.17,
+            "flange_thickness_in": 0.426,
+            "web_thickness_in": 0.441
+        },
+        {
+            "designation": "S10X25.4",
+            "depth_in": 10.0,
+            "flange_width_in": 4.66,
+            "flange_thickness_in": 0.491,
+            "web_thickness_in": 0.31,
+            "weight_steel_lb_ft": 25.4,
+            "weight_ss304_lb_ft": 25.883,
+            "weight_ss316_lb_ft": 25.984
+        },
+        {
+            "designation": "S12X31.8",
+            "depth_in": 12.0,
+            "flange_width_in": 5.0,
+            "flange_thickness_in": 0.544,
+            "web_thickness_in": 0.35,
+            "weight_steel_lb_ft": 31.8,
+            "weight_ss304_lb_ft": 32.404,
+            "weight_ss316_lb_ft": 32.531
+        },
+        {
+            "designation": "S12X35",
+            "weight_steel_lb_ft": 35.0,
+            "weight_ss304_lb_ft": 35.665,
+            "weight_ss316_lb_ft": 35.805,
+            "depth_in": 12.0,
+            "flange_width_in": 5.08,
+            "flange_thickness_in": 0.544,
+            "web_thickness_in": 0.428
+        }
+    ],
+    "angle": [
+        {
+            "designation": "L1X1X1/8",
+            "leg1_in": 1.0,
+            "leg2_in": 1.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 0.8,
+            "weight_ss304_lb_ft": 0.82,
+            "weight_ss316_lb_ft": 0.82
+        },
+        {
+            "designation": "L1.25X1.25X1/8",
+            "leg1_in": 1.25,
+            "leg2_in": 1.25,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 1.01,
+            "weight_ss304_lb_ft": 1.03,
+            "weight_ss316_lb_ft": 1.03
+        },
+        {
+            "designation": "L1.25X1.25X3/16",
+            "leg1_in": 1.25,
+            "leg2_in": 1.25,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 1.47,
+            "weight_ss304_lb_ft": 1.5,
+            "weight_ss316_lb_ft": 1.5
+        },
+        {
+            "designation": "L1.5X1.5X1/4",
+            "leg1_in": 1.5,
+            "leg2_in": 1.5,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 2.34,
+            "weight_ss304_lb_ft": 2.38,
+            "weight_ss316_lb_ft": 2.39
+        },
+        {
+            "designation": "L1.5X1.5X1/8",
+            "leg1_in": 1.5,
+            "leg2_in": 1.5,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 1.22,
+            "weight_ss304_lb_ft": 1.24,
+            "weight_ss316_lb_ft": 1.25
+        },
+        {
+            "designation": "L1.5X1.5X3/16",
+            "leg1_in": 1.5,
+            "leg2_in": 1.5,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 1.79,
+            "weight_ss304_lb_ft": 1.82,
+            "weight_ss316_lb_ft": 1.83
+        },
+        {
+            "designation": "L1.75X1.75X1/4",
+            "leg1_in": 1.75,
+            "leg2_in": 1.75,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 2.77,
+            "weight_ss304_lb_ft": 2.823,
+            "weight_ss316_lb_ft": 2.834
+        },
+        {
+            "designation": "L1.75X1.75X1/8",
+            "leg1_in": 1.75,
+            "leg2_in": 1.75,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 1.44,
+            "weight_ss304_lb_ft": 1.467,
+            "weight_ss316_lb_ft": 1.473
+        },
+        {
+            "designation": "L1.75X1.75X3/16",
+            "leg1_in": 1.75,
+            "leg2_in": 1.75,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 2.12,
+            "weight_ss304_lb_ft": 2.16,
+            "weight_ss316_lb_ft": 2.169
+        },
+        {
+            "designation": "L2X2X1/4",
+            "leg1_in": 2.0,
+            "leg2_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 3.19,
+            "weight_ss304_lb_ft": 3.25,
+            "weight_ss316_lb_ft": 3.26
+        },
+        {
+            "designation": "L2X2X1/8",
+            "leg1_in": 2.0,
+            "leg2_in": 2.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 1.65,
+            "weight_ss304_lb_ft": 1.68,
+            "weight_ss316_lb_ft": 1.69
+        },
+        {
+            "designation": "L2X2X3/16",
+            "leg1_in": 2.0,
+            "leg2_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 2.43,
+            "weight_ss304_lb_ft": 2.48,
+            "weight_ss316_lb_ft": 2.49
+        },
+        {
+            "designation": "L2.5X1.5X1/4",
+            "leg1_in": 2.5,
+            "leg2_in": 1.5,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 3.19,
+            "weight_ss304_lb_ft": 3.251,
+            "weight_ss316_lb_ft": 3.263
+        },
+        {
+            "designation": "L2.5X1.5X3/16",
+            "leg1_in": 2.5,
+            "leg2_in": 1.5,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 2.44,
+            "weight_ss304_lb_ft": 2.486,
+            "weight_ss316_lb_ft": 2.496
+        },
+        {
+            "designation": "L2.5X2X1/4",
+            "leg1_in": 2.5,
+            "leg2_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 3.62,
+            "weight_ss304_lb_ft": 3.689,
+            "weight_ss316_lb_ft": 3.703
+        },
+        {
+            "designation": "L2.5X2X3/16",
+            "leg1_in": 2.5,
+            "leg2_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 2.75,
+            "weight_ss304_lb_ft": 2.802,
+            "weight_ss316_lb_ft": 2.813
+        },
+        {
+            "designation": "L2.5X2.5X1/4",
+            "leg1_in": 2.5,
+            "leg2_in": 2.5,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 4.04,
+            "weight_ss304_lb_ft": 4.12,
+            "weight_ss316_lb_ft": 4.13
+        },
+        {
+            "designation": "L2.5X2.5X3/8",
+            "leg1_in": 2.5,
+            "leg2_in": 2.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 5.9,
+            "weight_ss304_lb_ft": 6.01,
+            "weight_ss316_lb_ft": 6.04
+        },
+        {
+            "designation": "L2.5X2.5X3/16",
+            "leg1_in": 2.5,
+            "leg2_in": 2.5,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 3.07,
+            "weight_ss304_lb_ft": 3.13,
+            "weight_ss316_lb_ft": 3.14
+        },
+        {
+            "designation": "L2.5X2.5X5/16",
+            "leg1_in": 2.5,
+            "leg2_in": 2.5,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 4.98,
+            "weight_ss304_lb_ft": 5.07,
+            "weight_ss316_lb_ft": 5.09
+        },
+        {
+            "designation": "L3X2X1/4",
+            "leg1_in": 3.0,
+            "leg2_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 4.04,
+            "weight_ss304_lb_ft": 4.12,
+            "weight_ss316_lb_ft": 4.13
+        },
+        {
+            "designation": "L3X2X3/8",
+            "leg1_in": 3.0,
+            "leg2_in": 2.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 5.9,
+            "weight_ss304_lb_ft": 6.01,
+            "weight_ss316_lb_ft": 6.04
+        },
+        {
+            "designation": "L3X2X3/16",
+            "leg1_in": 3.0,
+            "leg2_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 3.07,
+            "weight_ss304_lb_ft": 3.13,
+            "weight_ss316_lb_ft": 3.14
+        },
+        {
+            "designation": "L3X2X5/16",
+            "leg1_in": 3.0,
+            "leg2_in": 2.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 4.98,
+            "weight_ss304_lb_ft": 5.07,
+            "weight_ss316_lb_ft": 5.09
+        },
+        {
+            "designation": "L3X2.5X1/4",
+            "leg1_in": 3.0,
+            "leg2_in": 2.5,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 4.5,
+            "weight_ss304_lb_ft": 4.585,
+            "weight_ss316_lb_ft": 4.603
+        },
+        {
+            "designation": "L3X2.5X3/8",
+            "leg1_in": 3.0,
+            "leg2_in": 2.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 6.6,
+            "weight_ss304_lb_ft": 6.725,
+            "weight_ss316_lb_ft": 6.752
+        },
+        {
+            "designation": "L3X3X1/2",
+            "leg1_in": 3.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 9.35,
+            "weight_ss304_lb_ft": 9.53,
+            "weight_ss316_lb_ft": 9.57
+        },
+        {
+            "designation": "L3X3X1/4",
+            "leg1_in": 3.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 4.89,
+            "weight_ss304_lb_ft": 4.98,
+            "weight_ss316_lb_ft": 5.0
+        },
+        {
+            "designation": "L3X3X3/8",
+            "leg1_in": 3.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 7.17,
+            "weight_ss304_lb_ft": 7.31,
+            "weight_ss316_lb_ft": 7.33
+        },
+        {
+            "designation": "L3X3X3/16",
+            "leg1_in": 3.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 3.71,
+            "weight_ss304_lb_ft": 3.78,
+            "weight_ss316_lb_ft": 3.8
+        },
+        {
+            "designation": "L3X3X5/16",
+            "leg1_in": 3.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 6.04,
+            "weight_ss304_lb_ft": 6.15,
+            "weight_ss316_lb_ft": 6.18
+        },
+        {
+            "designation": "L3.5X2.5X1/4",
+            "leg1_in": 3.5,
+            "leg2_in": 2.5,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 4.9,
+            "weight_ss304_lb_ft": 4.993,
+            "weight_ss316_lb_ft": 5.013
+        },
+        {
+            "designation": "L3.5X2.5X3/8",
+            "leg1_in": 3.5,
+            "leg2_in": 2.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 7.2,
+            "weight_ss304_lb_ft": 7.337,
+            "weight_ss316_lb_ft": 7.366
+        },
+        {
+            "designation": "L4X3X1/2",
+            "leg1_in": 4.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 11.05,
+            "weight_ss304_lb_ft": 11.26,
+            "weight_ss316_lb_ft": 11.3
+        },
+        {
+            "designation": "L4X3X1/4",
+            "leg1_in": 4.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 5.74,
+            "weight_ss304_lb_ft": 5.85,
+            "weight_ss316_lb_ft": 5.87
+        },
+        {
+            "designation": "L4X3X3/8",
+            "leg1_in": 4.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 8.45,
+            "weight_ss304_lb_ft": 8.61,
+            "weight_ss316_lb_ft": 8.64
+        },
+        {
+            "designation": "L4X3X5/16",
+            "leg1_in": 4.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 7.11,
+            "weight_ss304_lb_ft": 7.25,
+            "weight_ss316_lb_ft": 7.27
+        },
+        {
+            "designation": "L4X4X1/2",
+            "leg1_in": 4.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 12.75,
+            "weight_ss304_lb_ft": 12.99,
+            "weight_ss316_lb_ft": 13.04
+        },
+        {
+            "designation": "L4X4X1/4",
+            "leg1_in": 4.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 6.59,
+            "weight_ss304_lb_ft": 6.72,
+            "weight_ss316_lb_ft": 6.74
+        },
+        {
+            "designation": "L4X4X3/8",
+            "leg1_in": 4.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 9.72,
+            "weight_ss304_lb_ft": 9.9,
+            "weight_ss316_lb_ft": 9.94
+        },
+        {
+            "designation": "L4X4X5/8",
+            "leg1_in": 4.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.625,
+            "weight_steel_lb_ft": 15.67,
+            "weight_ss304_lb_ft": 15.97,
+            "weight_ss316_lb_ft": 16.03
+        },
+        {
+            "designation": "L4X4X5/16",
+            "leg1_in": 4.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 8.17,
+            "weight_ss304_lb_ft": 8.33,
+            "weight_ss316_lb_ft": 8.36
+        },
+        {
+            "designation": "L5X3X1/2",
+            "leg1_in": 5.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 12.8,
+            "weight_ss304_lb_ft": 13.043,
+            "weight_ss316_lb_ft": 13.094
+        },
+        {
+            "designation": "L5X3X1/4",
+            "leg1_in": 5.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 6.6,
+            "weight_ss304_lb_ft": 6.725,
+            "weight_ss316_lb_ft": 6.752
+        },
+        {
+            "designation": "L5X3X3/8",
+            "leg1_in": 5.0,
+            "leg2_in": 3.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 9.8,
+            "weight_ss304_lb_ft": 9.986,
+            "weight_ss316_lb_ft": 10.025
+        },
+        {
+            "designation": "L5X3.5X1/2",
+            "leg1_in": 5.0,
+            "leg2_in": 3.5,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 13.6,
+            "weight_ss304_lb_ft": 13.858,
+            "weight_ss316_lb_ft": 13.913
+        },
+        {
+            "designation": "L5X3.5X3/8",
+            "leg1_in": 5.0,
+            "leg2_in": 3.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 10.4,
+            "weight_ss304_lb_ft": 10.598,
+            "weight_ss316_lb_ft": 10.639
+        },
+        {
+            "designation": "L5X5X1/2",
+            "leg1_in": 5.0,
+            "leg2_in": 5.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 16.15,
+            "weight_ss304_lb_ft": 16.46,
+            "weight_ss316_lb_ft": 16.52
+        },
+        {
+            "designation": "L5X5X1/4",
+            "leg1_in": 5.0,
+            "leg2_in": 5.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 8.29,
+            "weight_ss304_lb_ft": 8.45,
+            "weight_ss316_lb_ft": 8.48
+        },
+        {
+            "designation": "L5X5X3/8",
+            "leg1_in": 5.0,
+            "leg2_in": 5.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 12.27,
+            "weight_ss304_lb_ft": 12.5,
+            "weight_ss316_lb_ft": 12.55
+        },
+        {
+            "designation": "L5X5X5/8",
+            "leg1_in": 5.0,
+            "leg2_in": 5.0,
+            "thickness_in": 0.625,
+            "weight_steel_lb_ft": 19.92,
+            "weight_ss304_lb_ft": 20.3,
+            "weight_ss316_lb_ft": 20.38
+        },
+        {
+            "designation": "L5X5X5/16",
+            "leg1_in": 5.0,
+            "leg2_in": 5.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 10.29,
+            "weight_ss304_lb_ft": 10.49,
+            "weight_ss316_lb_ft": 10.53
+        },
+        {
+            "designation": "L6X3.5X3/8",
+            "leg1_in": 6.0,
+            "leg2_in": 3.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 11.7,
+            "weight_ss304_lb_ft": 11.922,
+            "weight_ss316_lb_ft": 11.969
+        },
+        {
+            "designation": "L6X4X1/2",
+            "leg1_in": 6.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 16.15,
+            "weight_ss304_lb_ft": 16.46,
+            "weight_ss316_lb_ft": 16.52
+        },
+        {
+            "designation": "L6X4X3/8",
+            "leg1_in": 6.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 12.27,
+            "weight_ss304_lb_ft": 12.5,
+            "weight_ss316_lb_ft": 12.55
+        },
+        {
+            "designation": "L6X4X5/8",
+            "leg1_in": 6.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.625,
+            "weight_steel_lb_ft": 19.92,
+            "weight_ss304_lb_ft": 20.3,
+            "weight_ss316_lb_ft": 20.38
+        },
+        {
+            "designation": "L6X4X5/16",
+            "leg1_in": 6.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 10.29,
+            "weight_ss304_lb_ft": 10.49,
+            "weight_ss316_lb_ft": 10.53
+        },
+        {
+            "designation": "L6X6X1",
+            "leg1_in": 6.0,
+            "leg2_in": 6.0,
+            "thickness_in": 1.0,
+            "weight_steel_lb_ft": 37.4,
+            "weight_ss304_lb_ft": 38.11,
+            "weight_ss316_lb_ft": 38.26
+        },
+        {
+            "designation": "L6X6X1/2",
+            "leg1_in": 6.0,
+            "leg2_in": 6.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 19.55,
+            "weight_ss304_lb_ft": 19.92,
+            "weight_ss316_lb_ft": 20.0
+        },
+        {
+            "designation": "L6X6X3/4",
+            "leg1_in": 6.0,
+            "leg2_in": 6.0,
+            "thickness_in": 0.75,
+            "weight_steel_lb_ft": 28.69,
+            "weight_ss304_lb_ft": 29.24,
+            "weight_ss316_lb_ft": 29.35
+        },
+        {
+            "designation": "L6X6X3/8",
+            "leg1_in": 6.0,
+            "leg2_in": 6.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 14.82,
+            "weight_ss304_lb_ft": 15.1,
+            "weight_ss316_lb_ft": 15.16
+        },
+        {
+            "designation": "L6X6X5/8",
+            "leg1_in": 6.0,
+            "leg2_in": 6.0,
+            "thickness_in": 0.625,
+            "weight_steel_lb_ft": 24.17,
+            "weight_ss304_lb_ft": 24.63,
+            "weight_ss316_lb_ft": 24.73
+        },
+        {
+            "designation": "L7X4X1/2",
+            "leg1_in": 7.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 17.9,
+            "weight_ss304_lb_ft": 18.24,
+            "weight_ss316_lb_ft": 18.312
+        },
+        {
+            "designation": "L7X4X3/8",
+            "leg1_in": 7.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 13.6,
+            "weight_ss304_lb_ft": 13.858,
+            "weight_ss316_lb_ft": 13.913
+        },
+        {
+            "designation": "L8X4X1/2",
+            "leg1_in": 8.0,
+            "leg2_in": 4.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 19.6,
+            "weight_ss304_lb_ft": 19.972,
+            "weight_ss316_lb_ft": 20.051
+        },
+        {
+            "designation": "L8X6X1/2",
+            "leg1_in": 8.0,
+            "leg2_in": 6.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 23.0,
+            "weight_ss304_lb_ft": 23.437,
+            "weight_ss316_lb_ft": 23.529
+        },
+        {
+            "designation": "L8X6X3/4",
+            "leg1_in": 8.0,
+            "leg2_in": 6.0,
+            "thickness_in": 0.75,
+            "weight_steel_lb_ft": 33.8,
+            "weight_ss304_lb_ft": 34.442,
+            "weight_ss316_lb_ft": 34.577
+        },
+        {
+            "designation": "L8X8X1",
+            "leg1_in": 8.0,
+            "leg2_in": 8.0,
+            "thickness_in": 1.0,
+            "weight_steel_lb_ft": 51.0,
+            "weight_ss304_lb_ft": 51.97,
+            "weight_ss316_lb_ft": 52.17
+        },
+        {
+            "designation": "L8X8X1/2",
+            "leg1_in": 8.0,
+            "leg2_in": 8.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 26.35,
+            "weight_ss304_lb_ft": 26.85,
+            "weight_ss316_lb_ft": 26.96
+        },
+        {
+            "designation": "L8X8X3/4",
+            "leg1_in": 8.0,
+            "leg2_in": 8.0,
+            "thickness_in": 0.75,
+            "weight_steel_lb_ft": 38.89,
+            "weight_ss304_lb_ft": 39.63,
+            "weight_ss316_lb_ft": 39.78
+        },
+        {
+            "designation": "L8X8X5/8",
+            "leg1_in": 8.0,
+            "leg2_in": 8.0,
+            "thickness_in": 0.625,
+            "weight_steel_lb_ft": 32.67,
+            "weight_ss304_lb_ft": 33.29,
+            "weight_ss316_lb_ft": 33.42
+        }
+    ],
+    "channel": [
+        {
+            "designation": "C3X4.1",
+            "weight_steel_lb_ft": 4.1,
+            "weight_ss304_lb_ft": 4.18,
+            "weight_ss316_lb_ft": 4.19,
+            "depth_in": 3.0,
+            "flange_width_in": 1.41,
+            "web_thickness_in": 0.175
+        },
+        {
+            "designation": "C3X5",
+            "weight_steel_lb_ft": 5.0,
+            "weight_ss304_lb_ft": 5.09,
+            "weight_ss316_lb_ft": 5.11,
+            "depth_in": 3.0,
+            "flange_width_in": 1.498,
+            "web_thickness_in": 0.18
+        },
+        {
+            "designation": "C3X6",
+            "weight_steel_lb_ft": 6.0,
+            "weight_ss304_lb_ft": 6.11,
+            "weight_ss316_lb_ft": 6.14,
+            "depth_in": 3.0,
+            "flange_width_in": 1.596,
+            "web_thickness_in": 0.186
+        },
+        {
+            "designation": "C4X5.4",
+            "weight_steel_lb_ft": 5.4,
+            "weight_ss304_lb_ft": 5.5,
+            "weight_ss316_lb_ft": 5.52,
+            "depth_in": 4.0,
+            "flange_width_in": 1.584,
+            "web_thickness_in": 0.182
+        },
+        {
+            "designation": "C4X6.25",
+            "weight_steel_lb_ft": 6.25,
+            "weight_ss304_lb_ft": 6.37,
+            "weight_ss316_lb_ft": 6.39,
+            "depth_in": 4.0,
+            "flange_width_in": 1.647,
+            "web_thickness_in": 0.188
+        },
+        {
+            "designation": "C4X7.25",
+            "weight_steel_lb_ft": 7.25,
+            "weight_ss304_lb_ft": 7.39,
+            "weight_ss316_lb_ft": 7.42,
+            "depth_in": 4.0,
+            "flange_width_in": 1.72,
+            "web_thickness_in": 0.194
+        },
+        {
+            "designation": "C5X6.7",
+            "weight_steel_lb_ft": 6.7,
+            "weight_ss304_lb_ft": 6.83,
+            "weight_ss316_lb_ft": 6.85,
+            "depth_in": 5.0,
+            "flange_width_in": 1.75,
+            "web_thickness_in": 0.19
+        },
+        {
+            "designation": "C5X9",
+            "weight_steel_lb_ft": 9.0,
+            "weight_ss304_lb_ft": 9.17,
+            "weight_ss316_lb_ft": 9.21,
+            "depth_in": 5.0,
+            "flange_width_in": 1.885,
+            "web_thickness_in": 0.204
+        },
+        {
+            "designation": "C6X8.2",
+            "weight_steel_lb_ft": 8.2,
+            "weight_ss304_lb_ft": 8.36,
+            "weight_ss316_lb_ft": 8.39,
+            "depth_in": 6.0,
+            "flange_width_in": 1.92,
+            "web_thickness_in": 0.199
+        },
+        {
+            "designation": "C6X10.5",
+            "weight_steel_lb_ft": 10.5,
+            "weight_ss304_lb_ft": 10.7,
+            "weight_ss316_lb_ft": 10.74,
+            "depth_in": 6.0,
+            "flange_width_in": 2.034,
+            "web_thickness_in": 0.213
+        },
+        {
+            "designation": "C6X13",
+            "weight_steel_lb_ft": 13.0,
+            "weight_ss304_lb_ft": 13.25,
+            "weight_ss316_lb_ft": 13.3,
+            "depth_in": 6.0,
+            "flange_width_in": 2.157,
+            "web_thickness_in": 0.228
+        },
+        {
+            "designation": "C7X9.8",
+            "weight_steel_lb_ft": 9.8,
+            "weight_ss304_lb_ft": 9.99,
+            "weight_ss316_lb_ft": 10.03,
+            "depth_in": 7.0,
+            "flange_width_in": 2.09,
+            "web_thickness_in": 0.209
+        },
+        {
+            "designation": "C7X12.25",
+            "weight_steel_lb_ft": 12.25,
+            "weight_ss304_lb_ft": 12.48,
+            "weight_ss316_lb_ft": 12.53,
+            "depth_in": 7.0,
+            "flange_width_in": 2.194,
+            "web_thickness_in": 0.223
+        },
+        {
+            "designation": "C7X14.75",
+            "weight_steel_lb_ft": 14.75,
+            "weight_ss304_lb_ft": 15.03,
+            "weight_ss316_lb_ft": 15.09,
+            "depth_in": 7.0,
+            "flange_width_in": 2.299,
+            "web_thickness_in": 0.238
+        },
+        {
+            "designation": "C8X11.5",
+            "weight_steel_lb_ft": 11.5,
+            "weight_ss304_lb_ft": 11.72,
+            "weight_ss316_lb_ft": 11.76,
+            "depth_in": 8.0,
+            "flange_width_in": 2.26,
+            "web_thickness_in": 0.219
+        },
+        {
+            "designation": "C8X13.75",
+            "weight_steel_lb_ft": 13.75,
+            "weight_ss304_lb_ft": 14.01,
+            "weight_ss316_lb_ft": 14.07,
+            "depth_in": 8.0,
+            "flange_width_in": 2.343,
+            "web_thickness_in": 0.232
+        },
+        {
+            "designation": "C8X18.75",
+            "weight_steel_lb_ft": 18.75,
+            "weight_ss304_lb_ft": 19.11,
+            "weight_ss316_lb_ft": 19.18,
+            "depth_in": 8.0,
+            "flange_width_in": 2.527,
+            "web_thickness_in": 0.263
+        },
+        {
+            "designation": "C9X13.4",
+            "weight_steel_lb_ft": 13.4,
+            "weight_ss304_lb_ft": 13.65,
+            "weight_ss316_lb_ft": 13.71,
+            "depth_in": 9.0,
+            "flange_width_in": 2.55,
+            "web_thickness_in": 0.23
+        },
+        {
+            "designation": "C9X15",
+            "weight_steel_lb_ft": 15.0,
+            "weight_ss304_lb_ft": 15.28,
+            "weight_ss316_lb_ft": 15.34,
+            "depth_in": 9.0,
+            "flange_width_in": 2.58,
+            "web_thickness_in": 0.24
+        },
+        {
+            "designation": "C9X20",
+            "weight_steel_lb_ft": 20.0,
+            "weight_ss304_lb_ft": 20.38,
+            "weight_ss316_lb_ft": 20.46,
+            "depth_in": 9.0,
+            "flange_width_in": 2.65,
+            "web_thickness_in": 0.448
+        },
+        {
+            "designation": "C10X15.3",
+            "weight_steel_lb_ft": 15.3,
+            "weight_ss304_lb_ft": 15.59,
+            "weight_ss316_lb_ft": 15.65,
+            "depth_in": 10.0,
+            "flange_width_in": 2.6,
+            "web_thickness_in": 0.242
+        },
+        {
+            "designation": "C10X20",
+            "weight_steel_lb_ft": 20.0,
+            "weight_ss304_lb_ft": 20.38,
+            "weight_ss316_lb_ft": 20.46,
+            "depth_in": 10.0,
+            "flange_width_in": 2.739,
+            "web_thickness_in": 0.27
+        },
+        {
+            "designation": "C10X25",
+            "weight_steel_lb_ft": 25.0,
+            "weight_ss304_lb_ft": 25.47,
+            "weight_ss316_lb_ft": 25.57,
+            "depth_in": 10.0,
+            "flange_width_in": 2.886,
+            "web_thickness_in": 0.3
+        },
+        {
+            "designation": "C10X30",
+            "weight_steel_lb_ft": 30.0,
+            "weight_ss304_lb_ft": 30.57,
+            "weight_ss316_lb_ft": 30.69,
+            "depth_in": 10.0,
+            "flange_width_in": 3.033,
+            "web_thickness_in": 0.33
+        },
+        {
+            "designation": "C12X20.7",
+            "weight_steel_lb_ft": 20.7,
+            "weight_ss304_lb_ft": 21.09,
+            "weight_ss316_lb_ft": 21.18,
+            "depth_in": 12.0,
+            "flange_width_in": 2.942,
+            "web_thickness_in": 0.274
+        },
+        {
+            "designation": "C12X25",
+            "weight_steel_lb_ft": 25.0,
+            "weight_ss304_lb_ft": 25.47,
+            "weight_ss316_lb_ft": 25.57,
+            "depth_in": 12.0,
+            "flange_width_in": 3.047,
+            "web_thickness_in": 0.3
+        },
+        {
+            "designation": "C12X30",
+            "weight_steel_lb_ft": 30.0,
+            "weight_ss304_lb_ft": 30.57,
+            "weight_ss316_lb_ft": 30.69,
+            "depth_in": 12.0,
+            "flange_width_in": 3.17,
+            "web_thickness_in": 0.33
+        },
+        {
+            "designation": "C15X33.9",
+            "weight_steel_lb_ft": 33.9,
+            "weight_ss304_lb_ft": 34.54,
+            "weight_ss316_lb_ft": 34.68,
+            "depth_in": 15.0,
+            "flange_width_in": 3.4,
+            "web_thickness_in": 0.353
+        },
+        {
+            "designation": "C15X40",
+            "weight_steel_lb_ft": 40.0,
+            "weight_ss304_lb_ft": 40.76,
+            "weight_ss316_lb_ft": 40.92,
+            "depth_in": 15.0,
+            "flange_width_in": 3.52,
+            "web_thickness_in": 0.39
+        },
+        {
+            "designation": "C15X50",
+            "weight_steel_lb_ft": 50.0,
+            "weight_ss304_lb_ft": 50.95,
+            "weight_ss316_lb_ft": 51.15,
+            "depth_in": 15.0,
+            "flange_width_in": 3.716,
+            "web_thickness_in": 0.45
+        },
+        {
+            "designation": "MC6X12",
+            "weight_steel_lb_ft": 12.0,
+            "weight_ss304_lb_ft": 12.228,
+            "weight_ss316_lb_ft": 12.276,
+            "depth_in": 6.0,
+            "flange_width_in": 2.5,
+            "web_thickness_in": 0.31
+        },
+        {
+            "designation": "MC6X15.3",
+            "weight_steel_lb_ft": 15.3,
+            "weight_ss304_lb_ft": 15.591,
+            "weight_ss316_lb_ft": 15.652,
+            "depth_in": 6.0,
+            "flange_width_in": 3.5,
+            "web_thickness_in": 0.34
+        },
+        {
+            "designation": "MC8X8.5",
+            "weight_steel_lb_ft": 8.5,
+            "weight_ss304_lb_ft": 8.661,
+            "weight_ss316_lb_ft": 8.695,
+            "depth_in": 8.0,
+            "flange_width_in": 1.87,
+            "web_thickness_in": 0.179
+        },
+        {
+            "designation": "MC8X20",
+            "weight_steel_lb_ft": 20.0,
+            "weight_ss304_lb_ft": 20.38,
+            "weight_ss316_lb_ft": 20.46,
+            "depth_in": 8.0,
+            "flange_width_in": 3.03,
+            "web_thickness_in": 0.4
+        },
+        {
+            "designation": "MC10X8.4",
+            "weight_steel_lb_ft": 8.4,
+            "weight_ss304_lb_ft": 8.56,
+            "weight_ss316_lb_ft": 8.593,
+            "depth_in": 10.0,
+            "flange_width_in": 1.5,
+            "web_thickness_in": 0.17
+        },
+        {
+            "designation": "MC10X22",
+            "weight_steel_lb_ft": 22.0,
+            "weight_ss304_lb_ft": 22.418,
+            "weight_ss316_lb_ft": 22.506,
+            "depth_in": 10.0,
+            "flange_width_in": 3.32,
+            "web_thickness_in": 0.29
+        },
+        {
+            "designation": "MC12X10.6",
+            "weight_steel_lb_ft": 10.6,
+            "weight_ss304_lb_ft": 10.801,
+            "weight_ss316_lb_ft": 10.844,
+            "depth_in": 12.0,
+            "flange_width_in": 1.5,
+            "web_thickness_in": 0.19
+        },
+        {
+            "designation": "MC12X31",
+            "weight_steel_lb_ft": 31.0,
+            "weight_ss304_lb_ft": 31.589,
+            "weight_ss316_lb_ft": 31.713,
+            "depth_in": 12.0,
+            "flange_width_in": 3.67,
+            "web_thickness_in": 0.37
+        }
+    ],
+    "hss_tube": [
+        {
+            "designation": "HSS1X1X1/8",
+            "width_in": 1.0,
+            "height_in": 1.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 1.49,
+            "weight_ss304_lb_ft": 1.518,
+            "weight_ss316_lb_ft": 1.524
+        },
+        {
+            "designation": "HSS1.25X1.25X1/8",
+            "width_in": 1.25,
+            "height_in": 1.25,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 1.92,
+            "weight_ss304_lb_ft": 1.956,
+            "weight_ss316_lb_ft": 1.964
+        },
+        {
+            "designation": "HSS1.5X1.5X1/2",
+            "width_in": 1.5,
+            "height_in": 1.5,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 6.8,
+            "weight_ss304_lb_ft": 6.93,
+            "weight_ss316_lb_ft": 6.96
+        },
+        {
+            "designation": "HSS1.5X1.5X1/4",
+            "width_in": 1.5,
+            "height_in": 1.5,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 4.25,
+            "weight_ss304_lb_ft": 4.33,
+            "weight_ss316_lb_ft": 4.35
+        },
+        {
+            "designation": "HSS1.5X1.5X1/8",
+            "width_in": 1.5,
+            "height_in": 1.5,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 2.34,
+            "weight_ss304_lb_ft": 2.38,
+            "weight_ss316_lb_ft": 2.39
+        },
+        {
+            "designation": "HSS1.5X1.5X3/8",
+            "width_in": 1.5,
+            "height_in": 1.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 5.74,
+            "weight_ss304_lb_ft": 5.85,
+            "weight_ss316_lb_ft": 5.87
+        },
+        {
+            "designation": "HSS1.5X1.5X3/16",
+            "width_in": 1.5,
+            "height_in": 1.5,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 3.35,
+            "weight_ss304_lb_ft": 3.41,
+            "weight_ss316_lb_ft": 3.43
+        },
+        {
+            "designation": "HSS1.5X1.5X5/16",
+            "width_in": 1.5,
+            "height_in": 1.5,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 5.05,
+            "weight_ss304_lb_ft": 5.15,
+            "weight_ss316_lb_ft": 5.17
+        },
+        {
+            "designation": "HSS2X1X1/8",
+            "width_in": 2.0,
+            "height_in": 1.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 2.34,
+            "weight_ss304_lb_ft": 2.384,
+            "weight_ss316_lb_ft": 2.394
+        },
+        {
+            "designation": "HSS2X2X1/2",
+            "width_in": 2.0,
+            "height_in": 2.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 10.2,
+            "weight_ss304_lb_ft": 10.39,
+            "weight_ss316_lb_ft": 10.43
+        },
+        {
+            "designation": "HSS2X2X1/4",
+            "width_in": 2.0,
+            "height_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 5.95,
+            "weight_ss304_lb_ft": 6.06,
+            "weight_ss316_lb_ft": 6.09
+        },
+        {
+            "designation": "HSS2X2X1/8",
+            "width_in": 2.0,
+            "height_in": 2.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 3.19,
+            "weight_ss304_lb_ft": 3.25,
+            "weight_ss316_lb_ft": 3.26
+        },
+        {
+            "designation": "HSS2X2X3/8",
+            "width_in": 2.0,
+            "height_in": 2.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 8.29,
+            "weight_ss304_lb_ft": 8.45,
+            "weight_ss316_lb_ft": 8.48
+        },
+        {
+            "designation": "HSS2X2X3/16",
+            "width_in": 2.0,
+            "height_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 4.62,
+            "weight_ss304_lb_ft": 4.71,
+            "weight_ss316_lb_ft": 4.73
+        },
+        {
+            "designation": "HSS2X2X5/16",
+            "width_in": 2.0,
+            "height_in": 2.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 7.17,
+            "weight_ss304_lb_ft": 7.31,
+            "weight_ss316_lb_ft": 7.33
+        },
+        {
+            "designation": "HSS2.5X1.5X1/8",
+            "width_in": 2.5,
+            "height_in": 1.5,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 3.19,
+            "weight_ss304_lb_ft": 3.251,
+            "weight_ss316_lb_ft": 3.263
+        },
+        {
+            "designation": "HSS2.5X1.5X3/16",
+            "width_in": 2.5,
+            "height_in": 1.5,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 4.63,
+            "weight_ss304_lb_ft": 4.718,
+            "weight_ss316_lb_ft": 4.736
+        },
+        {
+            "designation": "HSS2.5X2.5X1/2",
+            "width_in": 2.5,
+            "height_in": 2.5,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 13.6,
+            "weight_ss304_lb_ft": 13.86,
+            "weight_ss316_lb_ft": 13.91
+        },
+        {
+            "designation": "HSS2.5X2.5X1/4",
+            "width_in": 2.5,
+            "height_in": 2.5,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 7.65,
+            "weight_ss304_lb_ft": 7.8,
+            "weight_ss316_lb_ft": 7.83
+        },
+        {
+            "designation": "HSS2.5X2.5X1/8",
+            "width_in": 2.5,
+            "height_in": 2.5,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 4.04,
+            "weight_ss304_lb_ft": 4.12,
+            "weight_ss316_lb_ft": 4.13
+        },
+        {
+            "designation": "HSS2.5X2.5X3/8",
+            "width_in": 2.5,
+            "height_in": 2.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 10.84,
+            "weight_ss304_lb_ft": 11.05,
+            "weight_ss316_lb_ft": 11.09
+        },
+        {
+            "designation": "HSS2.5X2.5X3/16",
+            "width_in": 2.5,
+            "height_in": 2.5,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 5.9,
+            "weight_ss304_lb_ft": 6.01,
+            "weight_ss316_lb_ft": 6.04
+        },
+        {
+            "designation": "HSS2.5X2.5X5/16",
+            "width_in": 2.5,
+            "height_in": 2.5,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 9.3,
+            "weight_ss304_lb_ft": 9.48,
+            "weight_ss316_lb_ft": 9.51
+        },
+        {
+            "designation": "HSS3X1.5X1/8",
+            "width_in": 3.0,
+            "height_in": 1.5,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 3.62,
+            "weight_ss304_lb_ft": 3.689,
+            "weight_ss316_lb_ft": 3.703
+        },
+        {
+            "designation": "HSS3X1.5X3/16",
+            "width_in": 3.0,
+            "height_in": 1.5,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 5.27,
+            "weight_ss304_lb_ft": 5.37,
+            "weight_ss316_lb_ft": 5.391
+        },
+        {
+            "designation": "HSS3X2X1/2",
+            "width_in": 3.0,
+            "height_in": 2.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 13.6,
+            "weight_ss304_lb_ft": 13.86,
+            "weight_ss316_lb_ft": 13.91
+        },
+        {
+            "designation": "HSS3X2X1/4",
+            "width_in": 3.0,
+            "height_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 7.65,
+            "weight_ss304_lb_ft": 7.8,
+            "weight_ss316_lb_ft": 7.83
+        },
+        {
+            "designation": "HSS3X2X1/8",
+            "width_in": 3.0,
+            "height_in": 2.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 4.04,
+            "weight_ss304_lb_ft": 4.12,
+            "weight_ss316_lb_ft": 4.13
+        },
+        {
+            "designation": "HSS3X2X3/8",
+            "width_in": 3.0,
+            "height_in": 2.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 10.84,
+            "weight_ss304_lb_ft": 11.05,
+            "weight_ss316_lb_ft": 11.09
+        },
+        {
+            "designation": "HSS3X2X3/16",
+            "width_in": 3.0,
+            "height_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 5.9,
+            "weight_ss304_lb_ft": 6.01,
+            "weight_ss316_lb_ft": 6.04
+        },
+        {
+            "designation": "HSS3X2X5/16",
+            "width_in": 3.0,
+            "height_in": 2.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 9.3,
+            "weight_ss304_lb_ft": 9.48,
+            "weight_ss316_lb_ft": 9.51
+        },
+        {
+            "designation": "HSS3X3X1/2",
+            "width_in": 3.0,
+            "height_in": 3.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 17.0,
+            "weight_ss304_lb_ft": 17.32,
+            "weight_ss316_lb_ft": 17.39
+        },
+        {
+            "designation": "HSS3X3X1/4",
+            "width_in": 3.0,
+            "height_in": 3.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 9.35,
+            "weight_ss304_lb_ft": 9.53,
+            "weight_ss316_lb_ft": 9.57
+        },
+        {
+            "designation": "HSS3X3X1/8",
+            "width_in": 3.0,
+            "height_in": 3.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 4.89,
+            "weight_ss304_lb_ft": 4.98,
+            "weight_ss316_lb_ft": 5.0
+        },
+        {
+            "designation": "HSS3X3X3/8",
+            "width_in": 3.0,
+            "height_in": 3.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 13.39,
+            "weight_ss304_lb_ft": 13.64,
+            "weight_ss316_lb_ft": 13.7
+        },
+        {
+            "designation": "HSS3X3X3/16",
+            "width_in": 3.0,
+            "height_in": 3.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 7.17,
+            "weight_ss304_lb_ft": 7.31,
+            "weight_ss316_lb_ft": 7.33
+        },
+        {
+            "designation": "HSS3X3X5/16",
+            "width_in": 3.0,
+            "height_in": 3.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 11.42,
+            "weight_ss304_lb_ft": 11.64,
+            "weight_ss316_lb_ft": 11.68
+        },
+        {
+            "designation": "HSS3.5X3.5X3/8",
+            "width_in": 3.5,
+            "height_in": 3.5,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 15.2,
+            "weight_ss304_lb_ft": 15.489,
+            "weight_ss316_lb_ft": 15.55
+        },
+        {
+            "designation": "HSS4X2X1/2",
+            "width_in": 4.0,
+            "height_in": 2.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 17.0,
+            "weight_ss304_lb_ft": 17.32,
+            "weight_ss316_lb_ft": 17.39
+        },
+        {
+            "designation": "HSS4X2X1/4",
+            "width_in": 4.0,
+            "height_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 9.35,
+            "weight_ss304_lb_ft": 9.53,
+            "weight_ss316_lb_ft": 9.57
+        },
+        {
+            "designation": "HSS4X2X1/8",
+            "width_in": 4.0,
+            "height_in": 2.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 4.89,
+            "weight_ss304_lb_ft": 4.98,
+            "weight_ss316_lb_ft": 5.0
+        },
+        {
+            "designation": "HSS4X2X3/8",
+            "width_in": 4.0,
+            "height_in": 2.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 13.39,
+            "weight_ss304_lb_ft": 13.64,
+            "weight_ss316_lb_ft": 13.7
+        },
+        {
+            "designation": "HSS4X2X3/16",
+            "width_in": 4.0,
+            "height_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 7.17,
+            "weight_ss304_lb_ft": 7.31,
+            "weight_ss316_lb_ft": 7.33
+        },
+        {
+            "designation": "HSS4X2X5/16",
+            "width_in": 4.0,
+            "height_in": 2.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 11.42,
+            "weight_ss304_lb_ft": 11.64,
+            "weight_ss316_lb_ft": 11.68
+        },
+        {
+            "designation": "HSS4X3X1/2",
+            "width_in": 4.0,
+            "height_in": 3.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 20.4,
+            "weight_ss304_lb_ft": 20.79,
+            "weight_ss316_lb_ft": 20.87
+        },
+        {
+            "designation": "HSS4X3X1/4",
+            "width_in": 4.0,
+            "height_in": 3.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 11.05,
+            "weight_ss304_lb_ft": 11.26,
+            "weight_ss316_lb_ft": 11.3
+        },
+        {
+            "designation": "HSS4X3X1/8",
+            "width_in": 4.0,
+            "height_in": 3.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 5.74,
+            "weight_ss304_lb_ft": 5.85,
+            "weight_ss316_lb_ft": 5.87
+        },
+        {
+            "designation": "HSS4X3X3/8",
+            "width_in": 4.0,
+            "height_in": 3.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 15.94,
+            "weight_ss304_lb_ft": 16.24,
+            "weight_ss316_lb_ft": 16.31
+        },
+        {
+            "designation": "HSS4X3X3/16",
+            "width_in": 4.0,
+            "height_in": 3.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 8.45,
+            "weight_ss304_lb_ft": 8.61,
+            "weight_ss316_lb_ft": 8.64
+        },
+        {
+            "designation": "HSS4X3X5/16",
+            "width_in": 4.0,
+            "height_in": 3.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 13.55,
+            "weight_ss304_lb_ft": 13.81,
+            "weight_ss316_lb_ft": 13.86
+        },
+        {
+            "designation": "HSS4X4X1/2",
+            "width_in": 4.0,
+            "height_in": 4.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 23.8,
+            "weight_ss304_lb_ft": 24.25,
+            "weight_ss316_lb_ft": 24.35
+        },
+        {
+            "designation": "HSS4X4X1/4",
+            "width_in": 4.0,
+            "height_in": 4.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 12.75,
+            "weight_ss304_lb_ft": 12.99,
+            "weight_ss316_lb_ft": 13.04
+        },
+        {
+            "designation": "HSS4X4X1/8",
+            "width_in": 4.0,
+            "height_in": 4.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 6.59,
+            "weight_ss304_lb_ft": 6.72,
+            "weight_ss316_lb_ft": 6.74
+        },
+        {
+            "designation": "HSS4X4X3/8",
+            "width_in": 4.0,
+            "height_in": 4.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 18.49,
+            "weight_ss304_lb_ft": 18.84,
+            "weight_ss316_lb_ft": 18.92
+        },
+        {
+            "designation": "HSS4X4X3/16",
+            "width_in": 4.0,
+            "height_in": 4.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 9.72,
+            "weight_ss304_lb_ft": 9.9,
+            "weight_ss316_lb_ft": 9.94
+        },
+        {
+            "designation": "HSS4X4X5/16",
+            "width_in": 4.0,
+            "height_in": 4.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 15.67,
+            "weight_ss304_lb_ft": 15.97,
+            "weight_ss316_lb_ft": 16.03
+        },
+        {
+            "designation": "HSS5X2X1/4",
+            "width_in": 5.0,
+            "height_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 11.0,
+            "weight_ss304_lb_ft": 11.209,
+            "weight_ss316_lb_ft": 11.253
+        },
+        {
+            "designation": "HSS5X2X3/16",
+            "width_in": 5.0,
+            "height_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 8.46,
+            "weight_ss304_lb_ft": 8.621,
+            "weight_ss316_lb_ft": 8.655
+        },
+        {
+            "designation": "HSS5X3X1/2",
+            "width_in": 5.0,
+            "height_in": 3.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 23.8,
+            "weight_ss304_lb_ft": 24.25,
+            "weight_ss316_lb_ft": 24.35
+        },
+        {
+            "designation": "HSS5X3X1/4",
+            "width_in": 5.0,
+            "height_in": 3.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 12.75,
+            "weight_ss304_lb_ft": 12.99,
+            "weight_ss316_lb_ft": 13.04
+        },
+        {
+            "designation": "HSS5X3X1/8",
+            "width_in": 5.0,
+            "height_in": 3.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 6.59,
+            "weight_ss304_lb_ft": 6.72,
+            "weight_ss316_lb_ft": 6.74
+        },
+        {
+            "designation": "HSS5X3X3/8",
+            "width_in": 5.0,
+            "height_in": 3.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 18.49,
+            "weight_ss304_lb_ft": 18.84,
+            "weight_ss316_lb_ft": 18.92
+        },
+        {
+            "designation": "HSS5X3X3/16",
+            "width_in": 5.0,
+            "height_in": 3.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 9.72,
+            "weight_ss304_lb_ft": 9.9,
+            "weight_ss316_lb_ft": 9.94
+        },
+        {
+            "designation": "HSS5X3X5/16",
+            "width_in": 5.0,
+            "height_in": 3.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 15.67,
+            "weight_ss304_lb_ft": 15.97,
+            "weight_ss316_lb_ft": 16.03
+        },
+        {
+            "designation": "HSS5X5X1/2",
+            "width_in": 5.0,
+            "height_in": 5.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 30.6,
+            "weight_ss304_lb_ft": 31.18,
+            "weight_ss316_lb_ft": 31.3
+        },
+        {
+            "designation": "HSS5X5X1/4",
+            "width_in": 5.0,
+            "height_in": 5.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 16.15,
+            "weight_ss304_lb_ft": 16.46,
+            "weight_ss316_lb_ft": 16.52
+        },
+        {
+            "designation": "HSS5X5X1/8",
+            "width_in": 5.0,
+            "height_in": 5.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 8.29,
+            "weight_ss304_lb_ft": 8.45,
+            "weight_ss316_lb_ft": 8.48
+        },
+        {
+            "designation": "HSS5X5X3/8",
+            "width_in": 5.0,
+            "height_in": 5.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 23.59,
+            "weight_ss304_lb_ft": 24.04,
+            "weight_ss316_lb_ft": 24.13
+        },
+        {
+            "designation": "HSS5X5X3/16",
+            "width_in": 5.0,
+            "height_in": 5.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 12.27,
+            "weight_ss304_lb_ft": 12.5,
+            "weight_ss316_lb_ft": 12.55
+        },
+        {
+            "designation": "HSS5X5X5/16",
+            "width_in": 5.0,
+            "height_in": 5.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 19.92,
+            "weight_ss304_lb_ft": 20.3,
+            "weight_ss316_lb_ft": 20.38
+        },
+        {
+            "designation": "HSS6X2X1/4",
+            "width_in": 6.0,
+            "height_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 12.7,
+            "weight_ss304_lb_ft": 12.941,
+            "weight_ss316_lb_ft": 12.992
+        },
+        {
+            "designation": "HSS6X2X3/16",
+            "width_in": 6.0,
+            "height_in": 2.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 9.74,
+            "weight_ss304_lb_ft": 9.925,
+            "weight_ss316_lb_ft": 9.964
+        },
+        {
+            "designation": "HSS6X3X3/8",
+            "width_in": 6.0,
+            "height_in": 3.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 20.3,
+            "weight_ss304_lb_ft": 20.686,
+            "weight_ss316_lb_ft": 20.767
+        },
+        {
+            "designation": "HSS6X4X1/2",
+            "width_in": 6.0,
+            "height_in": 4.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 30.6,
+            "weight_ss304_lb_ft": 31.18,
+            "weight_ss316_lb_ft": 31.3
+        },
+        {
+            "designation": "HSS6X4X1/4",
+            "width_in": 6.0,
+            "height_in": 4.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 16.15,
+            "weight_ss304_lb_ft": 16.46,
+            "weight_ss316_lb_ft": 16.52
+        },
+        {
+            "designation": "HSS6X4X1/8",
+            "width_in": 6.0,
+            "height_in": 4.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 8.29,
+            "weight_ss304_lb_ft": 8.45,
+            "weight_ss316_lb_ft": 8.48
+        },
+        {
+            "designation": "HSS6X4X3/8",
+            "width_in": 6.0,
+            "height_in": 4.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 23.59,
+            "weight_ss304_lb_ft": 24.04,
+            "weight_ss316_lb_ft": 24.13
+        },
+        {
+            "designation": "HSS6X4X3/16",
+            "width_in": 6.0,
+            "height_in": 4.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 12.27,
+            "weight_ss304_lb_ft": 12.5,
+            "weight_ss316_lb_ft": 12.55
+        },
+        {
+            "designation": "HSS6X4X5/16",
+            "width_in": 6.0,
+            "height_in": 4.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 19.92,
+            "weight_ss304_lb_ft": 20.3,
+            "weight_ss316_lb_ft": 20.38
+        },
+        {
+            "designation": "HSS6X6X1/2",
+            "width_in": 6.0,
+            "height_in": 6.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 37.4,
+            "weight_ss304_lb_ft": 38.11,
+            "weight_ss316_lb_ft": 38.26
+        },
+        {
+            "designation": "HSS6X6X1/4",
+            "width_in": 6.0,
+            "height_in": 6.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 19.55,
+            "weight_ss304_lb_ft": 19.92,
+            "weight_ss316_lb_ft": 20.0
+        },
+        {
+            "designation": "HSS6X6X1/8",
+            "width_in": 6.0,
+            "height_in": 6.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 9.99,
+            "weight_ss304_lb_ft": 10.18,
+            "weight_ss316_lb_ft": 10.22
+        },
+        {
+            "designation": "HSS6X6X3/8",
+            "width_in": 6.0,
+            "height_in": 6.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 28.69,
+            "weight_ss304_lb_ft": 29.24,
+            "weight_ss316_lb_ft": 29.35
+        },
+        {
+            "designation": "HSS6X6X3/16",
+            "width_in": 6.0,
+            "height_in": 6.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 14.82,
+            "weight_ss304_lb_ft": 15.1,
+            "weight_ss316_lb_ft": 15.16
+        },
+        {
+            "designation": "HSS6X6X5/16",
+            "width_in": 6.0,
+            "height_in": 6.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 24.17,
+            "weight_ss304_lb_ft": 24.63,
+            "weight_ss316_lb_ft": 24.73
+        },
+        {
+            "designation": "HSS7X5X1/2",
+            "width_in": 7.0,
+            "height_in": 5.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 37.4,
+            "weight_ss304_lb_ft": 38.11,
+            "weight_ss316_lb_ft": 38.26
+        },
+        {
+            "designation": "HSS7X5X1/4",
+            "width_in": 7.0,
+            "height_in": 5.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 19.55,
+            "weight_ss304_lb_ft": 19.92,
+            "weight_ss316_lb_ft": 20.0
+        },
+        {
+            "designation": "HSS7X5X1/8",
+            "width_in": 7.0,
+            "height_in": 5.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 9.99,
+            "weight_ss304_lb_ft": 10.18,
+            "weight_ss316_lb_ft": 10.22
+        },
+        {
+            "designation": "HSS7X5X3/8",
+            "width_in": 7.0,
+            "height_in": 5.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 28.69,
+            "weight_ss304_lb_ft": 29.24,
+            "weight_ss316_lb_ft": 29.35
+        },
+        {
+            "designation": "HSS7X5X3/16",
+            "width_in": 7.0,
+            "height_in": 5.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 14.82,
+            "weight_ss304_lb_ft": 15.1,
+            "weight_ss316_lb_ft": 15.16
+        },
+        {
+            "designation": "HSS7X5X5/16",
+            "width_in": 7.0,
+            "height_in": 5.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 24.17,
+            "weight_ss304_lb_ft": 24.63,
+            "weight_ss316_lb_ft": 24.73
+        },
+        {
+            "designation": "HSS8X2X1/4",
+            "width_in": 8.0,
+            "height_in": 2.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 16.1,
+            "weight_ss304_lb_ft": 16.406,
+            "weight_ss316_lb_ft": 16.47
+        },
+        {
+            "designation": "HSS8X3X1/4",
+            "width_in": 8.0,
+            "height_in": 3.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 17.8,
+            "weight_ss304_lb_ft": 18.138,
+            "weight_ss316_lb_ft": 18.209
+        },
+        {
+            "designation": "HSS8X4X1/2",
+            "width_in": 8.0,
+            "height_in": 4.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 37.4,
+            "weight_ss304_lb_ft": 38.11,
+            "weight_ss316_lb_ft": 38.26
+        },
+        {
+            "designation": "HSS8X4X1/4",
+            "width_in": 8.0,
+            "height_in": 4.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 19.55,
+            "weight_ss304_lb_ft": 19.92,
+            "weight_ss316_lb_ft": 20.0
+        },
+        {
+            "designation": "HSS8X4X1/8",
+            "width_in": 8.0,
+            "height_in": 4.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 9.99,
+            "weight_ss304_lb_ft": 10.18,
+            "weight_ss316_lb_ft": 10.22
+        },
+        {
+            "designation": "HSS8X4X3/8",
+            "width_in": 8.0,
+            "height_in": 4.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 28.69,
+            "weight_ss304_lb_ft": 29.24,
+            "weight_ss316_lb_ft": 29.35
+        },
+        {
+            "designation": "HSS8X4X3/16",
+            "width_in": 8.0,
+            "height_in": 4.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 14.82,
+            "weight_ss304_lb_ft": 15.1,
+            "weight_ss316_lb_ft": 15.16
+        },
+        {
+            "designation": "HSS8X4X5/16",
+            "width_in": 8.0,
+            "height_in": 4.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 24.17,
+            "weight_ss304_lb_ft": 24.63,
+            "weight_ss316_lb_ft": 24.73
+        },
+        {
+            "designation": "HSS8X6X1/2",
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 44.2,
+            "weight_ss304_lb_ft": 45.04,
+            "weight_ss316_lb_ft": 45.22
+        },
+        {
+            "designation": "HSS8X6X1/4",
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 22.95,
+            "weight_ss304_lb_ft": 23.39,
+            "weight_ss316_lb_ft": 23.48
+        },
+        {
+            "designation": "HSS8X6X1/8",
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 11.69,
+            "weight_ss304_lb_ft": 11.91,
+            "weight_ss316_lb_ft": 11.96
+        },
+        {
+            "designation": "HSS8X6X3/8",
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 33.79,
+            "weight_ss304_lb_ft": 34.43,
+            "weight_ss316_lb_ft": 34.57
+        },
+        {
+            "designation": "HSS8X6X3/16",
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 17.37,
+            "weight_ss304_lb_ft": 17.7,
+            "weight_ss316_lb_ft": 17.77
+        },
+        {
+            "designation": "HSS8X6X5/16",
+            "width_in": 8.0,
+            "height_in": 6.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 28.42,
+            "weight_ss304_lb_ft": 28.96,
+            "weight_ss316_lb_ft": 29.07
+        },
+        {
+            "designation": "HSS8X8X1/2",
+            "width_in": 8.0,
+            "height_in": 8.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 51.0,
+            "weight_ss304_lb_ft": 51.97,
+            "weight_ss316_lb_ft": 52.17
+        },
+        {
+            "designation": "HSS8X8X1/4",
+            "width_in": 8.0,
+            "height_in": 8.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 26.35,
+            "weight_ss304_lb_ft": 26.85,
+            "weight_ss316_lb_ft": 26.96
+        },
+        {
+            "designation": "HSS8X8X1/8",
+            "width_in": 8.0,
+            "height_in": 8.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 13.39,
+            "weight_ss304_lb_ft": 13.64,
+            "weight_ss316_lb_ft": 13.7
+        },
+        {
+            "designation": "HSS8X8X3/8",
+            "width_in": 8.0,
+            "height_in": 8.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 38.89,
+            "weight_ss304_lb_ft": 39.63,
+            "weight_ss316_lb_ft": 39.78
+        },
+        {
+            "designation": "HSS8X8X3/16",
+            "width_in": 8.0,
+            "height_in": 8.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 19.92,
+            "weight_ss304_lb_ft": 20.3,
+            "weight_ss316_lb_ft": 20.38
+        },
+        {
+            "designation": "HSS8X8X5/16",
+            "width_in": 8.0,
+            "height_in": 8.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 32.67,
+            "weight_ss304_lb_ft": 33.29,
+            "weight_ss316_lb_ft": 33.42
+        },
+        {
+            "designation": "HSS10X4X3/8",
+            "width_in": 10.0,
+            "height_in": 4.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 33.5,
+            "weight_ss304_lb_ft": 34.136,
+            "weight_ss316_lb_ft": 34.27
+        },
+        {
+            "designation": "HSS10X6X1/2",
+            "width_in": 10.0,
+            "height_in": 6.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 51.0,
+            "weight_ss304_lb_ft": 51.97,
+            "weight_ss316_lb_ft": 52.17
+        },
+        {
+            "designation": "HSS10X6X1/4",
+            "width_in": 10.0,
+            "height_in": 6.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 26.35,
+            "weight_ss304_lb_ft": 26.85,
+            "weight_ss316_lb_ft": 26.96
+        },
+        {
+            "designation": "HSS10X6X1/8",
+            "width_in": 10.0,
+            "height_in": 6.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 13.39,
+            "weight_ss304_lb_ft": 13.64,
+            "weight_ss316_lb_ft": 13.7
+        },
+        {
+            "designation": "HSS10X6X3/8",
+            "width_in": 10.0,
+            "height_in": 6.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 38.89,
+            "weight_ss304_lb_ft": 39.63,
+            "weight_ss316_lb_ft": 39.78
+        },
+        {
+            "designation": "HSS10X6X3/16",
+            "width_in": 10.0,
+            "height_in": 6.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 19.92,
+            "weight_ss304_lb_ft": 20.3,
+            "weight_ss316_lb_ft": 20.38
+        },
+        {
+            "designation": "HSS10X6X5/16",
+            "width_in": 10.0,
+            "height_in": 6.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 32.67,
+            "weight_ss304_lb_ft": 33.29,
+            "weight_ss316_lb_ft": 33.42
+        },
+        {
+            "designation": "HSS10X10X1/2",
+            "width_in": 10.0,
+            "height_in": 10.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 64.6,
+            "weight_ss304_lb_ft": 65.83,
+            "weight_ss316_lb_ft": 66.09
+        },
+        {
+            "designation": "HSS10X10X1/4",
+            "width_in": 10.0,
+            "height_in": 10.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 33.15,
+            "weight_ss304_lb_ft": 33.78,
+            "weight_ss316_lb_ft": 33.91
+        },
+        {
+            "designation": "HSS10X10X1/8",
+            "width_in": 10.0,
+            "height_in": 10.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 16.79,
+            "weight_ss304_lb_ft": 17.11,
+            "weight_ss316_lb_ft": 17.18
+        },
+        {
+            "designation": "HSS10X10X3/8",
+            "width_in": 10.0,
+            "height_in": 10.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 49.09,
+            "weight_ss304_lb_ft": 50.02,
+            "weight_ss316_lb_ft": 50.22
+        },
+        {
+            "designation": "HSS10X10X3/16",
+            "width_in": 10.0,
+            "height_in": 10.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 25.02,
+            "weight_ss304_lb_ft": 25.5,
+            "weight_ss316_lb_ft": 25.6
+        },
+        {
+            "designation": "HSS10X10X5/16",
+            "width_in": 10.0,
+            "height_in": 10.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 41.17,
+            "weight_ss304_lb_ft": 41.95,
+            "weight_ss316_lb_ft": 42.12
+        },
+        {
+            "designation": "HSS12X6X3/8",
+            "width_in": 12.0,
+            "height_in": 6.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 43.7,
+            "weight_ss304_lb_ft": 44.53,
+            "weight_ss316_lb_ft": 44.705
+        },
+        {
+            "designation": "HSS12X8X1/2",
+            "width_in": 12.0,
+            "height_in": 8.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 63.7,
+            "weight_ss304_lb_ft": 64.91,
+            "weight_ss316_lb_ft": 65.165
+        },
+        {
+            "designation": "HSS12X12X1/2",
+            "width_in": 12.0,
+            "height_in": 12.0,
+            "thickness_in": 0.5,
+            "weight_steel_lb_ft": 78.2,
+            "weight_ss304_lb_ft": 79.69,
+            "weight_ss316_lb_ft": 80.0
+        },
+        {
+            "designation": "HSS12X12X1/4",
+            "width_in": 12.0,
+            "height_in": 12.0,
+            "thickness_in": 0.25,
+            "weight_steel_lb_ft": 39.95,
+            "weight_ss304_lb_ft": 40.71,
+            "weight_ss316_lb_ft": 40.87
+        },
+        {
+            "designation": "HSS12X12X1/8",
+            "width_in": 12.0,
+            "height_in": 12.0,
+            "thickness_in": 0.125,
+            "weight_steel_lb_ft": 20.19,
+            "weight_ss304_lb_ft": 20.57,
+            "weight_ss316_lb_ft": 20.65
+        },
+        {
+            "designation": "HSS12X12X3/8",
+            "width_in": 12.0,
+            "height_in": 12.0,
+            "thickness_in": 0.375,
+            "weight_steel_lb_ft": 59.29,
+            "weight_ss304_lb_ft": 60.42,
+            "weight_ss316_lb_ft": 60.65
+        },
+        {
+            "designation": "HSS12X12X3/16",
+            "width_in": 12.0,
+            "height_in": 12.0,
+            "thickness_in": 0.1875,
+            "weight_steel_lb_ft": 30.12,
+            "weight_ss304_lb_ft": 30.69,
+            "weight_ss316_lb_ft": 30.81
+        },
+        {
+            "designation": "HSS12X12X5/16",
+            "width_in": 12.0,
+            "height_in": 12.0,
+            "thickness_in": 0.3125,
+            "weight_steel_lb_ft": 49.67,
+            "weight_ss304_lb_ft": 50.61,
+            "weight_ss316_lb_ft": 50.81
+        }
+    ],
+    "pipe": [
+        {
+            "designation": "0.5\" Pipe (Sch 40)",
+            "nominal_size_in": 0.5,
+            "od_in": 0.84,
+            "wall_thickness_in": 0.109,
+            "weight_steel_lb_ft": 0.85,
+            "weight_ss304_lb_ft": 0.87,
+            "weight_ss316_lb_ft": 0.87
+        },
+        {
+            "designation": "0.5\" Pipe (Sch 80)",
+            "nominal_size_in": 0.5,
+            "od_in": 0.84,
+            "wall_thickness_in": 0.147,
+            "weight_steel_lb_ft": 1.09,
+            "weight_ss304_lb_ft": 1.11,
+            "weight_ss316_lb_ft": 1.12
+        },
+        {
+            "designation": "0.75\" Pipe (Sch 40)",
+            "nominal_size_in": 0.75,
+            "od_in": 1.05,
+            "wall_thickness_in": 0.113,
+            "weight_steel_lb_ft": 1.13,
+            "weight_ss304_lb_ft": 1.15,
+            "weight_ss316_lb_ft": 1.16
+        },
+        {
+            "designation": "0.75\" Pipe (Sch 80)",
+            "nominal_size_in": 0.75,
+            "od_in": 1.05,
+            "wall_thickness_in": 0.154,
+            "weight_steel_lb_ft": 1.48,
+            "weight_ss304_lb_ft": 1.51,
+            "weight_ss316_lb_ft": 1.51
+        },
+        {
+            "designation": "1.0\" Pipe (Sch 40)",
+            "nominal_size_in": 1.0,
+            "od_in": 1.315,
+            "wall_thickness_in": 0.133,
+            "weight_steel_lb_ft": 1.68,
+            "weight_ss304_lb_ft": 1.71,
+            "weight_ss316_lb_ft": 1.72
+        },
+        {
+            "designation": "1.0\" Pipe (Sch 80)",
+            "nominal_size_in": 1.0,
+            "od_in": 1.315,
+            "wall_thickness_in": 0.179,
+            "weight_steel_lb_ft": 2.17,
+            "weight_ss304_lb_ft": 2.21,
+            "weight_ss316_lb_ft": 2.22
+        },
+        {
+            "designation": "1.25\" Pipe (Sch 40)",
+            "nominal_size_in": 1.25,
+            "od_in": 1.66,
+            "wall_thickness_in": 0.14,
+            "weight_steel_lb_ft": 2.27,
+            "weight_ss304_lb_ft": 2.31,
+            "weight_ss316_lb_ft": 2.32
+        },
+        {
+            "designation": "1.25\" Pipe (Sch 80)",
+            "nominal_size_in": 1.25,
+            "od_in": 1.66,
+            "wall_thickness_in": 0.191,
+            "weight_steel_lb_ft": 3.0,
+            "weight_ss304_lb_ft": 3.06,
+            "weight_ss316_lb_ft": 3.07
+        },
+        {
+            "designation": "1.5\" Pipe (Sch 40)",
+            "nominal_size_in": 1.5,
+            "od_in": 1.9,
+            "wall_thickness_in": 0.145,
+            "weight_steel_lb_ft": 2.72,
+            "weight_ss304_lb_ft": 2.77,
+            "weight_ss316_lb_ft": 2.78
+        },
+        {
+            "designation": "1.5\" Pipe (Sch 80)",
+            "nominal_size_in": 1.5,
+            "od_in": 1.9,
+            "wall_thickness_in": 0.2,
+            "weight_steel_lb_ft": 3.63,
+            "weight_ss304_lb_ft": 3.7,
+            "weight_ss316_lb_ft": 3.71
+        },
+        {
+            "designation": "2.0\" Pipe (Sch 40)",
+            "nominal_size_in": 2.0,
+            "od_in": 2.375,
+            "wall_thickness_in": 0.154,
+            "weight_steel_lb_ft": 3.66,
+            "weight_ss304_lb_ft": 3.73,
+            "weight_ss316_lb_ft": 3.74
+        },
+        {
+            "designation": "2.0\" Pipe (Sch 80)",
+            "nominal_size_in": 2.0,
+            "od_in": 2.375,
+            "wall_thickness_in": 0.218,
+            "weight_steel_lb_ft": 5.03,
+            "weight_ss304_lb_ft": 5.13,
+            "weight_ss316_lb_ft": 5.15
+        },
+        {
+            "designation": "2.5\" Pipe (Sch 40)",
+            "nominal_size_in": 2.5,
+            "od_in": 2.875,
+            "wall_thickness_in": 0.203,
+            "weight_steel_lb_ft": 5.8,
+            "weight_ss304_lb_ft": 5.91,
+            "weight_ss316_lb_ft": 5.93
+        },
+        {
+            "designation": "2.5\" Pipe (Sch 80)",
+            "nominal_size_in": 2.5,
+            "od_in": 2.875,
+            "wall_thickness_in": 0.276,
+            "weight_steel_lb_ft": 7.67,
+            "weight_ss304_lb_ft": 7.82,
+            "weight_ss316_lb_ft": 7.85
+        },
+        {
+            "designation": "3.0\" Pipe (Sch 40)",
+            "nominal_size_in": 3.0,
+            "od_in": 3.5,
+            "wall_thickness_in": 0.216,
+            "weight_steel_lb_ft": 7.58,
+            "weight_ss304_lb_ft": 7.72,
+            "weight_ss316_lb_ft": 7.75
+        },
+        {
+            "designation": "3.0\" Pipe (Sch 80)",
+            "nominal_size_in": 3.0,
+            "od_in": 3.5,
+            "wall_thickness_in": 0.3,
+            "weight_steel_lb_ft": 10.26,
+            "weight_ss304_lb_ft": 10.45,
+            "weight_ss316_lb_ft": 10.5
+        },
+        {
+            "designation": "3.5\" Pipe (Sch 40)",
+            "nominal_size_in": 3.5,
+            "od_in": 4.0,
+            "wall_thickness_in": 0.226,
+            "weight_steel_lb_ft": 9.12,
+            "weight_ss304_lb_ft": 9.29,
+            "weight_ss316_lb_ft": 9.33
+        },
+        {
+            "designation": "3.5\" Pipe (Sch 80)",
+            "nominal_size_in": 3.5,
+            "od_in": 4.0,
+            "wall_thickness_in": 0.318,
+            "weight_steel_lb_ft": 12.52,
+            "weight_ss304_lb_ft": 12.76,
+            "weight_ss316_lb_ft": 12.81
+        },
+        {
+            "designation": "4.0\" Pipe (Sch 40)",
+            "nominal_size_in": 4.0,
+            "od_in": 4.5,
+            "wall_thickness_in": 0.237,
+            "weight_steel_lb_ft": 10.8,
+            "weight_ss304_lb_ft": 11.01,
+            "weight_ss316_lb_ft": 11.05
+        },
+        {
+            "designation": "4.0\" Pipe (Sch 80)",
+            "nominal_size_in": 4.0,
+            "od_in": 4.5,
+            "wall_thickness_in": 0.337,
+            "weight_steel_lb_ft": 15.0,
+            "weight_ss304_lb_ft": 15.28,
+            "weight_ss316_lb_ft": 15.34
+        },
+        {
+            "designation": "5.0\" Pipe (Sch 40)",
+            "nominal_size_in": 5.0,
+            "od_in": 5.563,
+            "wall_thickness_in": 0.258,
+            "weight_steel_lb_ft": 14.63,
+            "weight_ss304_lb_ft": 14.91,
+            "weight_ss316_lb_ft": 14.97
+        },
+        {
+            "designation": "5.0\" Pipe (Sch 80)",
+            "nominal_size_in": 5.0,
+            "od_in": 5.563,
+            "wall_thickness_in": 0.375,
+            "weight_steel_lb_ft": 20.8,
+            "weight_ss304_lb_ft": 21.2,
+            "weight_ss316_lb_ft": 21.28
+        },
+        {
+            "designation": "6.0\" Pipe (Sch 40)",
+            "nominal_size_in": 6.0,
+            "od_in": 6.625,
+            "wall_thickness_in": 0.28,
+            "weight_steel_lb_ft": 18.99,
+            "weight_ss304_lb_ft": 19.35,
+            "weight_ss316_lb_ft": 19.43
+        },
+        {
+            "designation": "6.0\" Pipe (Sch 80)",
+            "nominal_size_in": 6.0,
+            "od_in": 6.625,
+            "wall_thickness_in": 0.432,
+            "weight_steel_lb_ft": 28.6,
+            "weight_ss304_lb_ft": 29.14,
+            "weight_ss316_lb_ft": 29.26
+        },
+        {
+            "designation": "8.0\" Pipe (Sch 40)",
+            "nominal_size_in": 8.0,
+            "od_in": 8.625,
+            "wall_thickness_in": 0.322,
+            "weight_steel_lb_ft": 28.58,
+            "weight_ss304_lb_ft": 29.12,
+            "weight_ss316_lb_ft": 29.24
+        },
+        {
+            "designation": "8.0\" Pipe (Sch 80)",
+            "nominal_size_in": 8.0,
+            "od_in": 8.625,
+            "wall_thickness_in": 0.5,
+            "weight_steel_lb_ft": 43.43,
+            "weight_ss304_lb_ft": 44.26,
+            "weight_ss316_lb_ft": 44.43
+        },
+        {
+            "designation": "10.0\" Pipe (Sch 40)",
+            "nominal_size_in": 10.0,
+            "od_in": 10.75,
+            "wall_thickness_in": 0.365,
+            "weight_steel_lb_ft": 40.52,
+            "weight_ss304_lb_ft": 41.29,
+            "weight_ss316_lb_ft": 41.45
+        },
+        {
+            "designation": "10.0\" Pipe (Sch 80)",
+            "nominal_size_in": 10.0,
+            "od_in": 10.75,
+            "wall_thickness_in": 0.5,
+            "weight_steel_lb_ft": 54.79,
+            "weight_ss304_lb_ft": 55.83,
+            "weight_ss316_lb_ft": 56.05
+        },
+        {
+            "designation": "12.0\" Pipe (Sch 40)",
+            "nominal_size_in": 12.0,
+            "od_in": 12.75,
+            "wall_thickness_in": 0.375,
+            "weight_steel_lb_ft": 49.61,
+            "weight_ss304_lb_ft": 50.55,
+            "weight_ss316_lb_ft": 50.75
+        },
+        {
+            "designation": "12.0\" Pipe (Sch 80)",
+            "nominal_size_in": 12.0,
+            "od_in": 12.75,
+            "wall_thickness_in": 0.5,
+            "weight_steel_lb_ft": 65.48,
+            "weight_ss304_lb_ft": 66.72,
+            "weight_ss316_lb_ft": 66.99
+        }
+    ],
+    "plate": [
+        {
+            "designation": "1\"",
+            "thickness_in": 1.0,
+            "weight_steel_lb_sqft": 40.84,
+            "weight_ss304_lb_sqft": 41.62,
+            "weight_ss316_lb_sqft": 41.78
+        },
+        {
+            "designation": "1-1/2\"",
+            "thickness_in": 1.5,
+            "weight_steel_lb_sqft": 61.26,
+            "weight_ss304_lb_sqft": 62.42,
+            "weight_ss316_lb_sqft": 62.67
+        },
+        {
+            "designation": "1-1/4\"",
+            "thickness_in": 1.25,
+            "weight_steel_lb_sqft": 51.05,
+            "weight_ss304_lb_sqft": 52.02,
+            "weight_ss316_lb_sqft": 52.22
+        },
+        {
+            "designation": "1/2\"",
+            "thickness_in": 0.5,
+            "weight_steel_lb_sqft": 20.42,
+            "weight_ss304_lb_sqft": 20.81,
+            "weight_ss316_lb_sqft": 20.89
+        },
+        {
+            "designation": "1/4\"",
+            "thickness_in": 0.25,
+            "weight_steel_lb_sqft": 10.21,
+            "weight_ss304_lb_sqft": 10.4,
+            "weight_ss316_lb_sqft": 10.44
+        },
+        {
+            "designation": "2\"",
+            "thickness_in": 2.0,
+            "weight_steel_lb_sqft": 81.68,
+            "weight_ss304_lb_sqft": 83.23,
+            "weight_ss316_lb_sqft": 83.56
+        },
+        {
+            "designation": "2-1/2\"",
+            "thickness_in": 2.5,
+            "weight_steel_lb_sqft": 102.1,
+            "weight_ss304_lb_sqft": 104.04,
+            "weight_ss316_lb_sqft": 104.45
+        },
+        {
+            "designation": "3\"",
+            "thickness_in": 3.0,
+            "weight_steel_lb_sqft": 122.52,
+            "weight_ss304_lb_sqft": 124.85,
+            "weight_ss316_lb_sqft": 125.34
+        },
+        {
+            "designation": "3/4\"",
+            "thickness_in": 0.75,
+            "weight_steel_lb_sqft": 30.63,
+            "weight_ss304_lb_sqft": 31.21,
+            "weight_ss316_lb_sqft": 31.33
+        },
+        {
+            "designation": "3/8\"",
+            "thickness_in": 0.375,
+            "weight_steel_lb_sqft": 15.32,
+            "weight_ss304_lb_sqft": 15.61,
+            "weight_ss316_lb_sqft": 15.67
+        },
+        {
+            "designation": "3/16\"",
+            "thickness_in": 0.1875,
+            "weight_steel_lb_sqft": 7.66,
+            "weight_ss304_lb_sqft": 7.81,
+            "weight_ss316_lb_sqft": 7.84
+        },
+        {
+            "designation": "5/8\"",
+            "thickness_in": 0.625,
+            "weight_steel_lb_sqft": 25.53,
+            "weight_ss304_lb_sqft": 26.02,
+            "weight_ss316_lb_sqft": 26.12
+        },
+        {
+            "designation": "5/16\"",
+            "thickness_in": 0.3125,
+            "weight_steel_lb_sqft": 12.76,
+            "weight_ss304_lb_sqft": 13.0,
+            "weight_ss316_lb_sqft": 13.05
+        },
+        {
+            "designation": "10 GA",
+            "thickness_in": 0.1345,
+            "weight_steel_lb_sqft": 5.49,
+            "weight_ss304_lb_sqft": 5.59,
+            "weight_ss316_lb_sqft": 5.62
+        },
+        {
+            "designation": "11 GA",
+            "thickness_in": 0.1196,
+            "weight_steel_lb_sqft": 4.88,
+            "weight_ss304_lb_sqft": 4.97,
+            "weight_ss316_lb_sqft": 4.99
+        },
+        {
+            "designation": "12 GA",
+            "thickness_in": 0.1046,
+            "weight_steel_lb_sqft": 4.27,
+            "weight_ss304_lb_sqft": 4.35,
+            "weight_ss316_lb_sqft": 4.37
+        },
+        {
+            "designation": "14 GA",
+            "thickness_in": 0.0747,
+            "weight_steel_lb_sqft": 3.05,
+            "weight_ss304_lb_sqft": 3.11,
+            "weight_ss316_lb_sqft": 3.12
+        },
+        {
+            "designation": "16 GA",
+            "thickness_in": 0.0595,
+            "weight_steel_lb_sqft": 2.43,
+            "weight_ss304_lb_sqft": 2.48,
+            "weight_ss316_lb_sqft": 2.49
+        }
+    ],
+    "flat_bar": [
+        {
+            "designation": "FB 1 x 3",
+            "thickness_in": 1.0,
+            "width_in": 3.0,
+            "weight_steel_lb_ft": 10.21,
+            "weight_ss304_lb_ft": 10.4,
+            "weight_ss316_lb_ft": 10.44
+        },
+        {
+            "designation": "FB 1 x 4",
+            "thickness_in": 1.0,
+            "width_in": 4.0,
+            "weight_steel_lb_ft": 13.61,
+            "weight_ss304_lb_ft": 13.87,
+            "weight_ss316_lb_ft": 13.92
+        },
+        {
+            "designation": "FB 1 x 6",
+            "thickness_in": 1.0,
+            "width_in": 6.0,
+            "weight_steel_lb_ft": 20.42,
+            "weight_ss304_lb_ft": 20.81,
+            "weight_ss316_lb_ft": 20.88
+        },
+        {
+            "designation": "FB 1/2 x 1-1/2",
+            "thickness_in": 0.5,
+            "width_in": 1.5,
+            "weight_steel_lb_ft": 2.55,
+            "weight_ss304_lb_ft": 2.6,
+            "weight_ss316_lb_ft": 2.61
+        },
+        {
+            "designation": "FB 1/2 x 2",
+            "thickness_in": 0.5,
+            "width_in": 2.0,
+            "weight_steel_lb_ft": 3.4,
+            "weight_ss304_lb_ft": 3.47,
+            "weight_ss316_lb_ft": 3.48
+        },
+        {
+            "designation": "FB 1/2 x 2-1/2",
+            "thickness_in": 0.5,
+            "width_in": 2.5,
+            "weight_steel_lb_ft": 4.25,
+            "weight_ss304_lb_ft": 4.33,
+            "weight_ss316_lb_ft": 4.35
+        },
+        {
+            "designation": "FB 1/2 x 3",
+            "thickness_in": 0.5,
+            "width_in": 3.0,
+            "weight_steel_lb_ft": 5.1,
+            "weight_ss304_lb_ft": 5.2,
+            "weight_ss316_lb_ft": 5.22
+        },
+        {
+            "designation": "FB 1/2 x 4",
+            "thickness_in": 0.5,
+            "width_in": 4.0,
+            "weight_steel_lb_ft": 6.81,
+            "weight_ss304_lb_ft": 6.94,
+            "weight_ss316_lb_ft": 6.96
+        },
+        {
+            "designation": "FB 1/2 x 5",
+            "thickness_in": 0.5,
+            "width_in": 5.0,
+            "weight_steel_lb_ft": 8.51,
+            "weight_ss304_lb_ft": 8.67,
+            "weight_ss316_lb_ft": 8.7
+        },
+        {
+            "designation": "FB 1/2 x 6",
+            "thickness_in": 0.5,
+            "width_in": 6.0,
+            "weight_steel_lb_ft": 10.21,
+            "weight_ss304_lb_ft": 10.4,
+            "weight_ss316_lb_ft": 10.44
+        },
+        {
+            "designation": "FB 1/2 x 8",
+            "thickness_in": 0.5,
+            "width_in": 8.0,
+            "weight_steel_lb_ft": 13.61,
+            "weight_ss304_lb_ft": 13.87,
+            "weight_ss316_lb_ft": 13.92
+        },
+        {
+            "designation": "FB 1/2 x 10",
+            "thickness_in": 0.5,
+            "width_in": 10.0,
+            "weight_steel_lb_ft": 17.02,
+            "weight_ss304_lb_ft": 17.34,
+            "weight_ss316_lb_ft": 17.4
+        },
+        {
+            "designation": "FB 1/4 x 1",
+            "thickness_in": 0.25,
+            "width_in": 1.0,
+            "weight_steel_lb_ft": 0.85,
+            "weight_ss304_lb_ft": 0.87,
+            "weight_ss316_lb_ft": 0.87
+        },
+        {
+            "designation": "FB 1/4 x 1-1/2",
+            "thickness_in": 0.25,
+            "width_in": 1.5,
+            "weight_steel_lb_ft": 1.28,
+            "weight_ss304_lb_ft": 1.3,
+            "weight_ss316_lb_ft": 1.3
+        },
+        {
+            "designation": "FB 1/4 x 1-1/4",
+            "thickness_in": 0.25,
+            "width_in": 1.25,
+            "weight_steel_lb_ft": 1.06,
+            "weight_ss304_lb_ft": 1.08,
+            "weight_ss316_lb_ft": 1.09
+        },
+        {
+            "designation": "FB 1/4 x 2",
+            "thickness_in": 0.25,
+            "width_in": 2.0,
+            "weight_steel_lb_ft": 1.7,
+            "weight_ss304_lb_ft": 1.73,
+            "weight_ss316_lb_ft": 1.74
+        },
+        {
+            "designation": "FB 1/4 x 2-1/2",
+            "thickness_in": 0.25,
+            "width_in": 2.5,
+            "weight_steel_lb_ft": 2.13,
+            "weight_ss304_lb_ft": 2.17,
+            "weight_ss316_lb_ft": 2.17
+        },
+        {
+            "designation": "FB 1/4 x 3",
+            "thickness_in": 0.25,
+            "width_in": 3.0,
+            "weight_steel_lb_ft": 2.55,
+            "weight_ss304_lb_ft": 2.6,
+            "weight_ss316_lb_ft": 2.61
+        },
+        {
+            "designation": "FB 1/4 x 3-1/2",
+            "thickness_in": 0.25,
+            "width_in": 3.5,
+            "weight_steel_lb_ft": 2.98,
+            "weight_ss304_lb_ft": 3.03,
+            "weight_ss316_lb_ft": 3.04
+        },
+        {
+            "designation": "FB 1/4 x 4",
+            "thickness_in": 0.25,
+            "width_in": 4.0,
+            "weight_steel_lb_ft": 3.4,
+            "weight_ss304_lb_ft": 3.47,
+            "weight_ss316_lb_ft": 3.48
+        },
+        {
+            "designation": "FB 1/4 x 5",
+            "thickness_in": 0.25,
+            "width_in": 5.0,
+            "weight_steel_lb_ft": 4.25,
+            "weight_ss304_lb_ft": 4.33,
+            "weight_ss316_lb_ft": 4.35
+        },
+        {
+            "designation": "FB 1/4 x 6",
+            "thickness_in": 0.25,
+            "width_in": 6.0,
+            "weight_steel_lb_ft": 5.1,
+            "weight_ss304_lb_ft": 5.2,
+            "weight_ss316_lb_ft": 5.22
+        },
+        {
+            "designation": "FB 1/4 x 8",
+            "thickness_in": 0.25,
+            "width_in": 8.0,
+            "weight_steel_lb_ft": 6.81,
+            "weight_ss304_lb_ft": 6.94,
+            "weight_ss316_lb_ft": 6.96
+        },
+        {
+            "designation": "FB 1/8 x 1",
+            "thickness_in": 0.125,
+            "width_in": 1.0,
+            "weight_steel_lb_ft": 0.43,
+            "weight_ss304_lb_ft": 0.43,
+            "weight_ss316_lb_ft": 0.43
+        },
+        {
+            "designation": "FB 1/8 x 1-1/2",
+            "thickness_in": 0.125,
+            "width_in": 1.5,
+            "weight_steel_lb_ft": 0.64,
+            "weight_ss304_lb_ft": 0.65,
+            "weight_ss316_lb_ft": 0.65
+        },
+        {
+            "designation": "FB 1/8 x 1-1/4",
+            "thickness_in": 0.125,
+            "width_in": 1.25,
+            "weight_steel_lb_ft": 0.53,
+            "weight_ss304_lb_ft": 0.54,
+            "weight_ss316_lb_ft": 0.54
+        },
+        {
+            "designation": "FB 1/8 x 2",
+            "thickness_in": 0.125,
+            "width_in": 2.0,
+            "weight_steel_lb_ft": 0.85,
+            "weight_ss304_lb_ft": 0.87,
+            "weight_ss316_lb_ft": 0.87
+        },
+        {
+            "designation": "FB 1/8 x 2-1/2",
+            "thickness_in": 0.125,
+            "width_in": 2.5,
+            "weight_steel_lb_ft": 1.06,
+            "weight_ss304_lb_ft": 1.08,
+            "weight_ss316_lb_ft": 1.09
+        },
+        {
+            "designation": "FB 1/8 x 3",
+            "thickness_in": 0.125,
+            "width_in": 3.0,
+            "weight_steel_lb_ft": 1.28,
+            "weight_ss304_lb_ft": 1.3,
+            "weight_ss316_lb_ft": 1.3
+        },
+        {
+            "designation": "FB 1/8 x 3/4",
+            "thickness_in": 0.125,
+            "width_in": 0.75,
+            "weight_steel_lb_ft": 0.32,
+            "weight_ss304_lb_ft": 0.33,
+            "weight_ss316_lb_ft": 0.33
+        },
+        {
+            "designation": "FB 1/8 x 4",
+            "thickness_in": 0.125,
+            "width_in": 4.0,
+            "weight_steel_lb_ft": 1.7,
+            "weight_ss304_lb_ft": 1.73,
+            "weight_ss316_lb_ft": 1.74
+        },
+        {
+            "designation": "FB 3/4 x 2",
+            "thickness_in": 0.75,
+            "width_in": 2.0,
+            "weight_steel_lb_ft": 5.1,
+            "weight_ss304_lb_ft": 5.2,
+            "weight_ss316_lb_ft": 5.22
+        },
+        {
+            "designation": "FB 3/4 x 3",
+            "thickness_in": 0.75,
+            "width_in": 3.0,
+            "weight_steel_lb_ft": 7.66,
+            "weight_ss304_lb_ft": 7.8,
+            "weight_ss316_lb_ft": 7.83
+        },
+        {
+            "designation": "FB 3/4 x 4",
+            "thickness_in": 0.75,
+            "width_in": 4.0,
+            "weight_steel_lb_ft": 10.21,
+            "weight_ss304_lb_ft": 10.4,
+            "weight_ss316_lb_ft": 10.44
+        },
+        {
+            "designation": "FB 3/4 x 6",
+            "thickness_in": 0.75,
+            "width_in": 6.0,
+            "weight_steel_lb_ft": 15.31,
+            "weight_ss304_lb_ft": 15.61,
+            "weight_ss316_lb_ft": 15.66
+        },
+        {
+            "designation": "FB 3/4 x 8",
+            "thickness_in": 0.75,
+            "width_in": 8.0,
+            "weight_steel_lb_ft": 20.42,
+            "weight_ss304_lb_ft": 20.81,
+            "weight_ss316_lb_ft": 20.88
+        },
+        {
+            "designation": "FB 3/8 x 1",
+            "thickness_in": 0.375,
+            "width_in": 1.0,
+            "weight_steel_lb_ft": 1.28,
+            "weight_ss304_lb_ft": 1.3,
+            "weight_ss316_lb_ft": 1.3
+        },
+        {
+            "designation": "FB 3/8 x 1-1/2",
+            "thickness_in": 0.375,
+            "width_in": 1.5,
+            "weight_steel_lb_ft": 1.91,
+            "weight_ss304_lb_ft": 1.95,
+            "weight_ss316_lb_ft": 1.96
+        },
+        {
+            "designation": "FB 3/8 x 2",
+            "thickness_in": 0.375,
+            "width_in": 2.0,
+            "weight_steel_lb_ft": 2.55,
+            "weight_ss304_lb_ft": 2.6,
+            "weight_ss316_lb_ft": 2.61
+        },
+        {
+            "designation": "FB 3/8 x 2-1/2",
+            "thickness_in": 0.375,
+            "width_in": 2.5,
+            "weight_steel_lb_ft": 3.19,
+            "weight_ss304_lb_ft": 3.25,
+            "weight_ss316_lb_ft": 3.26
+        },
+        {
+            "designation": "FB 3/8 x 3",
+            "thickness_in": 0.375,
+            "width_in": 3.0,
+            "weight_steel_lb_ft": 3.83,
+            "weight_ss304_lb_ft": 3.9,
+            "weight_ss316_lb_ft": 3.91
+        },
+        {
+            "designation": "FB 3/8 x 4",
+            "thickness_in": 0.375,
+            "width_in": 4.0,
+            "weight_steel_lb_ft": 5.1,
+            "weight_ss304_lb_ft": 5.2,
+            "weight_ss316_lb_ft": 5.22
+        },
+        {
+            "designation": "FB 3/8 x 5",
+            "thickness_in": 0.375,
+            "width_in": 5.0,
+            "weight_steel_lb_ft": 6.38,
+            "weight_ss304_lb_ft": 6.5,
+            "weight_ss316_lb_ft": 6.52
+        },
+        {
+            "designation": "FB 3/8 x 6",
+            "thickness_in": 0.375,
+            "width_in": 6.0,
+            "weight_steel_lb_ft": 7.66,
+            "weight_ss304_lb_ft": 7.8,
+            "weight_ss316_lb_ft": 7.83
+        },
+        {
+            "designation": "FB 3/8 x 8",
+            "thickness_in": 0.375,
+            "width_in": 8.0,
+            "weight_steel_lb_ft": 10.21,
+            "weight_ss304_lb_ft": 10.4,
+            "weight_ss316_lb_ft": 10.44
+        },
+        {
+            "designation": "FB 3/16 x 1",
+            "thickness_in": 0.1875,
+            "width_in": 1.0,
+            "weight_steel_lb_ft": 0.64,
+            "weight_ss304_lb_ft": 0.65,
+            "weight_ss316_lb_ft": 0.65
+        },
+        {
+            "designation": "FB 3/16 x 1-1/2",
+            "thickness_in": 0.1875,
+            "width_in": 1.5,
+            "weight_steel_lb_ft": 0.96,
+            "weight_ss304_lb_ft": 0.98,
+            "weight_ss316_lb_ft": 0.98
+        },
+        {
+            "designation": "FB 3/16 x 1-1/4",
+            "thickness_in": 0.1875,
+            "width_in": 1.25,
+            "weight_steel_lb_ft": 0.8,
+            "weight_ss304_lb_ft": 0.81,
+            "weight_ss316_lb_ft": 0.82
+        },
+        {
+            "designation": "FB 3/16 x 2",
+            "thickness_in": 0.1875,
+            "width_in": 2.0,
+            "weight_steel_lb_ft": 1.28,
+            "weight_ss304_lb_ft": 1.3,
+            "weight_ss316_lb_ft": 1.3
+        },
+        {
+            "designation": "FB 3/16 x 2-1/2",
+            "thickness_in": 0.1875,
+            "width_in": 2.5,
+            "weight_steel_lb_ft": 1.6,
+            "weight_ss304_lb_ft": 1.63,
+            "weight_ss316_lb_ft": 1.63
+        },
+        {
+            "designation": "FB 3/16 x 3",
+            "thickness_in": 0.1875,
+            "width_in": 3.0,
+            "weight_steel_lb_ft": 1.91,
+            "weight_ss304_lb_ft": 1.95,
+            "weight_ss316_lb_ft": 1.96
+        },
+        {
+            "designation": "FB 3/16 x 3/4",
+            "thickness_in": 0.1875,
+            "width_in": 0.75,
+            "weight_steel_lb_ft": 0.48,
+            "weight_ss304_lb_ft": 0.49,
+            "weight_ss316_lb_ft": 0.49
+        },
+        {
+            "designation": "FB 3/16 x 4",
+            "thickness_in": 0.1875,
+            "width_in": 4.0,
+            "weight_steel_lb_ft": 2.55,
+            "weight_ss304_lb_ft": 2.6,
+            "weight_ss316_lb_ft": 2.61
+        },
+        {
+            "designation": "FB 3/16 x 6",
+            "thickness_in": 0.1875,
+            "width_in": 6.0,
+            "weight_steel_lb_ft": 3.83,
+            "weight_ss304_lb_ft": 3.9,
+            "weight_ss316_lb_ft": 3.91
+        }
+    ],
+    "round_bar": [
+        {
+            "designation": "RB 1\"",
+            "diameter_in": 1.0,
+            "weight_steel_lb_ft": 2.673,
+            "weight_ss304_lb_ft": 2.724,
+            "weight_ss316_lb_ft": 2.733
+        },
+        {
+            "designation": "RB 1-1/2\"",
+            "diameter_in": 1.5,
+            "weight_steel_lb_ft": 6.014,
+            "weight_ss304_lb_ft": 6.128,
+            "weight_ss316_lb_ft": 6.15
+        },
+        {
+            "designation": "RB 1-1/4\"",
+            "diameter_in": 1.25,
+            "weight_steel_lb_ft": 4.176,
+            "weight_ss304_lb_ft": 4.256,
+            "weight_ss316_lb_ft": 4.271
+        },
+        {
+            "designation": "RB 1-1/8\"",
+            "diameter_in": 1.125,
+            "weight_steel_lb_ft": 3.383,
+            "weight_ss304_lb_ft": 3.447,
+            "weight_ss316_lb_ft": 3.459
+        },
+        {
+            "designation": "RB 1-3/4\"",
+            "diameter_in": 1.75,
+            "weight_steel_lb_ft": 8.186,
+            "weight_ss304_lb_ft": 8.342,
+            "weight_ss316_lb_ft": 8.37
+        },
+        {
+            "designation": "RB 1-3/8\"",
+            "diameter_in": 1.375,
+            "weight_steel_lb_ft": 5.053,
+            "weight_ss304_lb_ft": 5.15,
+            "weight_ss316_lb_ft": 5.167
+        },
+        {
+            "designation": "RB 1/2\"",
+            "diameter_in": 0.5,
+            "weight_steel_lb_ft": 0.668,
+            "weight_ss304_lb_ft": 0.681,
+            "weight_ss316_lb_ft": 0.683
+        },
+        {
+            "designation": "RB 1/4\"",
+            "diameter_in": 0.25,
+            "weight_steel_lb_ft": 0.167,
+            "weight_ss304_lb_ft": 0.17,
+            "weight_ss316_lb_ft": 0.171
+        },
+        {
+            "designation": "RB 2\"",
+            "diameter_in": 2.0,
+            "weight_steel_lb_ft": 10.691,
+            "weight_ss304_lb_ft": 10.895,
+            "weight_ss316_lb_ft": 10.933
+        },
+        {
+            "designation": "RB 2-1/2\"",
+            "diameter_in": 2.5,
+            "weight_steel_lb_ft": 16.705,
+            "weight_ss304_lb_ft": 17.024,
+            "weight_ss316_lb_ft": 17.082
+        },
+        {
+            "designation": "RB 2-1/4\"",
+            "diameter_in": 2.25,
+            "weight_steel_lb_ft": 13.531,
+            "weight_ss304_lb_ft": 13.789,
+            "weight_ss316_lb_ft": 13.837
+        },
+        {
+            "designation": "RB 3\"",
+            "diameter_in": 3.0,
+            "weight_steel_lb_ft": 24.056,
+            "weight_ss304_lb_ft": 24.514,
+            "weight_ss316_lb_ft": 24.599
+        },
+        {
+            "designation": "RB 3-1/2\"",
+            "diameter_in": 3.5,
+            "weight_steel_lb_ft": 32.743,
+            "weight_ss304_lb_ft": 33.366,
+            "weight_ss316_lb_ft": 33.482
+        },
+        {
+            "designation": "RB 3/4\"",
+            "diameter_in": 0.75,
+            "weight_steel_lb_ft": 1.503,
+            "weight_ss304_lb_ft": 1.532,
+            "weight_ss316_lb_ft": 1.537
+        },
+        {
+            "designation": "RB 3/8\"",
+            "diameter_in": 0.375,
+            "weight_steel_lb_ft": 0.376,
+            "weight_ss304_lb_ft": 0.383,
+            "weight_ss316_lb_ft": 0.384
+        },
+        {
+            "designation": "RB 4\"",
+            "diameter_in": 4.0,
+            "weight_steel_lb_ft": 42.766,
+            "weight_ss304_lb_ft": 43.58,
+            "weight_ss316_lb_ft": 43.731
+        },
+        {
+            "designation": "RB 5\"",
+            "diameter_in": 5.0,
+            "weight_steel_lb_ft": 66.822,
+            "weight_ss304_lb_ft": 68.094,
+            "weight_ss316_lb_ft": 68.33
+        },
+        {
+            "designation": "RB 5/8\"",
+            "diameter_in": 0.625,
+            "weight_steel_lb_ft": 1.044,
+            "weight_ss304_lb_ft": 1.064,
+            "weight_ss316_lb_ft": 1.068
+        },
+        {
+            "designation": "RB 5/16\"",
+            "diameter_in": 0.3125,
+            "weight_steel_lb_ft": 0.261,
+            "weight_ss304_lb_ft": 0.266,
+            "weight_ss316_lb_ft": 0.267
+        },
+        {
+            "designation": "RB 6\"",
+            "diameter_in": 6.0,
+            "weight_steel_lb_ft": 96.223,
+            "weight_ss304_lb_ft": 98.055,
+            "weight_ss316_lb_ft": 98.395
+        },
+        {
+            "designation": "RB 7/8\"",
+            "diameter_in": 0.875,
+            "weight_steel_lb_ft": 2.046,
+            "weight_ss304_lb_ft": 2.085,
+            "weight_ss316_lb_ft": 2.093
+        },
+        {
+            "designation": "RB 7/16\"",
+            "diameter_in": 0.4375,
+            "weight_steel_lb_ft": 0.512,
+            "weight_ss304_lb_ft": 0.521,
+            "weight_ss316_lb_ft": 0.523
+        },
+        {
+            "designation": "RB 9/16\"",
+            "diameter_in": 0.5625,
+            "weight_steel_lb_ft": 0.846,
+            "weight_ss304_lb_ft": 0.862,
+            "weight_ss316_lb_ft": 0.865
+        }
+    ],
+    "square_bar": [
+        {
+            "designation": "SQ 1\"",
+            "size_in": 1.0,
+            "weight_steel_lb_ft": 3.403,
+            "weight_ss304_lb_ft": 3.468,
+            "weight_ss316_lb_ft": 3.48
+        },
+        {
+            "designation": "SQ 1-1/2\"",
+            "size_in": 1.5,
+            "weight_steel_lb_ft": 7.657,
+            "weight_ss304_lb_ft": 7.803,
+            "weight_ss316_lb_ft": 7.83
+        },
+        {
+            "designation": "SQ 1-1/4\"",
+            "size_in": 1.25,
+            "weight_steel_lb_ft": 5.318,
+            "weight_ss304_lb_ft": 5.419,
+            "weight_ss316_lb_ft": 5.438
+        },
+        {
+            "designation": "SQ 1-3/4\"",
+            "size_in": 1.75,
+            "weight_steel_lb_ft": 10.422,
+            "weight_ss304_lb_ft": 10.621,
+            "weight_ss316_lb_ft": 10.657
+        },
+        {
+            "designation": "SQ 1/2\"",
+            "size_in": 0.5,
+            "weight_steel_lb_ft": 0.851,
+            "weight_ss304_lb_ft": 0.867,
+            "weight_ss316_lb_ft": 0.87
+        },
+        {
+            "designation": "SQ 1/4\"",
+            "size_in": 0.25,
+            "weight_steel_lb_ft": 0.213,
+            "weight_ss304_lb_ft": 0.217,
+            "weight_ss316_lb_ft": 0.217
+        },
+        {
+            "designation": "SQ 2\"",
+            "size_in": 2.0,
+            "weight_steel_lb_ft": 13.613,
+            "weight_ss304_lb_ft": 13.872,
+            "weight_ss316_lb_ft": 13.92
+        },
+        {
+            "designation": "SQ 2-1/2\"",
+            "size_in": 2.5,
+            "weight_steel_lb_ft": 21.27,
+            "weight_ss304_lb_ft": 21.675,
+            "weight_ss316_lb_ft": 21.75
+        },
+        {
+            "designation": "SQ 3\"",
+            "size_in": 3.0,
+            "weight_steel_lb_ft": 30.629,
+            "weight_ss304_lb_ft": 31.212,
+            "weight_ss316_lb_ft": 31.32
+        },
+        {
+            "designation": "SQ 3/4\"",
+            "size_in": 0.75,
+            "weight_steel_lb_ft": 1.914,
+            "weight_ss304_lb_ft": 1.951,
+            "weight_ss316_lb_ft": 1.957
+        },
+        {
+            "designation": "SQ 3/8\"",
+            "size_in": 0.375,
+            "weight_steel_lb_ft": 0.479,
+            "weight_ss304_lb_ft": 0.488,
+            "weight_ss316_lb_ft": 0.489
+        },
+        {
+            "designation": "SQ 4\"",
+            "size_in": 4.0,
+            "weight_steel_lb_ft": 54.451,
+            "weight_ss304_lb_ft": 55.488,
+            "weight_ss316_lb_ft": 55.68
+        },
+        {
+            "designation": "SQ 5/8\"",
+            "size_in": 0.625,
+            "weight_steel_lb_ft": 1.329,
+            "weight_ss304_lb_ft": 1.355,
+            "weight_ss316_lb_ft": 1.359
+        },
+        {
+            "designation": "SQ 5/16\"",
+            "size_in": 0.3125,
+            "weight_steel_lb_ft": 0.332,
+            "weight_ss304_lb_ft": 0.339,
+            "weight_ss316_lb_ft": 0.34
+        },
+        {
+            "designation": "SQ 7/8\"",
+            "size_in": 0.875,
+            "weight_steel_lb_ft": 2.606,
+            "weight_ss304_lb_ft": 2.655,
+            "weight_ss316_lb_ft": 2.664
+        }
+    ]
+}
