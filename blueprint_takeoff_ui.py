@@ -1,3 +1,4 @@
+from PySide6.QtCore import QRectF
 from ui.page_thumbnails_drawer import PageThumbnailsDrawer
 from PySide6.QtWidgets import QDoubleSpinBox
 from PySide6.QtWidgets import QFileDialog
@@ -983,9 +984,8 @@ class CadBlueprintCanvas(QLabel):
                 vlen = math.hypot(vx, vy)
                 if vlen > 2.0:
                     ux, uy = vx / vlen, vy / vlen
-                    # Project joist endpoint onto header line to find true T-intersection root
-                    t_proj = ((jx - hx1) * ux + (jy - hy1) * uy)
-                    rx, ry = hx1 + t_proj * ux, hy1 + t_proj * uy
+                    # Use Click 2 (hx2, hy2) as the fixed T-pivot root matching the live T-square preview
+                    rx, ry = hx2, hy2
                     # Two unit normals to header; pick the one on the same side as (jx, jy)
                     nx, ny = -uy, ux
                     sx, sy = jx - rx, jy - ry
@@ -1000,7 +1000,7 @@ class CadBlueprintCanvas(QLabel):
                         skew_deg = 0.0
                         lbl = "0.0° STD (90°)"
                     else:
-                        side = "RIGHT" if cross_n > 0 else "LEFT"
+                        side = "RIGHT" if cross_n < 0 else "LEFT"
                         lbl = f"SKEW {side} {skew_deg:.1f}°"
                     self.markups.append({
                         "type": "hanger_skew",
