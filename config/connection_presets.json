@@ -1,0 +1,57 @@
+﻿{
+  "presets": [
+    {
+      "id": "shear_tab_3bolt",
+      "name": "Standard 3-Bolt Shear Tab (3/8\" x 4.5\" x 8.5\")",
+      "category": "Beam-to-Column / Girder",
+      "steel_and_weld": [
+        {"mode": "Shear Tabs", "p1": 0.375, "p2": 4.5, "p3": 8.5, "p4": 0.0, "qty": 2, "weld_type": "Fillet", "weld_size": "1/4\"", "full_wrap": true, "field_weld": false}
+      ],
+      "hardware_items": [
+        {"mode": "Drill Holes", "p1": 0.8125, "p2": 3.0, "p3": 0.0, "p4": 0.0, "qty": 2, "note": "3/4\" A325 Bolts (x6 total)"}
+      ]
+    },
+    {
+      "id": "shear_tab_4bolt",
+      "name": "Heavy 4-Bolt Shear Tab (3/8\" x 4.5\" x 12\")",
+      "category": "Beam-to-Column / Girder",
+      "steel_and_weld": [
+        {"mode": "Shear Tabs", "p1": 0.375, "p2": 4.5, "p3": 12.0, "qty": 2, "weld_type": "Fillet", "weld_size": "5/16\"", "full_wrap": true, "field_weld": false}
+      ],
+      "hardware_items": [
+        {"mode": "Drill Holes", "p1": 0.9375, "p2": 4.0, "p3": 0.0, "p4": 0.0, "qty": 2, "note": "7/8\" A325 Bolts (x8 total)"}
+      ]
+    },
+    {
+      "id": "hss_base_plate_14",
+      "name": "HSS Column Base Plate (3/4\" x 14\" x 14\", 4-Hole)",
+      "category": "Column Base",
+      "steel_and_weld": [
+        {"mode": "Oversized Base Plate", "p1": 0.75, "p2": 14.0, "p3": 14.0, "p4": 0.0, "qty": 1, "weld_type": "Fillet", "weld_size": "1/4\"", "full_wrap": true, "field_weld": false}
+      ],
+      "hardware_items": [
+        {"mode": "Drill Holes", "p1": 0.9375, "p2": 4.0, "p3": 0.0, "p4": 0.0, "qty": 1, "note": "3/4\" Anchor Bolts & Nuts (x4)"}
+      ]
+    },
+    {
+      "id": "stiffener_pair",
+      "name": "Full-Depth Web Stiffener Pair (1/2\" Plate)",
+      "category": "Beam Reinforcement",
+      "steel_and_weld": [
+        {"mode": "Stiffeners", "p1": 0.5, "p2": 4.5, "p3": 14.0, "p4": 0.0, "qty": 2, "weld_type": "Fillet", "weld_size": "1/4\"", "full_wrap": true, "field_weld": false}
+      ],
+      "hardware_items": []
+    },
+    {
+      "id": "moment_end_plate",
+      "name": "Moment End Plate Connection (1\" x 10\" x 22\")",
+      "category": "Moment Connection",
+      "steel_and_weld": [
+        {"mode": "Top Flange End Plate", "p1": 1.0, "p2": 10.0, "p3": 22.0, "p4": 0.0, "qty": 1, "weld_type": "CJP", "weld_size": "3/4\"", "full_wrap": false, "field_weld": false}
+      ],
+      "hardware_items": [
+        {"mode": "Drill Holes", "p1": 1.0625, "p2": 8.0, "p3": 0.0, "p4": 0.0, "qty": 1, "note": "1\" A490 Structural Bolts (x8)"}
+      ]
+    }
+  ]
+}

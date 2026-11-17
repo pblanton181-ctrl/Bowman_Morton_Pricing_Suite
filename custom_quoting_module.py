@@ -487,6 +487,35 @@ class DynamicMemberCard(QFrame):
         self.btn_add_op = QPushButton("+ Append Fabrication Add-on")
         self.btn_add_op.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 8px; } QPushButton:hover { background-color: rgba(167, 243, 208, 0.68); color: #0f172a; }")
         self.btn_add_op.clicked.connect(self.add_addon_row)
+
+        # Advance Steel Connection Library Bar (with Include Hardware / Fasteners toggle)
+        conn_bar = QHBoxLayout()
+        conn_bar.setContentsMargins(0, 2, 0, 2)
+        conn_bar.setSpacing(6)
+        self.cb_conn_preset = QComboBox()
+        self.cb_conn_preset.setFixedHeight(28)
+        self.cb_conn_preset.setToolTip("Select a reusable Advance Steel shop connection preset")
+        self._conn_presets_data = []
+        try:
+            _cp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "connection_presets.json")
+            if os.path.exists(_cp_path):
+                with open(_cp_path, "r", encoding="utf-8-sig") as _cpf:
+                    self._conn_presets_data = json.load(_cpf).get("presets", [])
+        except Exception:
+            self._conn_presets_data = []
+        for _pr in self._conn_presets_data:
+            self.cb_conn_preset.addItem(_pr.get("name", "Preset"), _pr)
+        self.chk_conn_hardware = QCheckBox("Include Hardware / Fasteners")
+        self.chk_conn_hardware.setChecked(True)
+        self.chk_conn_hardware.setToolTip("Uncheck when Bowman-Morton is fabricating steel/plates only without supplying bolts or anchors.")
+        self.btn_apply_conn = QPushButton("Apply Connection")
+        self.btn_apply_conn.setFixedHeight(28)
+        self.btn_apply_conn.setCursor(Qt.PointingHandCursor)
+        self.btn_apply_conn.clicked.connect(self.apply_connection_preset)
+        conn_bar.addWidget(self.cb_conn_preset, 1)
+        conn_bar.addWidget(self.chk_conn_hardware, 0)
+        conn_bar.addWidget(self.btn_apply_conn, 0)
+        main_lay.addLayout(conn_bar)
         self.card_layout.addWidget(self.btn_add_op)
 
         self.btn_calc = QPushButton("Add Component to Active Project Workbook")
@@ -498,6 +527,23 @@ class DynamicMemberCard(QFrame):
         self.input_custom_mill.setVisible(checked)
         if checked:
             self.input_custom_mill.setText(self.input_extent.text().strip())
+
+
+    def apply_connection_preset(self):
+        preset = self.cb_conn_preset.currentData()
+        if not preset:
+            return
+        items = list(preset.get("steel_and_weld", []))
+        if self.chk_conn_hardware.isChecked():
+            items.extend(preset.get("hardware_items", []))
+        for st in items:
+            self.add_addon_row()
+            if self.addon_rows:
+                row = self.addon_rows[-1]
+                if hasattr(row, "load_state"):
+                    row.load_state(st)
+        if hasattr(self, "recalculate_card"):
+            self.recalculate_card()
 
     def add_addon_row(self):
         row = AddonRowWidget(remove_callback=self.remove_addon_row, parent_card=self)
