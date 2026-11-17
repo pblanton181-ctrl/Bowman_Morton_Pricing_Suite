@@ -10,9 +10,11 @@ def normalize_cad_text(s):
     s = str(s or "").upper().strip()
     s = s.replace("\u00d7", "X").replace("\u2013", "-").replace("\u2014", "-")
     s = re.sub(r"\s+", "", s)
-    # Fix Windows OCR reading 0 as O in structural steel callouts (e.g. W12X3O -> W12X30, W1O -> W10)
+    # Normalize AutoCAD SHX stroke-font OCR character confusions in steel profiles (O->0, J->3, I/L->1)
     s = re.sub(r"\b(W|HSS|MC|C|L|WT|HP)(\d*)O", lambda m: m.group(1) + m.group(2) + "0", s)
     s = re.sub(r"(X\d+)O\b", lambda m: m.group(1) + "0", s)
+    s = re.sub(r"\b(W\d+X\d+)J\b", lambda m: m.group(1) + "3", s)
+    s = re.sub(r"\b(W\d+X)I(\d+)\b", lambda m: m.group(1) + "1" + m.group(2), s)
     return s
 
 
