@@ -516,7 +516,7 @@ class DynamicMemberCard(QFrame):
         conn_bar.addWidget(self.cb_conn_preset, 1)
         conn_bar.addWidget(self.chk_conn_hardware, 0)
         conn_bar.addWidget(self.btn_apply_conn, 0)
-        main_lay.addLayout(conn_bar)
+        self.layout().addLayout(conn_bar)
         self.card_layout.addWidget(self.btn_add_op)
 
         self.btn_calc = QPushButton("Add Component to Active Project Workbook")
