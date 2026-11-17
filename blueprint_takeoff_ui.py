@@ -425,10 +425,25 @@ class CadBlueprintCanvas(QLabel):
         if self._inline_editor.isVisible():
             self._inline_editor.hide()
             return
+        if getattr(self, "_skew_pts", []):
+            self._skew_pts.pop()
+            self.update()
+            return
+        if getattr(self, "_pline_pts", []):
+            self._pline_pts.pop()
+            self.update()
+            return
+        if self._p1 is not None:
+            self._p1 = None
+            self._p2 = None
+            self._hide_hud_boxes()
+            self.update()
+            return
         if self.markups:
             removed = self.markups.pop()
             self.selected_idx = -1
-            self.selected_indices.clear()
+            if hasattr(self, "selected_indices"):
+                self.selected_indices.clear()
             if removed.get("type") == "count" and self.on_count_changed:
                 self.on_count_changed(sum(1 for m in self.markups if m.get("type") == "count"))
             self.update()
@@ -1733,19 +1748,20 @@ class CadBlueprintCanvas(QLabel):
             p.setPen(QPen(self.active_color, max(2.0, float(self.active_line_width) * self.zoom), pen_style, Qt.RoundCap, Qt.RoundJoin))
             p.drawLine(self._p1, hp)
         if self.mode == "hanger_skew" and self._skew_pts and self._hover_pt is not None:
-            if len(self._skew_pts) == 1:
-                p_a = self._skew_pts[0]
-                qh1 = self._from_pdf_pt(p_a[0], p_a[1])
+            pts_iter = iter(self._skew_pts)
+            p_a = next(pts_iter, None)
+            p_b = next(pts_iter, None)
+            if p_a is not None and p_b is None:
+                qh1 = self._from_pdf_pt(p_a)
                 qh2 = self._snap_ortho(qh1, self._hover_pt, getattr(self, "ortho_lock", False))
                 p.setPen(QPen(self.active_color, max(2.2, float(self.active_line_width) * self.zoom), Qt.SolidLine))
                 p.drawLine(qh1, qh2)
                 p.setFont(QFont("Segoe UI", 9, QFont.Bold))
                 p.setPen(QColor("#0369a1"))
                 p.drawText(int(qh2.x() + 12), int(qh2.y() - 8), "Click 2: Set T-pivot point on header / wall")
-            elif len(self._skew_pts) == 2:
-                p_a, p_b = self._skew_pts[0], self._skew_pts[1]
-                qh1 = self._from_pdf_pt(p_a[0], p_a[1])
-                qh2 = self._from_pdf_pt(p_b[0], p_b[1])
+            elif p_a is not None and p_b is not None:
+                qh1 = self._from_pdf_pt(p_a)
+                qh2 = self._from_pdf_pt(p_b)
                 self._draw_hanger_skew_diagram(p, qh1, qh2, self._hover_pt, self.active_color, lw=max(2.2, float(self.active_line_width) * self.zoom), font_pt=10)
         if self.mode == "area" and self._poly_pts:
             qpts = [self._from_pdf_pt(px, py) for px, py in self._poly_pts]
