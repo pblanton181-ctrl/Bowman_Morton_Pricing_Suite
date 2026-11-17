@@ -127,14 +127,12 @@ def get_sheet_tag(page):
     return m[-1] if m else ""
 
 def parse_arch_scale(txt):
-    # Strip standard title-block sheet-size boilerplate (e.g. "24X36 SHEET: 1/8\"=1'-0\"") so true plan scale is read
     cleaned = re.sub(r"\d+\s*[X×]\s*\d+\s*SHEET\s*:?\s*1\s*/\s*8\s*\"\s*=\s*1\s*'\s*-?\s*0\s*\"?", " ", str(txt), flags=re.IGNORECASE)
     m = re.search(r"(\d+)\s*/\s*(\d+)\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)
     if m and float(m.group(2)) > 0:
         return (float(m.group(1)) / float(m.group(2))) * 72.0
     m2 = re.search(r"\b([1-3])\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)
     return float(m2.group(1)) * 72.0 if m2 else 18.0
-
 
 def round_structural_ft(raw_ft):
     """Single shared 1/4-ft (3-inch) rounding rule for both BOM extraction and Measure tool."""
@@ -153,13 +151,11 @@ def get_sheet_calibration(page, sheet_scales=None):
     return float(parse_arch_scale(all_txt))
 
 def extract_vector_snap_nodes(page, pts_per_ft=18.0):
-    """Single canonical vector geometry extractor: returns (endpoints, midpoints, ortho_segments)
-    so OSNAP and BOM extraction measure between the exact same CAD intersection nodes."""
     pw, ph = float(page.rect.width), float(page.rect.height)
     mx_vp = pw * 0.88
     eps, mps = set(), set()
     raw_h, raw_v = [], []
-    min_seg_pts = max(12.0, float(pts_per_ft) * 2.0)
+    min_seg_pts = max(24.0, float(pts_per_ft) * 3.0)
 
     for drw in page.get_drawings():
         for itm in drw.get("items", []):
@@ -170,13 +166,13 @@ def extract_vector_snap_nodes(page, pts_per_ft=18.0):
                     continue
                 ax, ay = round(float(p_a.x), 2), round(float(p_a.y), 2)
                 bx, by = round(float(p_b.x), 2), round(float(p_b.y), 2)
-                eps.add((ax, ay))
-                eps.add((bx, by))
-                mps.add((round((ax + bx) * 0.5, 2), round((ay + by) * 0.5, 2)))
                 dx, dy = abs(bx - ax), abs(by - ay)
-                if dy <= 1.2 and dx >= min_seg_pts:
+                if math.hypot(dx, dy) >= 12.0:
+                    eps.add((ax, ay)); eps.add((bx, by))
+                    mps.add((round((ax + bx) * 0.5, 2), round((ay + by) * 0.5, 2)))
+                if dy <= 1.0 and dx >= 3.0:
                     raw_h.append((min(ax, bx), max(ax, bx), round((ay + by) * 0.5, 2)))
-                elif dx <= 1.2 and dy >= min_seg_pts:
+                elif dx <= 1.0 and dy >= 3.0:
                     raw_v.append((min(ay, by), max(ay, by), round((ax + bx) * 0.5, 2)))
             elif op == "re" and len(itm) >= 2:
                 rc = itm.__getitem__(1)
@@ -185,53 +181,43 @@ def extract_vector_snap_nodes(page, pts_per_ft=18.0):
                 x0, y0 = round(float(rc.x0), 2), round(float(rc.y0), 2)
                 x1, y1 = round(float(rc.x1), 2), round(float(rc.y1), 2)
                 eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
-                mps.update([
-                    (round((x0 + x1) * 0.5, 2), y0),
-                    (round((x0 + x1) * 0.5, 2), y1),
-                    (x0, round((y0 + y1) * 0.5, 2)),
-                    (x1, round((y0 + y1) * 0.5, 2)),
-                ])
+                mps.update([(round((x0 + x1) * 0.5, 2), y0), (round((x0 + x1) * 0.5, 2), y1), (x0, round((y0 + y1) * 0.5, 2)), (x1, round((y0 + y1) * 0.5, 2))])
             elif op == "c" and len(itm) >= 5:
                 p_a, p_b = itm.__getitem__(1), itm.__getitem__(4)
                 eps.add((round(float(p_a.x), 2), round(float(p_a.y), 2)))
                 eps.add((round(float(p_b.x), 2), round(float(p_b.y), 2)))
 
-    # Merge collinear horizontal & vertical beam segments across small symbol/girder breaks
     merged_h, merged_v = [], []
     for x0, x1, y in sorted(raw_h, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
-        if merged_h and abs(merged_h[-1].__getitem__(2) - y) <= 1.5 and x0 <= merged_h[-1].__getitem__(1) + 14.0:
+        if merged_h and abs(merged_h[-1].__getitem__(2) - y) <= 1.2 and x0 <= merged_h[-1].__getitem__(1) + 10.5:
             px0, px1, py = merged_h[-1]
             merged_h[-1] = (px0, max(px1, x1), py)
         else:
             merged_h.append((x0, x1, y))
     for y0, y1, x in sorted(raw_v, key=lambda s: (round(s.__getitem__(2), 1), s.__getitem__(0))):
-        if merged_v and abs(merged_v[-1].__getitem__(2) - x) <= 1.5 and y0 <= merged_v[-1].__getitem__(1) + 14.0:
+        if merged_v and abs(merged_v[-1].__getitem__(2) - x) <= 1.2 and y0 <= merged_v[-1].__getitem__(1) + 10.5:
             py0, py1, px = merged_v[-1]
             merged_v[-1] = (py0, max(py1, y1), px)
         else:
             merged_v.append((y0, y1, x))
 
-    # Compute exact beam-to-girder / wall T-intersection nodes & add them to OSNAP endpoints
+    merged_h = [s for s in merged_h if (s.__getitem__(1) - s.__getitem__(0)) >= min_seg_pts]
+    merged_v = [s for s in merged_v if (s.__getitem__(1) - s.__getitem__(0)) >= min_seg_pts]
+
+    for x0, x1, y in merged_h:
+        eps.add((x0, y)); eps.add((x1, y))
+        mps.add((round((x0 + x1) * 0.5, 2), y))
+    for y0, y1, x in merged_v:
+        eps.add((x, y0)); eps.add((x, y1))
+        mps.add((x, round((y0 + y1) * 0.5, 2)))
+
     for hx0, hx1, hy in merged_h:
         for vy0, vy1, vx in merged_v:
             if (hx0 - 2.5) <= vx <= (hx1 + 2.5) and (vy0 - 2.5) <= hy <= (vy1 + 2.5):
                 eps.add((vx, hy))
 
-    # Build canonical beam segments clipped to their exact intersecting OSNAP nodes
-    canonical_segs = []
-    for x0, x1, y in merged_h:
-        nodes_x = sorted({nx for nx, ny in eps if abs(ny - y) <= 1.5 and (x0 - 2.0) <= nx <= (x1 + 2.0)})
-        nx0 = nodes_x.__getitem__(0) if nodes_x else x0
-        nx1 = nodes_x[-1] if nodes_x else x1
-        if (nx1 - nx0) >= min_seg_pts:
-            canonical_segs.append((nx0, y, nx1, y, (nx1 - nx0) / pts_per_ft, "h"))
-    for y0, y1, x in merged_v:
-        nodes_y = sorted({ny for nx, ny in eps if abs(nx - x) <= 1.5 and (y0 - 2.0) <= ny <= (y1 + 2.0)})
-        ny0 = nodes_y.__getitem__(0) if nodes_y else y0
-        ny1 = nodes_y[-1] if nodes_y else y1
-        if (ny1 - ny0) >= min_seg_pts:
-            canonical_segs.append((x, ny0, x, ny1, (ny1 - ny0) / pts_per_ft, "v"))
-
+    canonical_segs = [(x0, y, x1, y, (x1 - x0) / pts_per_ft, "h") for x0, x1, y in merged_h]
+    canonical_segs += [(x, y0, x, y1, (y1 - y0) / pts_per_ft, "v") for y0, y1, x in merged_v]
     return list(eps), list(mps), canonical_segs
 
 def scan_region_windows_native_ocr(page, clip_rect=None, dpi=200):
