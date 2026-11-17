@@ -2462,8 +2462,9 @@ class VisualTakeoffWorkspace(QWidget):
 
     def showEvent(self, ev):
         super().showEvent(ev)
-        QTimer.singleShot(0, self.canvas.fit_to_viewport)
-        QTimer.singleShot(120, self.canvas.fit_to_viewport)
+        if not getattr(self.canvas, "_user_zoomed", False):
+            QTimer.singleShot(0, self.canvas.fit_to_viewport)
+            QTimer.singleShot(120, self.canvas.fit_to_viewport)
 
     def _get_cached_page_words(self, pg_idx):
         cache = getattr(self, "_page_words_cache", None)
