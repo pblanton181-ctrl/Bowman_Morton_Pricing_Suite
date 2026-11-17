@@ -1,3 +1,4 @@
+import time
 from ui.excel_components import FormulaHudBar, apply_excel_table_style
 # ==========================================
 # SECTION 1: SYSTEM SYSTEM WORKSPACE ARCHITECTURE
@@ -11,7 +12,7 @@ import webbrowser
 import urllib.parse
 import custom_quoting_module as cqm
 
-from PySide6.QtCore import Qt, QSize, QPoint, QRect, QFileSystemWatcher
+from PySide6.QtCore import Qt, QSize, QPoint, QRect, QTimer, QFileSystemWatcher
 from PySide6.QtGui import QFont, QColor, QAction
 from PySide6.QtWidgets import (
     QHeaderView,
