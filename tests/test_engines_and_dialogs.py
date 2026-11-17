@@ -27,7 +27,7 @@ def test_bom_pdf_engine_full_pipeline():
             assert isinstance(sheets, list) and len(sheets) == 1
 
         if hasattr(bpe, "extract_full_bom"):
-            rows, dt, meta = bpe.extract_full_bom(pdf_p, use_ocr=False)
+            rows, dt, meta = bpe.extract_full_bom(pdf_p)
             assert isinstance(rows, list)
             assert len(rows) >= 3
 
