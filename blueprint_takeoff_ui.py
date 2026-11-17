@@ -2350,6 +2350,62 @@ class VisualTakeoffWorkspace(QWidget):
             try:
                 for drw in pg.get_drawings():
                     for itm in drw.get("items", []):
+                        op, *args = itm
+                        if op == "l" and len(args) >= 2:
+                            p_a, p_b = args, args
+                            ax, ay, bx, by = round(p_a.x, 1), round(p_a.y, 1), round(p_b.x, 1), round(p_b.y, 1)
+                            eps.add((ax, ay)); eps.add((bx, by))
+                            mps.add((round((ax + bx) * 0.5, 1), round((ay + by) * 0.5, 1)))
+                        elif op == "re" and len(args) >= 1:
+                            rc = args
+                            x0, y0, x1, y1 = round(rc.x0, 1), round(rc.y0, 1), round(rc.x1, 1), round(rc.y1, 1)
+                            eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+                            mps.update([(round((x0 + x1) * 0.5, 1), y0), (round((x0 + x1) * 0.5, 1), y1), (x0, round((y0 + y1) * 0.5, 1)), (x1, round((y0 + y1) * 0.5, 1))])
+                        if len(eps) > 8000:
+                            break
+                    if len(eps) > 8000:
+                        break
+            except Exception:
+                pass
+            self._pdf_snap_cache[pno] = (list(eps), list(mps))
+        self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints = self._pdf_snap_cache[pno]
+        self._refresh_color_key_ui()
+
+    def _on_key_item_clicked(self, item):
+        prof = item.data(Qt.UserRole)
+        eff = self._effective_key_for_page(self.get_page_fn())
+        if prof in eff:
+            self._set_canvas_pen(eff[prof])
+        self._populate_profile_sheet_pills(prof)
+
+    def _remove_selected_key(self):
+        cur = self.key_list.currentItem()
+        if not cur:
+            return
+        prof = cur.data(Qt.UserRole)
+        self._active_key_dict().pop(prof, None)
+        self.global_color_key.pop(prof, None)
+        self._refresh_color_key_ui()
+
+    def _clear_active_key(self):
+        self._active_key_dict().clear()
+        self._refresh_color_key_ui()
+
+    def render_sheet(self, page_num):
+        pno = max(0, int(page_num) - 1)
+        if pno >= len(self._doc):
+            return
+        pg = self._doc.load_page(pno)
+        pix = pg.get_pixmap(dpi=150, alpha=False)
+        qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888).copy()
+        self.canvas.load_pixmap(QPixmap.fromImage(qimg), render_dpi=150, page_markups=self.page_markups.setdefault(page_num, []))
+        if not hasattr(self, "_pdf_snap_cache"):
+            self._pdf_snap_cache = {}
+        if pno not in self._pdf_snap_cache:
+            eps, mps = set(), set()
+            try:
+                for drw in pg.get_drawings():
+                    for itm in drw.get("items", []):
                         op = itm[0]
                         if op == "l":
                             p_a, p_b = itm[1], itm[2]
@@ -2589,6 +2645,9 @@ class VisualTakeoffWorkspace(QWidget):
         if profs:
             self._populate_profile_sheet_pills(profs[0])
         self.canvas.update()
+
+    def export_pdf(self):
+        self._export_marked_pdf()
 
     def _export_marked_pdf(self):
         pg_num = self.get_page_fn()

@@ -948,7 +948,8 @@ class PdfBomImporterDialog(QDialog):
             QMessageBox.information(self, "Box Read", "No structural steel callouts detected inside the selected box.")
             return
         self._append_rows_to_tree(new_rows)
-        self._switch_dialog_view(0)
+        if hasattr(self, 'lbl_summary') and new_rows:
+            self.lbl_summary.setText(f'OCR Highlight: Staged {len(new_rows)} member(s) to BOM Tree (staying on Blueprint).')
 
     def scan_whole_planset(self, use_ocr=False, prompt_if_empty=False):
         if not self.pdf_path or not os.path.exists(self.pdf_path):
@@ -1000,7 +1001,8 @@ class PdfBomImporterDialog(QDialog):
             QMessageBox.information(self, "Sheet Scan", "No structural steel callouts found on this sheet.")
             return
         self._append_rows_to_tree(new_rows)
-        self._switch_dialog_view(0)
+        if hasattr(self, 'lbl_summary') and new_rows:
+            self.lbl_summary.setText(f'OCR Highlight: Staged {len(new_rows)} member(s) to BOM Tree (staying on Blueprint).')
 
     def _add_quick_member_to_tree(self):
         sk = self.qa_shape.currentText()
