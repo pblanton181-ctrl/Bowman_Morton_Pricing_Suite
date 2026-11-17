@@ -202,16 +202,21 @@ class SheetWorldState:
         return best_seg
 
 
-def scan_world_ocr(page, world_rect=None, dpi=200, multi_angle=True):
-    """Runs Windows Native OCR on a PDF world rectangle across 0°, 90°, 270° (and ±45° for clipped boxes)
-    so vertical and angled SHX steel callouts are read and mapped back to exact PDF world coordinates."""
-    pw, ph = float(page.rect.width), float(page.rect.height)
-    rect = world_rect or pymupdf.Rect(0, 0, pw * 0.88, ph * 0.94)
-    pix = page.get_pixmap(dpi=int(dpi), clip=rect, alpha=False)
-    tmp_png = os.path.join(tempfile.gettempdir(), f"bm_world_ocr_{os.getpid()}.png")
+def _ocr_tile_worker(args):
+    """Runs Windows Native OCR on one bite-size tile (<= 2200px) across 0, 90, 270, +-45 deg."""
+    pdf_path, page_num, rect_tuple, dpi, angles, tile_id = args
+    rx0, ry0, rx1, ry1 = rect_tuple
+    rect = pymupdf.Rect(rx0, ry0, rx1, ry1)
+    doc = pymupdf.open(pdf_path)
+    try:
+        page = doc.load_page(int(page_num) - 1)
+        pix = page.get_pixmap(dpi=int(dpi), clip=rect, alpha=False)
+    finally:
+        doc.close()
+
+    tmp_png = os.path.join(tempfile.gettempdir(), f"bm_tile_{os.getpid()}_{tile_id}.png")
     pix.save(tmp_png)
     scale = 72.0 / float(dpi)
-    angles = "0,90,270,45,315" if world_rect is not None else ("0,90,270" if multi_angle else "0")
 
     ps_script = (
         "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
@@ -248,7 +253,7 @@ def scan_world_ocr(page, world_rect=None, dpi=200, multi_angle=True):
         "  $res = Await ($eng.RecognizeAsync($sbmp)) ([Windows.Media.Ocr.OcrResult]);"
         "  $st.Dispose();"
         "  foreach($l in $res.Lines){"
-        "    $w=$l.Words; if($w.Count -gt 0){$r0=$w[0].BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"
+        "    $w=$l.Words; if($w.Count -gt 0){$r0=$w.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"
         "    foreach($wi in $w){$r=$wi.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $ang,$bw,$bh,[math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}"
         "  }"
         "  if($bmpDraw -ne $null){ $bmpDraw.Dispose(); }"
@@ -288,7 +293,9 @@ def scan_world_ocr(page, world_rect=None, dpi=200, multi_angle=True):
                 wcx = rect.x0 + max(0.0, min(bw, ox)) * scale
                 wcy = rect.y0 + max(0.0, min(bh, oy)) * scale
                 hw, hh = (rw * scale) * 0.5, (rh * scale) * 0.5
-                hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, normalize_cad_text(parts.__getitem__(7))))
+                ntxt = normalize_cad_text(parts.__getitem__(7))
+                if ntxt:
+                    hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt))
     except Exception:
         pass
     finally:
@@ -298,6 +305,51 @@ def scan_world_ocr(page, world_rect=None, dpi=200, multi_angle=True):
             except OSError:
                 pass
     return hits
+
+
+def scan_world_ocr(page, world_rect=None, dpi=250, multi_angle=True):
+    """Dynamic Neighbor-Aware Grid OCR: computes bite-size tiles (~580x580 PDF pts)
+    directly from the sheet's actual page dimensions with 15% neighbor overlap,
+    so every tile runs at native 1:1 sharpness and deduplicates across borders."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    pdf_path = getattr(getattr(page, "parent", None), "name", None)
+    page_num = int(getattr(page, "number", 0)) + 1
+    pw, ph = float(page.rect.width), float(page.rect.height)
+
+    if world_rect is not None:
+        r = pymupdf.Rect(world_rect)
+        if pdf_path and os.path.exists(pdf_path):
+            return _ocr_tile_worker((pdf_path, page_num, (r.x0, r.y0, r.x1, r.y1), max(250, int(dpi)), "0,90,270,45,315", "box"))
+
+    vp_w, vp_h = pw * 0.90, ph * 0.95
+    target_tile_pts = 580.0
+    cols = max(1, int(math.ceil(vp_w / target_tile_pts)))
+    rows = max(1, int(math.ceil(vp_h / target_tile_pts)))
+    tile_w, tile_h = vp_w / cols, vp_h / rows
+    ov_x, ov_y = tile_w * 0.15, tile_h * 0.15
+
+    tasks = []
+    for r_i in range(rows):
+        for c_i in range(cols):
+            x0 = max(0.0, c_i * tile_w - (ov_x if c_i > 0 else 0.0))
+            y0 = max(0.0, r_i * tile_h - (ov_y if r_i > 0 else 0.0))
+            x1 = min(vp_w, (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
+            y1 = min(vp_h, (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
+            tasks.append((pdf_path, page_num, (x0, y0, x1, y1), 250, "0,90,270,45,315", f"r{r_i}c{c_i}"))
+
+    merged_hits = []
+    with ThreadPoolExecutor(max_workers=min(4, len(tasks))) as pool:
+        for t_hits in pool.map(_ocr_tile_worker, tasks):
+            for hx0, hy0, hx1, hy1, htxt in t_hits:
+                hcx, hcy = (hx0 + hx1) * 0.5, (hy0 + hy1) * 0.5
+                if any(
+                    t0 == htxt and math.hypot(hcx - ((a0 + a1) * 0.5), hcy - ((b0 + b1) * 0.5)) < 10.0
+                    for a0, b0, a1, b1, t0 in merged_hits
+                ):
+                    continue
+                merged_hits.append((hx0, hy0, hx1, hy1, htxt))
+    return merged_hits
 
 
 class PlanWorldModel:
