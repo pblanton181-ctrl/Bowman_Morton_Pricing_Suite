@@ -164,7 +164,7 @@ def inspect_pdf_sheets(pdf_path):
         pw, ph = float(pg.rect.width), float(pg.rect.height)
         vp_len = sum(len(str(bstr).strip()) for bx0, by0, bx1, by1, bstr, *_ in pg.get_text("blocks") if bx0 < pw * 0.88 and by0 < ph * 0.94)
         mode = "Vector Text" if vp_len >= 30 else ("SHX Vector" if len(pg.get_drawings()) >= 40 else "Blank/Raster")
-        is_struct = sh.startswith(("S-", "SD-", "S")) and not sh.startswith(("SUR", "SITE"))
+        is_struct = (sh.startswith(("S-", "SD-", "S")) and not sh.startswith(("SUR", "SITE"))) or (not sh and mode in ("SHX Vector", "Blank/Raster"))
         sheets.append({"page": pno + 1, "sheet": sh or f"P.{pno+1}", "mode": mode, "recommended": is_struct})
     return sheets
 
@@ -234,8 +234,13 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
             has_vec_steel = any(STEEL_RX.search(t) for _, _, t in items)
             if not has_vec_steel:
                 items.extend(scan_region_windows_native_ocr(pg, clip_rect=region_clip, dpi=240))
-        elif sum(len(t) for _, _, t in items) < 30 and use_native_ocr and (selected_pages or sh.startswith("S")):
-            items = scan_region_windows_native_ocr(pg, clip_rect=region_clip, dpi=200)
+        elif sum(len(t) for _, _, t in items) < 30 and use_native_ocr:
+            items = scan_region_windows_native_ocr(pg, clip_rect=None, dpi=200)
+            if not sh and items:
+                ocr_joined = " ".join(t for _, _, t in items)
+                m_sh = re.search(r"\b(SD?-\d+(?:\.\d+)?|S\d+\.\d+)\b", ocr_joined)
+                if m_sh:
+                    sh = m_sh.group(1)
 
         if not items:
             continue
