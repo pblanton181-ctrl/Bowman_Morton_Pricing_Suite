@@ -235,7 +235,7 @@ def _ocr_tile_worker(args):
         if len(shx_strokes) >= 12:
             w_px = max(32, int(round(rect.width * sc)))
             h_px = max(32, int(round(rect.height * sc)))
-            clean_im = Image.new("L", (w_px, h_px), 255)
+            clean_im = Image.new("RGB", (w_px, h_px), (255, 255, 255))
             draw = ImageDraw.Draw(clean_im)
             for w_pen, items in shx_strokes:
                 lw = max(2, int(round(w_pen * sc * 1.45)))
@@ -243,10 +243,10 @@ def _ocr_tile_worker(args):
                     op = itm.__getitem__(0)
                     if op == "l" and len(itm) >= 3:
                         p1, p2 = itm.__getitem__(1), itm.__getitem__(2)
-                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=0, width=lw)
+                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
                     elif op == "c" and len(itm) >= 5:
                         p1, p2 = itm.__getitem__(1), itm.__getitem__(4)
-                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=0, width=lw)
+                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
             clean_im.save(tmp_png)
             eff_scale = 72.0 / float(safe_dpi)
         else:
@@ -379,7 +379,7 @@ def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
             ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
             tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
             ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
-            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,32,45,315,328", f"r{r_i}c{c_i}"))
+            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,45,315", f"r{r_i}c{c_i}"))
 
     merged_hits = []
     with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
