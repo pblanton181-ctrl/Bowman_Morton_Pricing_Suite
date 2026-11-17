@@ -24,21 +24,13 @@ STEEL_RX = re.compile(
 
 DETAIL_RX = re.compile(r"\b(\d{1,2}\s*/\s*(?:SD-\d+|S-?\d+(?:\.\d+)?))\b")
 
-def normalize_cad_text(raw):
-    t = str(raw).upper().replace("BENTIHSS", "BENT HSS")
-    t = re.sub(r"\b(W|HSS|L|C|MC|WT|S|HP|PIPE)\s+(?=\d)", r"\1", t)
-    t = re.sub(r"\s*([X/])\s*", r"\1", t)
-    t = re.sub(r"(?<=\d)O(?=\d)", "0", t)
-    t = re.sub(r"(?<=[WHSLC])O(?=\d)", "0", t)
-    return t
-
 def _cache_dir():
     base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
     d = os.path.join(base, "BowmanMortonPricingSuite", "bom_cache_v2")
     os.makedirs(d, exist_ok=True)
     return d
 
-from core.plan_world import PlanWorldModel, scan_world_ocr, round_structural_ft, parse_arch_scale
+from core.plan_world import PlanWorldModel, scan_world_ocr, round_structural_ft, parse_arch_scale, normalize_cad_text
 
 def _file_fingerprint(path):
     st = os.stat(path)
@@ -247,7 +239,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
 
         sheet_lbl = sh or f"P.{pno+1}"
         all_txt = full_tb + " " + " ".join(t for _, _, t in items)
-        if sheet_lbl in ("S-0", "S-1") or "SHEET S-1" not in all_txt and "GENERAL STRUCTURAL NOTES" in all_txt:
+        if sheet_lbl in ("S-0", "S-1"):
             continue
         is_detail = sheet_lbl.startswith("SD")
         pts_per_ft = get_sheet_calibration(pg, sheet_scales=sheet_scales)
