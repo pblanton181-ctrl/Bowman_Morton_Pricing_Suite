@@ -756,7 +756,8 @@ class CadBlueprintCanvas(QLabel):
         if len(self._pline_pts) >= 2:
             pts = list(self._pline_pts)
             if close_loop and len(pts) >= 3:
-                pts.append(pts)
+                first_x, first_y = next(iter(pts))
+                pts.append((first_x, first_y))
             self._pline_pts.clear()
             self._dyn_input_buf = ""
             self._dyn_ang_buf = ""
