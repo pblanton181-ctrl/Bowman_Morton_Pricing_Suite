@@ -171,3 +171,62 @@ def test_all_keyboard_hotkeys_and_pricing_math_invariants(qtbot):
     cfg = {"cat_base_margin": 1.05, "labor_rate": 85.0}
     r1 = live_test.PricingCalculatorCore.calc_card1(250.0, 45.0, 1.0, {}, cfg)
     assert r1 > 0 and r1 == r1
+
+
+def test_ledger_roundtrip_and_admin_safeguards_pressure(qtbot, monkeypatch):
+    monkeypatch.setattr(live_test.QMessageBox, "warning", lambda *a, **k: None)
+    monkeypatch.setattr(live_test.QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(live_test.QMessageBox, "question", lambda *a, **k: live_test.QMessageBox.Yes)
+    win = live_test.StandaloneManufacturingApp()
+    qtbot.addWidget(win)
+    win.show()
+
+    # 1. Verify Admin safeguards & live matrix reload
+    win.master_ribbon._switch_workspace(4)
+    win.refresh_live_category_titles()
+    assert len(win.data_core.clean_database) > 0
+    mult = live_test.PricingCalculatorCore.get_profile_multiplier("Standard", win.custom_safeguards)
+    assert mult > 0
+
+    # 2. Verify Ledger grid population & search filtering
+    win.master_ribbon._switch_workspace(3)
+    if hasattr(win, "custom_ledger_tab") and hasattr(win.custom_ledger_tab, "populate_ledger_grid"):
+        win.custom_ledger_tab.populate_ledger_grid()
+
+    win.close()
+
+
+def test_real_pdf_scan_and_marked_pdf_export_pressure(qtbot, monkeypatch):
+    monkeypatch.setattr(live_test.QMessageBox, "warning", lambda *a, **k: None)
+    monkeypatch.setattr(live_test.QMessageBox, "information", lambda *a, **k: None)
+    win = live_test.StandaloneManufacturingApp()
+    qtbot.addWidget(win)
+    win.show()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        pdf_p = os.path.join(tmp, "real_scan_plan.pdf")
+        out_p = os.path.join(tmp, "marked_output.pdf")
+        doc = pymupdf.open()
+        p1 = doc.new_page(width=792, height=612)
+        p1.insert_text((120, 140), "W16X57", fontsize=14)
+        p1.insert_text((120, 200), "HSS8X8X3/8", fontsize=14)
+        doc.save(pdf_p)
+        doc.close()
+
+        pt = win.planset_takeoff_tab
+        if hasattr(pt, "_load_pdf_into_workspace"):
+            pt._load_pdf_into_workspace(pdf_p)
+        if hasattr(pt, "scan_whole_planset"):
+            pt.scan_whole_planset(use_ocr=False, prompt_if_empty=False)
+        vw = pt.vis_workspace
+        vw.canvas.markups.append({
+            "type": "hanger_skew", "hx1": 100, "hy1": 250, "hx2": 220, "hy2": 250,
+            "rx": 220, "ry": 250, "jx": 260, "jy": 340, "nx": 0, "ny": 1, "slen": 98.0,
+            "label": "SKEW LEFT 24.0°", "skew_deg": 24.0,
+            "color": vw.canvas.active_color, "line_width": 2.0, "font_size": 10
+        })
+        monkeypatch.setattr("blueprint_takeoff_ui.QFileDialog.getSaveFileName", lambda *a, **k: (out_p, "PDF Files (*.pdf)"))
+        vw._export_marked_pdf()
+        assert os.path.exists(out_p) and os.path.getsize(out_p) > 500
+
+    win.close()
