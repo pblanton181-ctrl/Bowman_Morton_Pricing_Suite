@@ -1437,7 +1437,7 @@ class StructuralQuotingSandbox(QWidget):
         right_layout.addLayout(t2_item_ops)
 
         totals_card = QWidget()
-        totals_card.setStyleSheet("background-color: rgba(248, 250, 252, 0.80); border: 1px solid #cbd5e1; border-radius: 8px;")
+        totals_card.setStyleSheet("background-color: #ffffff; border: 1.5px solid #94a3b8; border-radius: 6px;")
         t_grid = QGridLayout(totals_card)
         t_grid.setContentsMargins(12, 8, 12, 8)
         t_grid.setVerticalSpacing(3)
