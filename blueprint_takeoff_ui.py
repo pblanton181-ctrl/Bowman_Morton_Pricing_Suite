@@ -75,8 +75,11 @@ class CadBlueprintCanvas(QLabel):
         self.selected_idx = -1
         self.show_grid = False
         self.grid_spacing_px = 28
+        self.selected_indices = set()
         self._dragging_selected = False
         self._drag_last_pdf = None
+        self._marquee_start = None
+        self._marquee_cur = None
 
         self.legend_pdf_pos = [18.0, 18.0]
         self._legend_rect_px = QRect()
@@ -356,13 +359,42 @@ class CadBlueprintCanvas(QLabel):
 
         menu.exec(global_pos)
 
+    def _markup_screen_rect(self, m):
+        mt = m.get("type")
+        if mt in ("count", "text", "grid_bubble"):
+            c = self._from_pdf_pt(m["x"], m["y"])
+            return QRect(c.x() - 18, c.y() - 18, 36, 36)
+        if mt == "cad_shape":
+            ox, oy = m["x"], m["y"]
+            wp, hp = m.get("w_pts", 180.0), m.get("h_pts", 140.0)
+            return QRect(self._from_pdf_pt(ox, oy), self._from_pdf_pt(ox + wp, oy + hp)).normalized()
+        if mt in ("area", "free_highlight", "polyline"):
+            pts = [self._from_pdf_pt(px, py) for px, py in m.get("pts", [])]
+            if not pts:
+                return QRect()
+            xs, ys = [p.x() for p in pts], [p.y() for p in pts]
+            return QRect(min(xs), min(ys), max(1, max(xs) - min(xs)), max(1, max(ys) - min(ys)))
+        if "x1" in m and "y1" in m and "x2" in m and "y2" in m:
+            return QRect(self._from_pdf_pt(m["x1"], m["y1"]), self._from_pdf_pt(m["x2"], m["y2"])).normalized()
+        return QRect()
+
     def delete_selected_markup(self):
+        targets = set(getattr(self, "selected_indices", set()))
         if 0 <= self.selected_idx < len(self.markups):
-            removed = self.markups.pop(self.selected_idx)
-            self.selected_idx = -1
-            if removed.get("type") == "count" and self.on_count_changed:
-                self.on_count_changed(sum(1 for m in self.markups if m.get("type") == "count"))
-            self.update()
+            targets.add(self.selected_idx)
+        if not targets:
+            return
+        had_count = False
+        for idx in sorted(targets, reverse=True):
+            if 0 <= idx < len(self.markups):
+                rem = self.markups.pop(idx)
+                if rem.get("type") == "count":
+                    had_count = True
+        self.selected_idx = -1
+        self.selected_indices.clear()
+        if had_count and self.on_count_changed:
+            self.on_count_changed(sum(1 for m in self.markups if m.get("type") == "count"))
+        self.update()
 
     def undo_last_markup(self):
         if self._inline_editor.isVisible():
@@ -371,6 +403,7 @@ class CadBlueprintCanvas(QLabel):
         if self.markups:
             removed = self.markups.pop()
             self.selected_idx = -1
+            self.selected_indices.clear()
             if removed.get("type") == "count" and self.on_count_changed:
                 self.on_count_changed(sum(1 for m in self.markups if m.get("type") == "count"))
             self.update()
@@ -379,6 +412,7 @@ class CadBlueprintCanvas(QLabel):
         self._inline_editor.hide()
         self.markups.clear()
         self.selected_idx = -1
+        self.selected_indices.clear()
         self._p1 = None
         self._p2 = None
         if self.on_count_changed:
@@ -394,15 +428,9 @@ class CadBlueprintCanvas(QLabel):
                 if math.hypot(qpt.x() - c.x(), qpt.y() - c.y()) <= 15.0:
                     return i
             elif mt == "cad_shape":
-                sd = m.get("shape", {})
-                ox, oy = m["x"], m["y"]
-                wp, hp = m.get("w_pts", 180.0), m.get("h_pts", 140.0)
-                if sd.get("kind") == "circle":
-                    r_pt = min(wp, hp) * 0.5
-                    pg.draw_circle(pymupdf.Point(ox + r_pt, oy + r_pt), r_pt, color=c, width=1.5)
-                else:
-                    pg.draw_polyline([pymupdf.Point(ox, oy + hp), pymupdf.Point(ox + wp, oy + hp), pymupdf.Point(ox + wp, oy)], color=c, fill=c, fill_opacity=0.12, width=1.5, closePath=True)
-                pg.insert_text(pymupdf.Point(ox, oy + hp + 12), m.get("label", ""), fontsize=8.0, color=c)
+                r_sh = self._markup_screen_rect(m).adjusted(-8, -8, 8, 8)
+                if r_sh.contains(qpt):
+                    return i
             elif mt == "text":
                 t0 = self._from_pdf_pt(m["x"], m["y"])
                 w_est = max(60, len(m.get("text", "")) * int(m.get("font_size", 13) * self.zoom * 0.85))
@@ -794,11 +822,29 @@ class CadBlueprintCanvas(QLabel):
             return
 
         if self.mode in ("select", "pan"):
-            self.selected_idx = self._hit_test_markup(pos)
-            if self.selected_idx >= 0:
+            hit = self._hit_test_markup(pos)
+            if hit >= 0:
+                if shift_held:
+                    if hit in self.selected_indices:
+                        self.selected_indices.remove(hit)
+                        self.selected_idx = next(iter(self.selected_indices), -1)
+                    else:
+                        self.selected_indices.add(hit)
+                        self.selected_idx = hit
+                else:
+                    if hit not in self.selected_indices:
+                        self.selected_indices = {hit}
+                    self.selected_idx = hit
                 self._dragging_selected = True
                 self._drag_last_pdf = self._to_pdf_pt(pos)
                 self.setCursor(Qt.ClosedHandCursor if self.mode == "pan" else Qt.SizeAllCursor)
+            else:
+                if not shift_held:
+                    self.selected_idx = -1
+                    self.selected_indices.clear()
+                if self.mode == "select":
+                    self._marquee_start = pos
+                    self._marquee_cur = pos
             self.setFocus()
             p_win = self.window()
             if hasattr(p_win, "master_ribbon") and hasattr(p_win.master_ribbon, "update_contextual_selection"):
@@ -914,18 +960,28 @@ class CadBlueprintCanvas(QLabel):
             self.update()
             return
 
-        if self._dragging_selected and 0 <= self.selected_idx < len(self.markups) and self._drag_last_pdf:
+        if self._marquee_start is not None:
+            self._marquee_cur = pos
+            self.update()
+            return
+
+        if self._dragging_selected and self._drag_last_pdf:
             cx, cy = self._to_pdf_pt(pos)
             lx, ly = self._drag_last_pdf
             dx, dy = cx - lx, cy - ly
             self._drag_last_pdf = (cx, cy)
-            m = self.markups[self.selected_idx]
-            if m.get("type") in ("span", "arrow", "line", "highlight", "ellipse", "angle", "cloud", "filled_box", "dashed", "callout", "weld", "centerline"):
-                m["x1"] += dx; m["y1"] += dy; m["x2"] += dx; m["y2"] += dy
-            elif m.get("type") in ("area", "free_highlight", "polyline"):
-                m["pts"] = [(px + dx, py + dy) for px, py in m.get("pts", [])]
-            else:
-                m["x"] += dx; m["y"] += dy
+            move_set = set(self.selected_indices)
+            if 0 <= self.selected_idx < len(self.markups):
+                move_set.add(self.selected_idx)
+            for idx in move_set:
+                if 0 <= idx < len(self.markups):
+                    m = self.markups[idx]
+                    if m.get("type") in ("span", "arrow", "line", "highlight", "ellipse", "angle", "cloud", "filled_box", "dashed", "callout", "weld", "centerline"):
+                        m["x1"] += dx; m["y1"] += dy; m["x2"] += dx; m["y2"] += dy
+                    elif m.get("type") in ("area", "free_highlight", "polyline"):
+                        m["pts"] = [(px + dx, py + dy) for px, py in m.get("pts", [])]
+                    else:
+                        m["x"] += dx; m["y"] += dy
             self.update()
             return
 
@@ -959,6 +1015,23 @@ class CadBlueprintCanvas(QLabel):
             self.update()
 
     def mouseReleaseEvent(self, ev):
+        if self._marquee_start is not None and self._marquee_cur is not None:
+            p0, p1 = self._marquee_start, self._marquee_cur
+            self._marquee_start = None
+            self._marquee_cur = None
+            sel_rect = QRect(p0, p1).normalized()
+            is_crossing = p1.x() < p0.x()  # Right-to-left = Green Crossing; Left-to-right = Blue Window
+            if sel_rect.width() > 4 or sel_rect.height() > 4:
+                for i, m in enumerate(self.markups):
+                    mr = self._markup_screen_rect(m)
+                    if not mr.isNull():
+                        matched = sel_rect.intersects(mr) if is_crossing else sel_rect.contains(mr)
+                        if matched:
+                            self.selected_indices.add(i)
+                self.selected_idx = max(self.selected_indices) if self.selected_indices else -1
+            self.update()
+            ev.accept()
+            return
         if self._dragging_legend or self._dragging_selected or self._panning:
             self._dragging_legend = False
             self._dragging_selected = False
@@ -1562,6 +1635,21 @@ class CadBlueprintCanvas(QLabel):
             p.setPen(QPen(QColor(2, 132, 199, 65), 1.0, Qt.DotLine))
             p.drawLine(hx, 0, hx, self.height())
             p.drawLine(0, hy, self.width(), hy)
+
+        # Multi-selection cyan bounding boxes & AutoCAD Window/Crossing Marquee Box
+        for s_idx in getattr(self, "selected_indices", set()):
+            if 0 <= s_idx < len(self.markups):
+                sr = self._markup_screen_rect(self.markups[s_idx]).adjusted(-4, -4, 4, 4)
+                if not sr.isNull():
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(QColor("#0284c7"), 1.5, Qt.DashLine))
+                    p.drawRect(sr)
+        if self._marquee_start is not None and self._marquee_cur is not None:
+            mr = QRect(self._marquee_start, self._marquee_cur).normalized()
+            crossing = self._marquee_cur.x() < self._marquee_start.x()
+            p.setBrush(QColor(22, 163, 74, 38) if crossing else QColor(2, 132, 199, 38))
+            p.setPen(QPen(QColor("#16a34a" if crossing else "#0284c7"), 1.5, Qt.DashLine if crossing else Qt.SolidLine))
+            p.drawRect(mr)
 
         # Bottom-left CAD XY Origin Triad
         ox, oy = 26, self.height() - 26
