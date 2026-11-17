@@ -127,10 +127,12 @@ def get_sheet_tag(page):
     return m[-1] if m else ""
 
 def parse_arch_scale(txt):
-    m = re.search(r"(\d+)\s*/\s*(\d+)\s*\"\s*=\s*1\s*'\s*-?\s*0", txt)
+    # Strip standard title-block sheet-size boilerplate (e.g. "24X36 SHEET: 1/8\"=1'-0\"") so true plan scale is read
+    cleaned = re.sub(r"\d+\s*[X×]\s*\d+\s*SHEET\s*:?\s*1\s*/\s*8\s*\"\s*=\s*1\s*'\s*-?\s*0\s*\"?", " ", str(txt), flags=re.IGNORECASE)
+    m = re.search(r"(\d+)\s*/\s*(\d+)\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)
     if m and float(m.group(2)) > 0:
         return (float(m.group(1)) / float(m.group(2))) * 72.0
-    m2 = re.search(r"\b([1-3])\s*\"\s*=\s*1\s*'\s*-?\s*0", txt)
+    m2 = re.search(r"\b([1-3])\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)
     return float(m2.group(1)) * 72.0 if m2 else 18.0
 
 def scan_region_windows_native_ocr(page, clip_rect=None, dpi=200):
