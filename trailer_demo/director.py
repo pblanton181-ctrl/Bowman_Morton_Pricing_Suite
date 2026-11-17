@@ -9,9 +9,9 @@ from PySide6.QtWidgets import (
     QApplication,
     QMessageBox,
     QFileDialog,
+    QDialog,
     QAbstractButton,
     QAbstractItemView,
-    QDialogButtonBox,
 )
 
 from trailer_demo.recorder import WindowVideoRecorder
@@ -20,8 +20,9 @@ from trailer_demo.cursor_driver import SmoothCursorAnimator, TrailerCaptionCard
 EXPORT_DIR = os.path.join(os.path.abspath("."), "Marketing_Trailer_Exports")
 VIDEO_OUT = os.path.join(EXPORT_DIR, "Bowman_Morton_Marketing_Trailer.mp4")
 
+
 class MarketingTrailerDirector:
-    """Visual trailer choreographer grounded in verified widget handles & real OS mouse input."""
+    """7-Shot Movie Trailer Director grounded in verified application handles."""
 
     def __init__(self, win):
         self.win = win
@@ -56,6 +57,7 @@ class MarketingTrailerDirector:
                 if kw.lower() in txt or kw.lower() in tip:
                     return btn
         return None
+
     def start(self):
         os.makedirs(EXPORT_DIR, exist_ok=True)
         self.win.showMaximized()
@@ -74,14 +76,14 @@ class MarketingTrailerDirector:
             "Live walkthrough on 1230 Dave Pugsley — 3122 Broadway Combined Plan Set",
         )
         self.recorder.start()
-        QTimer.singleShot(1100, self._scene_1_open_pdf_dialog)
+        QTimer.singleShot(1100, self._shot_1_open_pdf_dialog)
 
-    def _scene_1_open_pdf_dialog(self):
+    def _shot_1_open_pdf_dialog(self):
         rb = self.win.master_ribbon
         btn_open = self._find_visible_button(rb, "Open PDF", "Open")
         self.caption.show_step(
-            "STEP 1 OF 6 • PLANSET INGESTION",
-            "Opening File Browser & Selecting the Structural Plan Set",
+            "SHOT 1 OF 7 • PLANSET FILE SELECTION",
+            "Opening File Browser & Selecting the 3122 Broadway Combined Plan Set",
             os.path.basename(self.pdf_path),
         )
 
@@ -110,15 +112,18 @@ class MarketingTrailerDirector:
                         break
 
             def _click_file_row():
-                btn_accept = None
-                for box in dlg.findChildren(QDialogButtonBox):
-                    btn_accept = box.button(QDialogButtonBox.Open) or box.button(QDialogButtonBox.Ok)
-                    if btn_accept:
+                btn_open_dlg = None
+                for b in dlg.findChildren(QAbstractButton):
+                    if b.isVisible() and b.text().replace("&", "").strip().lower() in ("open", "choose"):
+                        btn_open_dlg = b
                         break
 
-                def _accept_and_load():
-                    dlg.accept()
+                def _close_picker_and_load():
+                    dlg.done(QDialog.Accepted)
+                    dlg.close()
+                    dlg.deleteLater()
                     QApplication.processEvents()
+
                     orig_open = QFileDialog.getOpenFileName
                     QFileDialog.getOpenFileName = lambda *a, **k: (self.pdf_path, "PDF Files (*.pdf)")
                     try:
@@ -126,19 +131,20 @@ class MarketingTrailerDirector:
                     finally:
                         QFileDialog.getOpenFileName = orig_open
                     QApplication.processEvents()
-                    QTimer.singleShot(850, self._scene_2_auto_scan_bom)
+                    QTimer.singleShot(850, self._shot_2_auto_scan_bom)
 
-                self.cursor.glide_to_widget(btn_accept, duration_ms=480, click_pulse=True, on_done=_accept_and_load)
+                self.cursor.glide_to_widget(btn_open_dlg, duration_ms=480, click_pulse=True, on_done=_close_picker_and_load)
 
             self.cursor.glide_to(row_gpos, duration_ms=560, click_pulse=True, on_done=_click_file_row)
 
         self.cursor.glide_to_widget(btn_open, duration_ms=500, click_pulse=True, on_done=_show_file_picker)
-    def _scene_2_auto_scan_bom(self):
+
+    def _shot_2_auto_scan_bom(self):
         rb = self.win.master_ribbon
         btn_scan = self._find_visible_button(rb, "Auto Scan", "Scan")
         self.caption.show_step(
-            "STEP 2 OF 6 • AUTOMATED STRUCTURAL BOM EXTRACTION",
-            "Scanning All Sheets for Wide Flange, HSS, Angles, Channels & Plates",
+            "SHOT 2 OF 7 • ONE-CLICK WHOLE-PLANSET BOM EXTRACTION",
+            "Scanning Every Sheet for Wide Flange, HSS, Angles, Channels & Plates",
             "Extracting profiles, quantities & cut lengths automatically",
         )
 
@@ -149,11 +155,10 @@ class MarketingTrailerDirector:
             if hasattr(pt, "tree"):
                 pt.tree.expandAll()
             QApplication.processEvents()
-            QTimer.singleShot(1400, self._scene_3_flip_pages_and_smart_lookup)
+            QTimer.singleShot(1500, self._shot_3_smart_lookup_framing_sheet)
 
         self.cursor.glide_to_widget(btn_scan, duration_ms=500, click_pulse=True, on_done=_do_scan)
-
-    def _scene_3_flip_pages_and_smart_lookup(self):
+    def _shot_3_smart_lookup_framing_sheet(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
         pt._switch_dialog_view(1)
@@ -163,9 +168,9 @@ class MarketingTrailerDirector:
         QApplication.processEvents()
 
         self.caption.show_step(
-            "STEP 3 OF 6 • SMART STEEL COLOR KEY NAVIGATION",
-            "Flipping Opening Pages — Then Jumping Straight to Steel via Smart Lookup",
-            "Click any steel profile in the Color Key to jump straight to its framing sheet",
+            "SHOT 3 OF 7 • SMART STEEL COLOR KEY NAVIGATION",
+            "Flipping Opening Pages — Then Jumping Straight to Steel Framing via Smart Lookup",
+            "Click any steel profile in the Color Key to jump directly to its structural sheet",
         )
 
         def _after_flip():
@@ -174,16 +179,29 @@ class MarketingTrailerDirector:
                 vw.render_sheet(2)
                 QApplication.processEvents()
 
+            # Find a beam profile that lives on an actual Structural sheet (S-xxx / Pg 30+)
+            structural_profiles = set()
+            for top_i in range(pt.tree.topLevelItemCount()):
+                p_item = pt.tree.topLevelItem(top_i)
+                for c_i in range(p_item.childCount()):
+                    ch = p_item.child(c_i)
+                    sh_txt = ch.text(1).strip().upper()
+                    prof_txt = ch.text(3).strip().upper()
+                    if (sh_txt.startswith("S") or "31" in sh_txt or "32" in sh_txt or "33" in sh_txt or "34" in sh_txt or "35" in sh_txt) and (prof_txt.startswith("W") or prof_txt.startswith("HSS")):
+                        structural_profiles.add(re.sub(r"\s+", "", prof_txt))
+
             target_item = None
             best_score = -1
             for idx in range(vw.key_list.count()):
                 it = vw.key_list.item(idx)
                 txt = (it.text() or "").upper()
-                if txt.startswith("W") or txt.startswith("HSS"):
+                prof_key = re.sub(r"\s+", "", txt.split("—").__getitem__(0))
+                if prof_key.startswith("W") or prof_key.startswith("HSS"):
                     m_cnt = re.search(r"\((\d+)\)", txt)
                     cnt = int(m_cnt.group(1)) if m_cnt else 1
-                    if cnt > best_score:
-                        best_score = cnt
+                    score = cnt + (100 if prof_key in structural_profiles else 0)
+                    if score > best_score:
+                        best_score = score
                         target_item = it
             if target_item is None and vw.key_list.count() > 0:
                 target_item = vw.key_list.item(0)
@@ -199,23 +217,23 @@ class MarketingTrailerDirector:
                     QApplication.processEvents()
                     prof_name = (target_item.text() or "").split("—").__getitem__(0).strip()
                     self.caption.show_step(
-                        "STEP 3 OF 6 • SMART LOOKUP JUMPED TO STRUCTURAL FRAMING SHEET",
-                        f"Clicked '{prof_name}' -> Auto-Jumped Straight to Framing Sheet!",
-                        "Attached beam lines & callouts highlighted in color — ready to measure",
+                        "SHOT 3 OF 7 • SMART LOOKUP JUMPED TO STRUCTURAL FRAMING PLAN",
+                        f"Clicked '{prof_name}' -> Auto-Jumped Straight to Structural Framing Sheet!",
+                        "Color-coded beam callouts & attached steel lines highlighted live on drawing",
                     )
-                    QTimer.singleShot(1100, self._scene_4_measure_highlighted_beam)
+                    QTimer.singleShot(1200, self._shot_4_measure_highlighted_beam)
 
                 self.cursor.glide_to(item_gpos, duration_ms=580, click_pulse=True, on_done=_click_smart_lookup)
             else:
-                QTimer.singleShot(400, self._scene_4_measure_highlighted_beam)
+                QTimer.singleShot(400, self._shot_4_measure_highlighted_beam)
 
-        QTimer.singleShot(650, _after_flip)
+        QTimer.singleShot(700, _after_flip)
     def _dispatch_canvas_mouse(self, cv, ev_type, local_pt, btn=Qt.LeftButton, buttons=Qt.LeftButton):
         g_pt = cv.mapToGlobal(local_pt)
         ev = QMouseEvent(ev_type, QPointF(local_pt), QPointF(g_pt), btn, buttons, Qt.NoModifier)
         QApplication.sendEvent(cv, ev)
 
-    def _scene_4_measure_highlighted_beam(self):
+    def _shot_4_measure_highlighted_beam(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
         rb = self.win.master_ribbon
@@ -236,9 +254,9 @@ class MarketingTrailerDirector:
 
         btn_measure = self._find_visible_button(rb, "Linear Dim", "Measure")
         self.caption.show_step(
-            "STEP 4 OF 6 • LIVE MEASURE TOOL & OSNAP VERIFICATION",
+            "SHOT 4 OF 7 • ZOOM IN & LIVE MEASURE / OSNAP VERIFICATION",
             f"Zooming Onto {beam_profile} & Measuring Real Beam Endpoints",
-            "Live interactive Measure tool & OSNAP confirm BOM extraction accuracy",
+            "Interactive Measure tool & OSNAP confirm 1:1 BOM length accuracy",
         )
         self.cursor.glide_to_widget(
             btn_measure,
@@ -246,6 +264,7 @@ class MarketingTrailerDirector:
             click_pulse=True,
             on_done=lambda: self._run_real_canvas_measure(beam_profile, beam_len_ft),
         )
+
     def _run_real_canvas_measure(self, beam_profile, beam_len_ft):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
@@ -304,16 +323,17 @@ class MarketingTrailerDirector:
                     last_m = cv.markups.__getitem__(len(cv.markups) - 1)
                     measured_txt = str(last_m.get("label", ""))
                 self.caption.show_step(
-                    "STEP 4 OF 6 • 1:1 BOM ACCURACY CONFIRMED ON DRAWING",
+                    "SHOT 4 OF 7 • 1:1 BOM ACCURACY CONFIRMED ON FRAMING PLAN",
                     f"Measured Span: {measured_txt or cv._format_ft_in(beam_len_ft)}  |  BOM {beam_profile}: {beam_len_ft:.2f} ft",
                     "Real interactive Measure tool & OSNAP confirm plan-set scale accuracy",
                 )
-                QTimer.singleShot(1600, self._scene_4b_export_all_steel_pdfs)
+                QTimer.singleShot(1600, self._shot_5_export_all_steel_pdfs)
 
-            self.cursor.glide_to(p2_global, duration_ms=820, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
+            self.cursor.glide_to(p2_global, duration_ms=850, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
 
         self.cursor.glide_to(p1_global, duration_ms=560, click_pulse=True, on_move=_hover_p1, on_done=_click_p1)
-    def _scene_4b_export_all_steel_pdfs(self):
+
+    def _shot_5_export_all_steel_pdfs(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
         if hasattr(vw, "zoom_fit"):
@@ -337,11 +357,11 @@ class MarketingTrailerDirector:
         vw = pt.vis_workspace
         if self._export_cursor >= len(self.steel_pages):
             self.caption.show_step(
-                "STEP 4 OF 6 • MARKED-UP STEEL SHEET PDFs EXPORTED",
+                "SHOT 5 OF 7 • ALL MARKED-UP STEEL SHEET PDFs EXPORTED",
                 f"Saved {len(self.steel_pages)} Color-Keyed Marked-Up Sheet PDFs",
                 "Ready for shop fabrication & customer submittal in Marketing_Trailer_Exports\\",
             )
-            QTimer.singleShot(900, self._scene_5_send_bom_to_structural)
+            QTimer.singleShot(900, self._shot_6_send_bom_to_structural)
             return
 
         pg_idx = self.steel_pages.__getitem__(self._export_cursor)
@@ -353,7 +373,7 @@ class MarketingTrailerDirector:
         self._write_marked_sheet_pdf(vw, pg_num, out_pdf)
 
         self.caption.show_step(
-            f"STEP 4 OF 6 • EXPORTING MARKED-UP SHEET {self._export_cursor + 1} OF {len(self.steel_pages)}",
+            f"SHOT 5 OF 7 • EXPORTING MARKED-UP SHEET {self._export_cursor + 1} OF {len(self.steel_pages)}",
             f"Exported {os.path.basename(out_pdf)}",
             "Vector highlights & steel color key baked into PDF",
         )
@@ -380,34 +400,36 @@ class MarketingTrailerDirector:
 
         out_doc.save(out_path)
         out_doc.close()
-
-    def _scene_5_send_bom_to_structural(self):
+    def _shot_6_send_bom_to_structural(self):
         pt = self.win.planset_takeoff_tab
         rb = self.win.master_ribbon
         btn_send = self._find_visible_button(rb, "Send BOM", "Send Checked")
         self.caption.show_step(
-            "STEP 5 OF 6 • ONE-CLICK SEND TO STRUCTURAL QUOTING",
+            "SHOT 6 OF 7 • ONE-CLICK SEND TO STRUCTURAL QUOTING",
             "Transferring Verified BOM Into Structural Fabrication Workbench",
             "Every steel profile, quantity & cut length populates automatically",
         )
 
         def _do_send():
             pt._accept_checked()
-            self.win.master_tabs.setCurrentWidget(self.win.custom_quoting_tab)
+            sq = self.win.custom_quoting_tab
+            if hasattr(sq, "ingest_pdf_bom_items"):
+                sq.ingest_pdf_bom_items(getattr(pt, "accepted_rows", []))
+            self.win.master_tabs.setCurrentIndex(2)
             self.win.master_ribbon.set_active_tab(2)
             QApplication.processEvents()
-            sq = self.win.custom_quoting_tab
             self._total_members = len(getattr(sq, "current_project_items", []))
             self._edit_cursor = 0
-            QTimer.singleShot(950, self._step_edit_next_structural_member)
+            QTimer.singleShot(1000, self._step_edit_next_structural_member)
 
         self.cursor.glide_to_widget(btn_send, duration_ms=500, click_pulse=True, on_done=_do_send)
+
     def _step_edit_next_structural_member(self):
         sq = self.win.custom_quoting_tab
         items = getattr(sq, "current_project_items", [])
         max_edits = min(len(items), 4)
         if self._edit_cursor >= max_edits:
-            QTimer.singleShot(900, self._scene_6_finish_trailer)
+            QTimer.singleShot(900, self._shot_7_finish_trailer)
             return
 
         if sq.ledger_tree.topLevelItemCount() > 0:
@@ -458,27 +480,27 @@ class MarketingTrailerDirector:
                 QApplication.processEvents()
 
                 self.caption.show_step(
-                    f"STEP 5 OF 6 • DETAILING MEMBER {self._edit_cursor + 1} OF {max_edits}",
+                    f"SHOT 6 OF 7 • DETAILING MEMBER {self._edit_cursor + 1} OF {max_edits}",
                     f"Configured {model} ({extent:.1f} ft)",
                     f"Plan-Set Add-Ons Applied: {spec_desc}",
                 )
                 self._edit_cursor += 1
-                QTimer.singleShot(1050, self._step_edit_next_structural_member)
+                QTimer.singleShot(1100, self._step_edit_next_structural_member)
 
             self.cursor.glide_to(row_gpos, duration_ms=460, click_pulse=True, on_done=_after_row_click)
         else:
-            QTimer.singleShot(600, self._scene_6_finish_trailer)
+            QTimer.singleShot(600, self._shot_7_finish_trailer)
 
-    def _scene_6_finish_trailer(self):
+    def _shot_7_finish_trailer(self):
         sq = self.win.custom_quoting_tab
         if sq.ledger_tree.topLevelItemCount() > 0:
             sq.ledger_tree.expandAll()
         self.caption.show_step(
-            "STEP 6 OF 6 • COMPLETE QUOTE & MARKED-UP PDF PACKAGE READY",
-            f"All {self._total_members} Members Priced & {len(self.steel_pages)} Marked-Up PDFs Exported",
+            "SHOT 7 OF 7 • COMPLETE QUOTE & MARKED-UP PDF PACKAGE READY",
+            f"All {self._total_members} Structural Members Priced & {len(self.steel_pages)} Marked-Up PDFs Exported",
             "Saved MP4 Trailer & Sheet PDFs to Marketing_Trailer_Exports\\",
         )
-        QTimer.singleShot(2000, self._shutdown_and_open_exports)
+        QTimer.singleShot(2200, self._shutdown_and_open_exports)
 
     def _shutdown_and_open_exports(self):
         self.recorder.stop()
