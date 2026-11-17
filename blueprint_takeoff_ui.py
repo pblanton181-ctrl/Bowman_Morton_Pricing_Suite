@@ -80,6 +80,7 @@ class CadBlueprintCanvas(QLabel):
         self._drag_last_pdf = None
         self._marquee_start = None
         self._marquee_cur = None
+        self._pending_cad_shape = None
 
         self.legend_pdf_pos = [18.0, 18.0]
         self._legend_rect_px = QRect()
@@ -205,6 +206,19 @@ class CadBlueprintCanvas(QLabel):
         self._inline_editor.resize(w, h)
 
     def _start_inline_text(self, qpos, initial_text=""):
+        if getattr(self, "_pending_cad_shape", None) is not None:
+            if ev.key() == Qt.Key_Escape:
+                self._pending_cad_shape = None
+                self.update()
+                ev.accept()
+                return
+            if ev.key() == Qt.Key_R:
+                ps = self._pending_cad_shape
+                if "w_pts" in ps and "h_pts" in ps:
+                    ps["w_pts"], ps["h_pts"] = ps["h_pts"], ps["w_pts"]
+                self.update()
+                ev.accept()
+                return
         if ev.key() == Qt.Key_Escape and getattr(self, "selected_indices", None):
             self.selected_indices.clear()
             self.selected_idx = -1
@@ -827,6 +841,19 @@ class CadBlueprintCanvas(QLabel):
         if btn != Qt.LeftButton:
             return
 
+        if getattr(self, "_pending_cad_shape", None) is not None and btn == Qt.LeftButton:
+            px, py = self._to_pdf_pt(pos)
+            sh = dict(self._pending_cad_shape)
+            sh["x"] = px
+            sh["y"] = py
+            self.markups.append(sh)
+            self.selected_idx = len(self.markups) - 1
+            self.selected_indices = {self.selected_idx}
+            self._pending_cad_shape = None
+            self.mode = "select"
+            self.update()
+            ev.accept()
+            return
         if self.mode in ("select", "pan"):
             hit = self._hit_test_markup(pos)
             if hit >= 0:
@@ -1656,6 +1683,30 @@ class CadBlueprintCanvas(QLabel):
             p.setBrush(QColor(22, 163, 74, 38) if crossing else QColor(2, 132, 199, 38))
             p.setPen(QPen(QColor("#16a34a" if crossing else "#0284c7"), 1.5, Qt.DashLine if crossing else Qt.SolidLine))
             p.drawRect(mr)
+
+        # Live 1:1 planset-scaled ghost preview for click-to-place CAD geometry
+        if getattr(self, "_pending_cad_shape", None) is not None and self._hover_pt is not None:
+            ps = self._pending_cad_shape
+            inv = (self.render_dpi * self.zoom) / 72.0
+            gx, gy = float(self._hover_pt.x()), float(self._hover_pt.y())
+            p.setBrush(QColor(2, 132, 199, 36))
+            p.setPen(QPen(QColor("#0284c7"), 1.6, Qt.DashLine))
+            if ps.get("type") == "text":
+                p.setFont(QFont("Cascadia Mono", 9, QFont.Bold))
+                p.drawText(int(gx), int(gy), f"Click to place note: {ps.get('text', '')}")
+            else:
+                gw = max(6.0, ps.get("w_pts", 24.0) * inv)
+                gh = max(6.0, ps.get("h_pts", 24.0) * inv)
+                kind = ps.get("shape", {}).get("kind", "right")
+                if kind == "circle":
+                    p.drawEllipse(QRectF(gx, gy, gw, gh))
+                elif kind == "right":
+                    p.drawPolygon([QPointF(gx, gy + gh), QPointF(gx + gw, gy + gh), QPointF(gx + gw, gy)])
+                else:
+                    p.drawRect(QRectF(gx, gy, gw, gh))
+                p.setFont(QFont("Cascadia Mono", 8, QFont.Bold))
+                p.setPen(QColor("#0369a1"))
+                p.drawText(int(gx), int(gy - 6), "Click to place (1:1 Plan Scale) | R = Rotate | Esc = Cancel")
 
         # Bottom-left CAD XY Origin Triad
         ox, oy = 26, self.height() - 26

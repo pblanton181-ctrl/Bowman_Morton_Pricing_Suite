@@ -684,18 +684,20 @@ class BowmanMortonRibbonBar(QFrame):
                 if isinstance(shape_data, dict):
                     kind = shape_data.get("kind", "right")
                     if kind == "right":
-                        w_pts = max(80.0, min(520.0, float(shape_data.get("run", 12.0)) * ppf))
-                        h_pts = max(60.0, min(420.0, float(shape_data.get("rise", 5.0)) * ppf))
+                        w_pts = max(4.0, float(shape_data.get("run", 12.0)) * ppf)
+                        h_pts = max(4.0, float(shape_data.get("rise", 5.0)) * ppf)
                     elif kind == "oblique":
                         span_ft = max(float(shape_data.get("a", 10.0)), float(shape_data.get("b", 14.0)))
-                        w_pts = max(110.0, min(520.0, span_ft * ppf)); h_pts = w_pts * 0.72
+                        w_pts = max(4.0, span_ft * ppf); h_pts = w_pts * 0.72
                     else:
                         dia_ft = float(shape_data.get("dia_in", 24.0)) / 12.0
-                        w_pts = max(90.0, min(420.0, dia_ft * ppf)); h_pts = w_pts
-                    cv.markups.append({"type": "cad_shape", "x": 110.0, "y": 110.0, "w_pts": w_pts, "h_pts": h_pts, "shape": dict(shape_data), "label": summary_txt, "color": QColor(cv.active_color), "line_width": float(cv.active_line_width)})
+                        w_pts = max(4.0, dia_ft * ppf); h_pts = w_pts
+                    cv._pending_cad_shape = {"type": "cad_shape", "x": 0.0, "y": 0.0, "w_pts": w_pts, "h_pts": h_pts, "shape": dict(shape_data), "label": summary_txt, "color": QColor(cv.active_color), "line_width": float(cv.active_line_width)}
                 else:
-                    cv.markups.append({"type": "text", "x": 110.0, "y": 110.0, "text": summary_txt, "color": QColor(cv.active_color), "font_family": cv.font_family, "font_size": cv.font_size, "bold": True, "italic": False})
-                cv.selected_idx = len(cv.markups) - 1; self._switch_workspace(0); self._vis_mode("select"); self.update_contextual_selection(cv.markups[cv.selected_idx]); cv.update()
+                    cv._pending_cad_shape = {"type": "text", "x": 0.0, "y": 0.0, "text": summary_txt, "color": QColor(cv.active_color), "font_family": cv.font_family, "font_size": cv.font_size, "bold": True, "italic": False}
+                self._switch_workspace(0)
+                cv.setFocus()
+                cv.update()
         dlg = emd.EngineeringTrigGeometryDialog(on_stamp_note=_stamp_cb, parent=self.app)
         dlg.tabs.setCurrentIndex(tab_idx); dlg.exec()
 
