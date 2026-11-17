@@ -1,3 +1,4 @@
+from ui.excel_components import FormulaHudBar, apply_excel_table_style
 # ==========================================
 # SECTION 1: SYSTEM SYSTEM WORKSPACE ARCHITECTURE
 # ==========================================
@@ -517,6 +518,7 @@ class AdminDashboardWindow(QDialog):
         lay.addWidget(hdr_lbl)
 
         self.title_table = QTableWidget(len(CARDS_SCHEMA_MATRIX), 3)
+        apply_excel_table_style(self.title_table)
         self.title_table.setAlternatingRowColors(True)
         self.title_table.setHorizontalHeaderLabels(["CARD ID", "SOURCE EXCEL SHEET", "ACTIVE SCREEN DISPLAY TITLE (DOUBLE-CLICK TO EDIT)"])
         thdr = self.title_table.horizontalHeader()
@@ -804,6 +806,7 @@ class AdminDashboardWindow(QDialog):
         lay.addWidget(t3_hdr)
 
         self.delete_model_list = QTableWidget(0, 3)
+        apply_excel_table_style(self.delete_model_list)
         self.delete_model_list.setAlternatingRowColors(True)
         self.delete_model_list.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.delete_model_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -1153,6 +1156,7 @@ class AdminDashboardWindow(QDialog):
         lay.addWidget(t4_top_frame)
 
         self.inline_cat_table = QTableWidget(0, 3)
+        apply_excel_table_style(self.inline_cat_table)
         self.inline_cat_table.setAlternatingRowColors(True)
         self.inline_cat_table.setHorizontalHeaderLabels(["MODEL / PART NUMBER", "WEIGHT (LBS)", "BASE LIST COST ($)"])
         ihdr = self.inline_cat_table.horizontalHeader()
@@ -2072,7 +2076,16 @@ QComboBox, QLineEdit {
         hdr_layout.addWidget(self.btn_std_toggle_expand)
         right_layout.addWidget(hdr_card)
 
+        self.cat_fx_bar = FormulaHudBar(self)
+        right_layout.addWidget(self.cat_fx_bar)
         self.std_ledger_tree = QTreeWidget()
+        apply_excel_table_style(self.std_ledger_tree)
+        self.std_ledger_tree.currentItemChanged.connect(
+            lambda cur, prev: self.cat_fx_bar.set_formula(
+                f"ROW {self.std_ledger_tree.indexOfTopLevelItem(cur) + 1}" if cur else "ACTIVE",
+                f"{cur.text(0)}  |  Weight: {cur.text(1)}  |  Total: {cur.text(2)}" if cur else ""
+            )
+        )
         self.std_ledger_tree.setColumnCount(4)
         self.std_ledger_tree.setHeaderLabels(["PART / DESCRIPTION", "SHIP WEIGHT", "QUOTE COST", ""])
         self.std_ledger_tree.setRootIsDecorated(True)

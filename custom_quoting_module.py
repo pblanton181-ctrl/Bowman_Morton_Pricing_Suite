@@ -1,3 +1,4 @@
+from ui.excel_components import FormulaHudBar, apply_excel_table_style
 import pymupdf
 import os
 import sys
@@ -719,6 +720,7 @@ class PdfBomImporterDialog(QDialog):
         btn_del.setStyleSheet("QPushButton { background-color: #ffffff; border: 1px solid #fca5a5; color: #b91c1c; font-weight: 700; font-weight: 600; } QPushButton:hover { background-color: rgba(252, 165, 165, 0.84); color: #7f1d1d; }")
 
         self.tree = QTreeWidget()
+        apply_excel_table_style(self.tree)
         self.tree.setColumnCount(8)
         self.tree.setHeaderLabels([
             "Category / Keep", "Sheet", "Detail Callout", "Profile / Plate Size", "Qty", "Length (ft)", "Unit Wt (lb/ft)", "Est. Ship Wt (lbs)"
@@ -1373,7 +1375,16 @@ class StructuralQuotingSandbox(QWidget):
         hdr_layout.addWidget(self.btn_toggle_expand)
         right_layout.addWidget(hdr_card)
 
+        self.struct_fx_bar = FormulaHudBar(self)
+        right_layout.addWidget(self.struct_fx_bar)
         self.ledger_tree = QTreeWidget()
+        apply_excel_table_style(self.ledger_tree)
+        self.ledger_tree.currentItemChanged.connect(
+            lambda cur, prev: self.struct_fx_bar.set_formula(
+                f"ASM {self.ledger_tree.indexOfTopLevelItem(cur) + 1}" if cur else "ACTIVE",
+                f"{cur.text(0)}  |  Ship Wgt: {cur.text(1)}  |  Total: {cur.text(2)}" if cur else ""
+            )
+        )
         self.ledger_tree.setColumnCount(4)
         self.ledger_tree.setHeaderLabels(["PART / DESCRIPTION", "SHIP WEIGHT", "RAW COST", ""])
         self.ledger_tree.setRootIsDecorated(True)
@@ -2294,6 +2305,7 @@ class HistoricalArchiveLedgerPage(QWidget):
         left_l.addWidget(top_card)
 
         self.table = QTableWidget(0, 6)
+        apply_excel_table_style(self.table)
         self.table.setHorizontalHeaderLabels(["QUOTE #", "DATE", "CUSTOMER", "PROJECT", "WEIGHT", "TOTAL"])
         hdr_t = self.table.horizontalHeader()
         hdr_t.setStretchLastSection(False)
@@ -2357,6 +2369,7 @@ class HistoricalArchiveLedgerPage(QWidget):
         right_l.addWidget(det_hdr)
 
         self.detail_tree = QTreeWidget()
+        apply_excel_table_style(self.detail_tree)
         self.detail_tree.setColumnCount(3)
         self.detail_tree.setHeaderLabels(["PART / DESCRIPTION", "SHIP WEIGHT", "RAW COST"])
         self.detail_tree.setRootIsDecorated(True)
@@ -2988,6 +3001,7 @@ class AdminControlDashboardPage(QWidget):
 
         # 3. Dynamic Draggable 4-Column Parameter Table
         self.rate_table = QTableWidget(0, 4)
+        apply_excel_table_style(self.rate_table)
         self.rate_table.setAlternatingRowColors(True)
         self.rate_table.setHorizontalHeaderLabels(["CATEGORY", "PARAMETER / RATE SETTING", "ACTIVE VALUE", "WHAT IT CONTROLS"])
         hdr = self.rate_table.horizontalHeader()
@@ -3419,6 +3433,7 @@ class AdminControlDashboardPage(QWidget):
         sl.addWidget(top_bar)
 
         self.steel_table = QTableWidget(0, 4)
+        apply_excel_table_style(self.steel_table)
         self.steel_table.setAlternatingRowColors(True)
         self.steel_table.setHorizontalHeaderLabels(["DESIGNATION", "CARBON WT (LB/FT or SQFT)", "PRIMARY DIM (IN)", "SECONDARY / THK (IN)"])
         shdr = self.steel_table.horizontalHeader()
