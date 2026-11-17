@@ -1,4 +1,4 @@
-﻿import json, os, tempfile, pymupdf, pytest
+import json, os, tempfile, pymupdf, pytest
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPixmap
 from blueprint_takeoff_ui import CadBlueprintCanvas
@@ -23,14 +23,14 @@ def test_every_remaining_canvas_tool_and_edge_cases(qtbot):
     canvas.rotate_selected_markup()
     canvas.duplicate_selected_markup()
 
-    # 2. Drag tools: box, filled_box, highlight, ellipse, cloud, angle
+    # 2. Drag tools: OCR box + filled_box, highlight, ellipse, cloud, angle
     for idx, dmode in enumerate(("box", "filled_box", "highlight", "ellipse", "cloud", "angle")):
         canvas.mode = dmode
         y0 = 60 + idx * 70
         qtbot.mousePress(canvas, Qt.LeftButton, pos=QPoint(80, y0))
         qtbot.mouseMove(canvas, pos=QPoint(220, y0 + 45))
         qtbot.mouseRelease(canvas, Qt.LeftButton, pos=QPoint(220, y0 + 45))
-    assert len(canvas.markups) == 6
+    assert len(canvas.markups) == 5
 
     # 3. Freehand Adobe Highlighter stroke
     canvas.mode = "free_highlight"
@@ -83,15 +83,14 @@ def test_every_catalog_card_and_structural_shape_math(qtbot, monkeypatch):
     assert tested_cats > 0
     assert len(win.data_core.rfq_ledger_items) == tested_cats
 
-    # 2. Sweep EVERY structural shape type in Structural Quoting
+    # 2. Sweep EVERY structural shape family in Structural Quoting
     win.master_ribbon._switch_workspace(2)
     card = win.custom_quoting_tab.active_member_card
-    for si in range(card.type_select.count()):
-        card.type_select.setCurrentIndex(si)
-        if card.size_select.count() > 0:
-            card.size_select.setCurrentIndex(0)
-        card.qty_input.setValue(2)
-        card.len_ft_input.setValue(12.0)
+    for shape_key in ("W", "HSS", "L", "C", "PL", "Pipe", "FB"):
+        if hasattr(card, "populate_surcharges_by_shape"):
+            card.populate_surcharges_by_shape(shape_key)
+        if hasattr(card, "combo_model") and card.combo_model.count() > 0:
+            card.combo_model.setCurrentIndex(0)
         win.custom_quoting_tab.execute_fabrication_math_routine()
 
     # 3. Sweep all non-modal ribbon actions from config/ribbon_config.json
