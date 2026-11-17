@@ -10,7 +10,7 @@ class SmartBomSummaryPanel(QFrame):
         self.on_jump_to_sheet = on_jump_to_sheet
         self.on_jump_to_profile = on_jump_to_profile
         self.setStyleSheet(
-            "QFrame#SmartBomSummaryPanel { background-color: #cfe4fa; border: 1.5px solid #60a5fa; border-top: 3px solid #0284c7; border-radius: 6px; } "
+            "QFrame#SmartBomSummaryPanel { background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important; border-top: 3px solid #0284c7 !important; border-radius: 8px; } "
             "QLabel { color: #0f172a; background: transparent; border: none; }"
         )
         self.setObjectName("SmartBomSummaryPanel")
@@ -25,7 +25,7 @@ class SmartBomSummaryPanel(QFrame):
 
         # Top KPI Strip
         kpi_box = QFrame()
-        kpi_box.setStyleSheet("QFrame { background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; }")
+        kpi_box.setStyleSheet("QFrame { background-color: #ffffff !important; border: 1px solid #cbd5e1 !important; border-radius: 6px; }")
         kl = QHBoxLayout(kpi_box)
         kl.setContentsMargins(8, 6, 8, 6)
         self.lbl_kpi_pcs = QLabel("0 pcs")
@@ -57,10 +57,10 @@ class SmartBomSummaryPanel(QFrame):
         self.sheet_list = QListWidget()
         self.sheet_list.setToolTip("<b>One-Click Sheet Jump</b><br>Click any sheet below to open that exact page<br>in Visual Sheet Preview & Takeoff.")
         self.sheet_list.setStyleSheet(
-            "QListWidget { background-color: #f0f7ff; color: #0f172a; border: 1px solid #60a5fa; border-radius: 5px; font-size: 11.5px; font-weight: 600; } "
-            "QListWidget::item { padding: 6px 8px; border-bottom: 1px solid #bfdbfe; } "
-            "QListWidget::item:hover { background-color: #bfdbfe; } "
-            "QListWidget::item:selected, QListWidget::item:selected:!active { background-color: #93c5fd; color: #0f172a; border-left: 4px solid #0284c7; }"
+            "QListWidget { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; border-radius: 6px; font-size: 11.5px; font-weight: 600; } "
+            "QListWidget::item { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; } "
+            "QListWidget::item:hover { background-color: #f1f5f9; } "
+            "QListWidget::item:selected, QListWidget::item:selected:!active { background-color: #e0f2fe; color: #0369a1; border-left: 4px solid #0284c7; }"
         )
         self.sheet_list.itemClicked.connect(self._handle_sheet_click)
         root.addWidget(self.sheet_list, 1)
@@ -72,8 +72,8 @@ class SmartBomSummaryPanel(QFrame):
 
         self.prof_list = QListWidget()
         self.prof_list.setStyleSheet(
-            "QListWidget { background-color: #f0f7ff; color: #0f172a; border: 1px solid #60a5fa; border-radius: 5px; font-size: 11.5px; font-weight: 600; } "
-            "QListWidget::item { padding: 4px 6px; border-bottom: 1px solid #dbeafe; }"
+            "QListWidget { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; border-radius: 6px; font-size: 11.5px; font-weight: 600; } "
+            "QListWidget::item { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; }"
         )
         self.prof_list.itemClicked.connect(self._handle_prof_click)
         root.addWidget(self.prof_list, 1)
@@ -152,7 +152,7 @@ class SmartBomSummaryPanel(QFrame):
             bar.setTextVisible(False)
             bar.setFixedHeight(6)
             bar.setStyleSheet(
-                "QProgressBar { background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 4px; } "
+                "QProgressBar { background-color: #e2e8f0 !important; border: 1px solid #cbd5e1 !important; border-radius: 4px; } "
                 "QProgressBar::chunk { background-color: #0284c7; border-radius: 3px; }"
             )
             rl.addWidget(lbl)

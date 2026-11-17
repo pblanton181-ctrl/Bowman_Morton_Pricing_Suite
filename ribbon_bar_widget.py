@@ -160,8 +160,9 @@ class BowmanMortonRibbonBar(QFrame):
         self.band_layout.addStretch(1)
 
         # Sleek Compact Summary Boxes (Bluebeam/Excel HUD style)
-        sum_card = QFrame(); self._sum_card = sum_card
-        sum_card.setStyleSheet("QFrame { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 5px; margin: 2px 4px; }")
+        sum_card = QFrame(); sum_card.setObjectName("RibbonSummaryHud"); self._sum_card = sum_card
+        sum_card.setAttribute(Qt.WA_StyledBackground, True)
+        sum_card.setStyleSheet("QFrame#RibbonSummaryHud { background-color: #ffffff !important; border: 1.5px solid #94a3b8 !important; border-radius: 6px; margin: 2px 4px; }")
         sg = QGridLayout(sum_card); sg.setContentsMargins(10, 4, 10, 4); sg.setHorizontalSpacing(14); sg.setVerticalSpacing(4)
         self._sum_vals = {}
         for idx_s, (s_key, s_lbl, s_init, s_col) in enumerate([
@@ -172,8 +173,8 @@ class BowmanMortonRibbonBar(QFrame):
         ]):
             r_i, c_i = divmod(idx_s, 2)
             row_w = QWidget(); rl = QHBoxLayout(row_w); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(4)
-            l_cap = QLabel(s_lbl); l_cap.setStyleSheet("color: #64748b; font-size: 10.5px; font-weight: 600; border: none;")
-            l_val = QLabel(s_init); l_val.setStyleSheet(f"color: {s_col}; font-size: 11px; font-weight: 800; border: none;")
+            l_cap = QLabel(s_lbl); l_cap.setStyleSheet("color: #475569 !important; background: transparent !important; font-size: 10.5px; font-weight: 700; border: none;")
+            l_val = QLabel(s_init); l_val.setStyleSheet(f"color: {s_col} !important; background: transparent !important; font-size: 11px; font-weight: 800; border: none;")
             rl.addWidget(l_cap); rl.addWidget(l_val)
             sg.addWidget(row_w, r_i, c_i)
             self._sum_vals[s_key] = l_val
