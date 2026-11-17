@@ -239,7 +239,7 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
                 shx_paths = []
                 for drw in page.get_drawings():
                     r_d = drw.get("rect")
-                    if not r_d or not rect.intersects(r_d) or r_d.width > 24.0 or r_d.height > 24.0:
+                    if not r_d or not rect.intersects(r_d) or min(r_d.width, r_d.height) > 16.0 or max(r_d.width, r_d.height) > 65.0:
                         continue
                     w_pen = round(float(drw.get("width") or 0.0), 2)
                     col = drw.get("color") or ()
