@@ -949,7 +949,7 @@ class CadBlueprintCanvas(QLabel):
             self.selected_idx = len(self.markups) - 1
             self.update()
             return
-        if ev.button() == Qt.LeftButton and self.mode in ("box", "arrow", "highlight", "line", "ellipse", "angle", "cloud", "filled_box", "dashed", "callout", "weld", "centerline") and self._drag_start and self._drag_cur:
+        if ev.button() == Qt.LeftButton and self.mode in ("box", "highlight", "ellipse", "angle", "cloud", "filled_box", "callout", "weld") and self._drag_start and self._drag_cur:
             cur_mode = self.mode
             x0, y0 = self._to_pdf_pt(self._drag_start)
             x1, y1 = self._to_pdf_pt(self._drag_cur)
@@ -1438,6 +1438,43 @@ class CadBlueprintCanvas(QLabel):
                     except ValueError:
                         pass
                 p.drawLine(qpts[-1], hp)
+        if self.mode in ("line", "dashed", "centerline", "arrow") and self._p1 and self._hover_pt:
+            hp = self._snap_ortho(self._p1, self._hover_pt, getattr(self, "ortho_lock", False))
+            x1, y1 = self._to_pdf_pt(self._p1)
+            x2_raw, y2_raw = self._to_pdf_pt(hp)
+            ppf = max(1.0, self.pts_per_ft)
+            if getattr(self, "_dyn_input_buf", "") or getattr(self, "_dyn_ang_buf", ""):
+                try:
+                    v_ft = float(self._dyn_input_buf) if self._dyn_input_buf else (math.hypot(x2_raw - x1, y2_raw - y1) / ppf)
+                    a_rad = -math.radians(float(self._dyn_ang_buf)) if self._dyn_ang_buf else math.atan2(y2_raw - y1, x2_raw - x1)
+                    hp = self._from_pdf_pt(x1 + v_ft * ppf * math.cos(a_rad), y1 + v_ft * ppf * math.sin(a_rad))
+                    x2_raw, y2_raw = self._to_pdf_pt(hp)
+                except ValueError:
+                    pass
+            pen_style = Qt.DashLine if self.mode == "dashed" else (Qt.DashDotLine if self.mode == "centerline" else Qt.SolidLine)
+            p.setPen(QPen(self.active_color, max(2.0, float(self.active_line_width) * self.zoom), pen_style, Qt.RoundCap, Qt.RoundJoin))
+            p.drawLine(self._p1, hp)
+            # Polar tracking guide line & pro CAD Dynamic Input HUD boxes
+            dist_ft = math.hypot(x2_raw - x1, y2_raw - y1) / ppf
+            deg = (-math.degrees(math.atan2(y2_raw - y1, x2_raw - x1))) % 360.0
+            len_txt = (self._dyn_input_buf + " ft") if getattr(self, "_dyn_input_buf", "") else self._format_ft_in(dist_ft)
+            ang_txt = (self._dyn_ang_buf + "°") if getattr(self, "_dyn_ang_buf", "") else f"{deg:.1f}°"
+            p.setFont(QFont("Cascadia Mono", 9, QFont.Bold))
+            fm_d = p.fontMetrics()
+            bx = min(self.width() - 180, hp.x() + 14)
+            by = max(12, hp.y() - 28)
+            r_len = QRect(bx, by, fm_d.horizontalAdvance(len_txt) + 14, 20)
+            r_ang = QRect(r_len.right() + 6, by, fm_d.horizontalAdvance(ang_txt) + 14, 20)
+            active_f = getattr(self, "_dyn_field", "len")
+            p.setBrush(QColor(15, 23, 42, 235))
+            p.setPen(QPen(QColor("#38bdf8" if active_f == "len" else "#64748b"), 1.6 if active_f == "len" else 1.0))
+            p.drawRoundedRect(r_len, 3, 3)
+            p.setPen(QColor("#f8fafc"))
+            p.drawText(r_len, Qt.AlignCenter, len_txt)
+            p.setPen(QPen(QColor("#38bdf8" if active_f == "ang" else "#64748b"), 1.6 if active_f == "ang" else 1.0))
+            p.drawRoundedRect(r_ang, 3, 3)
+            p.setPen(QColor("#f8fafc"))
+            p.drawText(r_ang, Qt.AlignCenter, ang_txt)
         if self.mode == "area" and self._poly_pts:
             qpts = [self._from_pdf_pt(px, py) for px, py in self._poly_pts]
             p.setPen(QPen(self.active_color, max(1.5, float(self.active_line_width) * self.zoom), Qt.SolidLine))
