@@ -202,29 +202,59 @@ class SheetWorldState:
         return best_seg
 
 
-def scan_world_ocr(page, world_rect=None, dpi=200):
-    """Runs Windows Native OCR on a PDF world rectangle and returns items mapped back
-    to exact PDF world coordinates (wx0, wy0, wx1, wy1, normalized_text)."""
+def scan_world_ocr(page, world_rect=None, dpi=200, multi_angle=True):
+    """Runs Windows Native OCR on a PDF world rectangle across 0°, 90°, 270° (and ±45° for clipped boxes)
+    so vertical and angled SHX steel callouts are read and mapped back to exact PDF world coordinates."""
     pw, ph = float(page.rect.width), float(page.rect.height)
     rect = world_rect or pymupdf.Rect(0, 0, pw * 0.88, ph * 0.94)
     pix = page.get_pixmap(dpi=int(dpi), clip=rect, alpha=False)
     tmp_png = os.path.join(tempfile.gettempdir(), f"bm_world_ocr_{os.getpid()}.png")
     pix.save(tmp_png)
     scale = 72.0 / float(dpi)
+    angles = "0,90,270,45,315" if world_rect is not None else ("0,90,270" if multi_angle else "0")
 
     ps_script = (
         "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
+        "Add-Type -AssemblyName System.Drawing;"
         "$null = [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime];"
         "$null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime];"
         "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"
         "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"
-        f"$f = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync('{tmp_png}')) ([Windows.Storage.StorageFile]);"
-        "$st = Await ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream]);"
-        "$dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($st)) ([Windows.Graphics.Imaging.BitmapDecoder]);"
-        "$bmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"
         "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
-        "$res = Await ($eng.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult]);"
-        "foreach($l in $res.Lines){$w=$l.Words; if($w.Count -gt 0){$r0=$w[0].BoundingRect; Write-Output (\"{0}|{1}|{2}|{3}|{4}\" -f [math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)}; foreach($wi in $w){$r=$wi.BoundingRect; Write-Output (\"{0}|{1}|{2}|{3}|{4}\" -f [math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}}"
+        f"$baseBmp = New-Object System.Drawing.Bitmap('{tmp_png}');"
+        "$bw = $baseBmp.Width; $bh = $baseBmp.Height;"
+        f"foreach($ang in @({angles})) {{"
+        "  $rotPng = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.png');"
+        "  $bmpDraw = $null;"
+        "  if($ang -eq 0){ $baseBmp.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+        "  elseif($ang -eq 90){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate90FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+        "  elseif($ang -eq 270){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate270FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+        "  else {"
+        "    $diag = [int][math]::Ceiling([math]::Sqrt($bw*$bw + $bh*$bh));"
+        "    $bmpDraw = New-Object System.Drawing.Bitmap($diag, $diag);"
+        "    $g = [System.Drawing.Graphics]::FromImage($bmpDraw);"
+        "    $g.Clear([System.Drawing.Color]::White);"
+        "    $g.TranslateTransform($diag/2.0, $diag/2.0);"
+        "    $g.RotateTransform($ang);"
+        "    $g.TranslateTransform(-$bw/2.0, -$bh/2.0);"
+        "    $g.DrawImage($baseBmp, 0, 0, $bw, $bh);"
+        "    $g.Dispose();"
+        "    $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png);"
+        "  }"
+        "  $f = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($rotPng)) ([Windows.Storage.StorageFile]);"
+        "  $st = Await ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream]);"
+        "  $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($st)) ([Windows.Graphics.Imaging.BitmapDecoder]);"
+        "  $sbmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"
+        "  $res = Await ($eng.RecognizeAsync($sbmp)) ([Windows.Media.Ocr.OcrResult]);"
+        "  $st.Dispose();"
+        "  foreach($l in $res.Lines){"
+        "    $w=$l.Words; if($w.Count -gt 0){$r0=$w[0].BoundingRect; Write-Output ("{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}" -f $ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"
+        "    foreach($wi in $w){$r=$wi.BoundingRect; Write-Output ("{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}" -f $ang,$bw,$bh,[math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}"
+        "  }"
+        "  if($bmpDraw -ne $null){ $bmpDraw.Dispose(); }"
+        "  Remove-Item $rotPng -Force -ErrorAction SilentlyContinue;"
+        "}"
+        "$baseBmp.Dispose();"
     )
     hits = []
     try:
@@ -232,17 +262,33 @@ def scan_world_ocr(page, world_rect=None, dpi=200):
             ["powershell", "-NoProfile", "-Command", ps_script],
             stderr=subprocess.DEVNULL,
             text=True,
-            timeout=15,
+            timeout=35,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         for ln in out.splitlines():
-            parts = ln.split("|", 4)
-            if len(parts) == 5:
-                wx0 = rect.x0 + float(parts.__getitem__(0)) * scale
-                wy0 = rect.y0 + float(parts.__getitem__(1)) * scale
-                wx1 = wx0 + float(parts.__getitem__(2)) * scale
-                wy1 = wy0 + float(parts.__getitem__(3)) * scale
-                hits.append((wx0, wy0, wx1, wy1, normalize_cad_text(parts.__getitem__(4))))
+            parts = ln.split("|", 7)
+            if len(parts) == 8:
+                ang = int(parts.__getitem__(0))
+                bw, bh = float(parts.__getitem__(1)), float(parts.__getitem__(2))
+                rx, ry = float(parts.__getitem__(3)), float(parts.__getitem__(4))
+                rw, rh = float(parts.__getitem__(5)), float(parts.__getitem__(6))
+                cx_r, cy_r = rx + rw * 0.5, ry + rh * 0.5
+                if ang == 0:
+                    ox, oy = cx_r, cy_r
+                elif ang == 90:
+                    ox, oy = cy_r, bh - cx_r
+                elif ang == 270:
+                    ox, oy = bw - cy_r, cx_r
+                else:
+                    diag = math.ceil(math.hypot(bw, bh))
+                    rad = math.radians(-ang)
+                    dx, dy = cx_r - diag * 0.5, cy_r - diag * 0.5
+                    ox = dx * math.cos(rad) - dy * math.sin(rad) + bw * 0.5
+                    oy = dx * math.sin(rad) + dy * math.cos(rad) + bh * 0.5
+                wcx = rect.x0 + max(0.0, min(bw, ox)) * scale
+                wcy = rect.y0 + max(0.0, min(bh, oy)) * scale
+                hw, hh = (rw * scale) * 0.5, (rh * scale) * 0.5
+                hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, normalize_cad_text(parts.__getitem__(7))))
     except Exception:
         pass
     finally:
