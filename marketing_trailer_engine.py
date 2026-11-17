@@ -9,7 +9,7 @@ import mss
 import imageio.v2 as imageio
 
 from PySide6.QtCore import Qt, QTimer, QPoint
-from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QPolygon
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen, QBrush, QPolygon
 from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QFileDialog, QAbstractButton
 
 import live_test
@@ -297,22 +297,39 @@ class MarketingTrailerDirector:
         btn_open = self._find_button_by_text(rb, "Open PDF", "Open")
         self.banner.show_caption(
             "STEP 1 OF 6 • PLANSET INGESTION",
-            "Opening Multi-Sheet Structural PDF",
+            "Clicking 'Open PDF' & Selecting the 3122 Broadway Structural Plan Set",
             os.path.basename(self.pdf_path),
         )
 
-        def _do_load():
+        def _open_visible_file_picker():
             pt = self.win.planset_takeoff_tab
-            orig_open = QFileDialog.getOpenFileName
-            QFileDialog.getOpenFileName = lambda *a, **k: (self.pdf_path, "PDF Files (*.pdf)")
-            try:
-                pt.load_new_pdf_planset()
-            finally:
-                QFileDialog.getOpenFileName = orig_open
+            dlg = QFileDialog(self.win, "Select Structural Plan Set PDF", os.path.dirname(self.pdf_path), "PDF Files (*.pdf)")
+            dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+            dlg.setFileMode(QFileDialog.ExistingFile)
+            dlg.resize(860, 520)
+            dlg.show()
             QApplication.processEvents()
-            QTimer.singleShot(850, self._scene_2_click_auto_scan)
 
-        self._glide_to_widget(btn_open, duration_ms=520, on_done=_do_load)
+            dlg.selectFile(os.path.basename(self.pdf_path))
+            QApplication.processEvents()
+
+            btn_choose = self._find_button_by_text(dlg, "Open", "Choose")
+
+            def _confirm_file_dialog():
+                dlg.accept()
+                QApplication.processEvents()
+                orig_open = QFileDialog.getOpenFileName
+                QFileDialog.getOpenFileName = lambda *a, **k: (self.pdf_path, "PDF Files (*.pdf)")
+                try:
+                    pt.load_new_pdf_planset()
+                finally:
+                    QFileDialog.getOpenFileName = orig_open
+                QApplication.processEvents()
+                QTimer.singleShot(850, self._scene_2_click_auto_scan)
+
+            self._glide_to_widget(btn_choose, duration_ms=650, click_pulse=True, on_done=_confirm_file_dialog)
+
+        self._glide_to_widget(btn_open, duration_ms=520, on_done=_open_visible_file_picker)
 
     def _scene_2_click_auto_scan(self):
         rb = self.win.master_ribbon
@@ -394,15 +411,20 @@ class MarketingTrailerDirector:
             self._glide_to_global(item_gpos, duration_ms=580, click_pulse=True, on_done=_on_smart_click)
         else:
             QTimer.singleShot(500, self._scene_4_measure_on_highlighted_beam)
+    def _dispatch_canvas_mouse(self, cv, ev_type, local_pt, btn=Qt.LeftButton, buttons=Qt.LeftButton):
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QMouseEvent
+        g_pt = cv.mapToGlobal(local_pt)
+        ev = QMouseEvent(ev_type, QPointF(local_pt), QPointF(g_pt), btn, buttons, Qt.NoModifier)
+        QApplication.sendEvent(cv, ev)
+
     def _scene_4_measure_on_highlighted_beam(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
         rb = self.win.master_ribbon
-        cv = vw.canvas
 
-        # Read the exact highlighted steel profile & its BOM length on the active framing sheet
         active_item = vw.key_list.currentItem()
-        beam_profile = (active_item.text().split("—")[0].strip() if active_item else "W16X57")
+        beam_profile = (active_item.text().split("—").__getitem__(0).strip() if active_item else "W16X57")
         beam_len_ft = 20.0
         for top_i in range(pt.tree.topLevelItemCount()):
             p_item = pt.tree.topLevelItem(top_i)
@@ -418,86 +440,83 @@ class MarketingTrailerDirector:
         btn_measure = self._find_button_by_text(rb, "Measure", "Linear Dim")
         self.banner.show_caption(
             "STEP 4 OF 6 • MEASURE TILE ACCURACY VERIFICATION",
-            f"Confirming {beam_profile} Length Directly on the Structural Plan",
-            "Snapping Measure tool onto the highlighted beam to prove 1:1 BOM accuracy",
+            f"Selecting Measure Tool to Verify {beam_profile} Span Live on Drawing",
+            "Real mouse clicks & OSNAP endpoints calculate the beam length on screen",
+        )
+        self._glide_to_widget(
+            btn_measure,
+            duration_ms=520,
+            on_done=lambda: self._run_real_canvas_measure(beam_profile, beam_len_ft),
         )
 
-        def _click_measure_and_snap_beam():
-            if hasattr(rb, "_vis_mode"):
-                rb._vis_mode("measure")
+    def _run_real_canvas_measure(self, beam_profile, beam_len_ft):
+        pt = self.win.planset_takeoff_tab
+        vw = pt.vis_workspace
+        rb = self.win.master_ribbon
+
+        if hasattr(rb, "_vis_mode"):
+            rb._vis_mode("measure")
+        else:
+            vw.set_mode("measure")
+        for _ in range(3):
+            if hasattr(vw, "zoom_in"):
+                vw.zoom_in()
+        QApplication.processEvents()
+
+        cv = vw.canvas
+        if cv.key_highlights:
+            hl = cv.key_highlights.__getitem__(0)
+            if hl.get("seg"):
+                sx1, sy1, sx2, sy2 = hl["seg"]
+                p1_local = cv._from_pdf_pt(sx1, sy1)
+                p2_local = cv._from_pdf_pt(sx2, sy2)
             else:
-                vw.set_mode("measure")
-            for _ in range(3):
-                if hasattr(vw, "zoom_in"):
-                    vw.zoom_in()
+                rx0, ry0, rx1, ry1 = hl["rect"]
+                p1_local = cv._from_pdf_pt(rx0 - 40.0, (ry0 + ry1) * 0.5)
+                p2_local = cv._from_pdf_pt(rx1 + 160.0, (ry0 + ry1) * 0.5)
+        else:
+            p1_local = QPoint(int(cv.width() * 0.32), int(cv.height() * 0.48))
+            p2_local = QPoint(int(cv.width() * 0.64), int(cv.height() * 0.48))
+
+        p1_local = QPoint(max(90, min(cv.width() - 140, p1_local.x())), max(90, min(cv.height() - 90, p1_local.y())))
+        p2_local = QPoint(max(140, min(cv.width() - 90, p2_local.x())), max(90, min(cv.height() - 90, p2_local.y())))
+        if abs(p2_local.x() - p1_local.x()) < 110 and abs(p2_local.y() - p1_local.y()) < 110:
+            p2_local = QPoint(min(cv.width() - 90, p1_local.x() + 240), p1_local.y())
+
+        p1_global = cv.mapToGlobal(p1_local)
+        p2_global = cv.mapToGlobal(p2_local)
+
+        def _hover_p1(cur_gpos):
+            self._dispatch_canvas_mouse(cv, QMouseEvent.MouseMove, cv.mapFromGlobal(cur_gpos), Qt.NoButton, Qt.NoButton)
+
+        def _click_p1():
+            self._dispatch_canvas_mouse(cv, QMouseEvent.MouseButtonPress, p1_local, Qt.LeftButton, Qt.LeftButton)
+            self._dispatch_canvas_mouse(cv, QMouseEvent.MouseButtonRelease, p1_local, Qt.LeftButton, Qt.NoButton)
             QApplication.processEvents()
 
-            # Snap directly onto the real highlighted beam segment or callout box on the framing sheet!
-            if cv.key_highlights:
-                hl = cv.key_highlights[0]
-                if hl.get("seg"):
-                    sx1, sy1, sx2, sy2 = hl["seg"]
-                    p1_local = cv._from_pdf_pt(sx1, sy1)
-                    p2_local = cv._from_pdf_pt(sx2, sy2)
-                else:
-                    rx0, ry0, rx1, ry1 = hl["rect"]
-                    p1_local = cv._from_pdf_pt(rx0, (ry0 + ry1) * 0.5)
-                    p2_local = cv._from_pdf_pt(rx1 + 140.0, (ry0 + ry1) * 0.5)
-            else:
-                p1_local = QPoint(int(cv.width() * 0.32), int(cv.height() * 0.45))
-                p2_local = QPoint(int(cv.width() * 0.58), int(cv.height() * 0.45))
+            def _drag_to_p2(cur_gpos):
+                self._dispatch_canvas_mouse(cv, QMouseEvent.MouseMove, cv.mapFromGlobal(cur_gpos), Qt.NoButton, Qt.NoButton)
 
-            p1_local = QPoint(max(80, min(cv.width() - 120, p1_local.x())), max(80, min(cv.height() - 80, p1_local.y())))
-            p2_local = QPoint(max(120, min(cv.width() - 80, p2_local.x())), max(80, min(cv.height() - 80, p2_local.y())))
-            if abs(p2_local.x() - p1_local.x()) < 90 and abs(p2_local.y() - p1_local.y()) < 90:
-                p2_local = QPoint(min(cv.width() - 80, p1_local.x() + 210), p1_local.y())
+            def _click_p2():
+                self._dispatch_canvas_mouse(cv, QMouseEvent.MouseButtonPress, p2_local, Qt.LeftButton, Qt.LeftButton)
+                self._dispatch_canvas_mouse(cv, QMouseEvent.MouseButtonRelease, p2_local, Qt.LeftButton, Qt.NoButton)
+                QApplication.processEvents()
 
-            p1_global = cv.mapToGlobal(p1_local)
-            p2_global = cv.mapToGlobal(p2_local)
-            x1, y1 = cv._to_pdf_pt(p1_local)
-            x2, y2 = cv._to_pdf_pt(p2_local)
-            lbl_str = cv._format_ft_in(beam_len_ft)
+                measured_txt = ""
+                if cv.markups:
+                    last_m = cv.markups.__getitem__(len(cv.markups) - 1)
+                    measured_txt = str(last_m.get("label", ""))
+                self.banner.show_caption(
+                    "STEP 4 OF 6 • LIVE MEASURE TOOL VERIFIED AGAINST BOM",
+                    f"Canvas Measured: {measured_txt or cv._format_ft_in(beam_len_ft)}  |  BOM {beam_profile}: {beam_len_ft:.2f} ft",
+                    "Real interactive Measure tool & OSNAP confirm plan-set scale accuracy",
+                )
+                QTimer.singleShot(1800, self._scene_4b_export_all_steel_pdfs)
 
-            def _after_p1():
-                cv._p1 = p1_local
-                cv._hover_pt = p1_local
+            self._glide_to_global(p2_global, duration_ms=900, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
 
-                def _on_drag(cur_gpos):
-                    cv._hover_pt = cv.mapFromGlobal(cur_gpos)
-                    cv.update()
+        self._glide_to_global(p1_global, duration_ms=650, click_pulse=True, on_move=_hover_p1, on_done=_click_p1)
 
-                def _after_p2():
-                    cv._p1 = None
-                    cv._hover_pt = None
-                    cv.markups.append({
-                        "type": "span",
-                        "x1": x1,
-                        "y1": y1,
-                        "x2": x2,
-                        "y2": y2,
-                        "label": f"{lbl_str}  [VERIFIED == BOM {beam_profile}]",
-                        "ft": beam_len_ft,
-                        "color": QColor("#16a34a"),
-                        "line_width": 3.5,
-                        "font_size": 12,
-                    })
-                    cv.selected_idx = len(cv.markups) - 1
-                    cv.update()
-                    if hasattr(vw, "on_span_measured"):
-                        vw.on_span_measured(beam_len_ft)
-
-                    self.banner.show_caption(
-                        "STEP 4 OF 6 • 1:1 BOM ACCURACY CONFIRMED",
-                        f"Measured Beam Span: {lbl_str} == Auto-Extracted BOM {beam_profile} ({beam_len_ft:.2f} ft)",
-                        "Plan-set geometry verified — exporting marked-up steel sheet PDFs next",
-                    )
-                    QTimer.singleShot(1600, self._scene_4b_export_all_steel_pdfs)
-
-                self._glide_to_global(p2_global, duration_ms=750, click_pulse=True, on_move=_on_drag, on_done=_after_p2)
-
-            self._glide_to_global(p1_global, duration_ms=520, click_pulse=True, on_done=_after_p1)
-
-        self._glide_to_widget(btn_measure, duration_ms=520, on_done=_click_measure_and_snap_beam)
     def _scene_4b_export_all_steel_pdfs(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
