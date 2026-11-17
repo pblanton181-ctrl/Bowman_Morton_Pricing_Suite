@@ -2494,18 +2494,41 @@ class VisualTakeoffWorkspace(QWidget):
                     counts[nw] = counts.get(nw, 0) + 1
                     cx, cy = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
                     txt_horiz = (wx1 - wx0) >= (wy1 - wy0)
-                    best_seg, best_d = None, 28.0
+                    best_seg, best_d = None, 16.0
+                    ppf_hl = max(1.0, float(getattr(self.canvas, "pts_per_ft", 18.0)))
+                    max_hl_pts = 32.0 * ppf_hl
                     for sx1, sy1, sx2, sy2, seg_horiz in segs:
                         if seg_horiz != txt_horiz:
                             continue
                         abx, aby = sx2 - sx1, sy2 - sy1
                         ab2 = abx * abx + aby * aby
                         t = ((cx - sx1) * abx + (cy - sy1) * aby) / max(1.0, ab2)
-                        if -0.05 <= t <= 1.05:
+                        if -0.02 <= t <= 1.02:
                             tc = max(0.0, min(1.0, t))
                             perp_d = math.hypot(cx - (sx1 + tc * abx), cy - (sy1 + tc * aby))
                             if perp_d < best_d:
-                                best_d, best_seg = perp_d, (sx1, sy1, sx2, sy2)
+                                # Clip highlight segment to the single bay around this callout using orthogonal nodes
+                                csx1, csy1, csx2, csy2 = sx1, sy1, sx2, sy2
+                                if seg_horiz:
+                                    lx0, lx1 = min(sx1, sx2), max(sx1, sx2)
+                                    cuts = sorted({nx for nx, ny in getattr(self.canvas, "pdf_snap_endpoints", []) if abs(ny - sy1) <= 2.0 and (lx0 + 12.0) < nx < (lx1 - 12.0)})
+                                    left_b = max([lx0] + [c for c in cuts if c <= cx])
+                                    right_b = min([lx1] + [c for c in cuts if c >= cx])
+                                    if (right_b - left_b) > max_hl_pts:
+                                        left_b = max(lx0, cx - max_hl_pts * 0.5)
+                                        right_b = min(lx1, cx + max_hl_pts * 0.5)
+                                    csx1, csx2 = left_b, right_b
+                                else:
+                                    ly0, ly1 = min(sy1, sy2), max(sy1, sy2)
+                                    cuts = sorted({ny for nx, ny in getattr(self.canvas, "pdf_snap_endpoints", []) if abs(nx - sx1) <= 2.0 and (ly0 + 12.0) < ny < (ly1 - 12.0)})
+                                    top_b = max([ly0] + [c for c in cuts if c <= cy])
+                                    bot_b = min([ly1] + [c for c in cuts if c >= cy])
+                                    if (bot_b - top_b) > max_hl_pts:
+                                        top_b = max(ly0, cy - max_hl_pts * 0.5)
+                                        bot_b = min(ly1, cy + max_hl_pts * 0.5)
+                                    csy1, csy2 = top_b, bot_b
+                                if math.hypot(csx2 - csx1, csy2 - csy1) <= max_hl_pts:
+                                    best_d, best_seg = perp_d, (csx1, csy1, csx2, csy2)
                     dup = False
                     for h_prev in highlights:
                         if h_prev["profile"] == nw:
