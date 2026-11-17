@@ -452,6 +452,7 @@ class MarketingTrailerDirector:
             _after_scale_click()
 
     def _run_real_canvas_measure(self, beam_profile, beam_len_ft):
+        from PySide6.QtGui import QColor
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
         rb = self.win.master_ribbon
@@ -460,41 +461,34 @@ class MarketingTrailerDirector:
             rb._vis_mode("measure")
         else:
             vw.set_mode("measure")
+        cv = vw.canvas
+        cv.active_color = QColor("#b91c1c")
+        cv.active_line_width = 2.5
         QApplication.processEvents()
 
-        cv = vw.canvas
-        cv.endpoint_snap = True
+        # Snap to the real highlighted beam segment's two CAD endpoints
         if cv.key_highlights:
             hl = next((h for h in cv.key_highlights if h.get("seg")), cv.key_highlights.__getitem__(0))
-            span_pts = beam_len_ft * max(1.0, float(getattr(cv, "pts_per_ft", 18.0)))
             if hl.get("seg"):
                 sx1, sy1, sx2, sy2 = hl["seg"]
-                bx0 = min(sx1, sx2)
-                by0 = (sy1 + sy2) * 0.5
-                p1_local = cv._from_pdf_pt(bx0, by0)
-                p2_local = cv._from_pdf_pt(bx0 + span_pts, by0)
+                p1_local = cv._from_pdf_pt(sx1, sy1)
+                p2_local = cv._from_pdf_pt(sx2, sy2)
             else:
                 rx0, ry0, rx1, ry1 = hl["rect"]
-                bx0 = rx0 - span_pts * 0.35
-                by0 = (ry0 + ry1) * 0.5 + 10.0
-                p1_local = cv._from_pdf_pt(bx0, by0)
-                p2_local = cv._from_pdf_pt(bx0 + span_pts, by0)
+                span_pts = beam_len_ft * max(1.0, float(getattr(cv, "pts_per_ft", 18.0)))
+                cx_b = (rx0 + rx1) * 0.5
+                p1_local = cv._from_pdf_pt(cx_b - span_pts * 0.5, ry0 - 6.0)
+                p2_local = cv._from_pdf_pt(cx_b + span_pts * 0.5, ry0 - 6.0)
         else:
             p1_local = QPoint(int(cv.width() * 0.35), int(cv.height() * 0.48))
             p2_local = QPoint(int(cv.width() * 0.62), int(cv.height() * 0.48))
 
-        # Snap p1_local and p2_local onto the nearest real vector line endpoints in cv.pdf_snap_endpoints so OSNAP lights up!
-        def _nearest_snap_qpt(q_target):
-            best_q, best_d = q_target, 42.0
-            for epx, epy in getattr(cv, "pdf_snap_endpoints", []):
-                eq = cv._from_pdf_pt(epx, epy)
-                d = ((eq.x() - q_target.x()) ** 2 + (eq.y() - q_target.y()) ** 2) ** 0.5
-                if d < best_d:
-                    best_d, best_q = d, eq
-            return best_q
+        # Re-center scrollbars on the exact midpoint of the two beam endpoints so both ends stay 100% visible
+        mid_px = QPoint((p1_local.x() + p2_local.x()) // 2, (p1_local.y() + p2_local.y()) // 2)
+        vw.scroll.horizontalScrollBar().setValue(max(0, mid_px.x() - vw.scroll.viewport().width() // 2))
+        vw.scroll.verticalScrollBar().setValue(max(0, mid_px.y() - vw.scroll.viewport().height() // 2))
+        QApplication.processEvents()
 
-        p1_local = _nearest_snap_qpt(p1_local)
-        p2_local = _nearest_snap_qpt(p2_local)
         p1_global = cv.mapToGlobal(p1_local)
         p2_global = cv.mapToGlobal(p2_local)
 
@@ -528,9 +522,9 @@ class MarketingTrailerDirector:
                 else:
                     QTimer.singleShot(1600, self._shot_5_export_all_steel_pdfs)
 
-            self.cursor.glide_to(p2_global, duration_ms=1050, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
+            self.cursor.glide_to(p2_global, duration_ms=1100, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
 
-        self.cursor.glide_to(p1_global, duration_ms=700, click_pulse=True, on_move=_hover_p1, on_done=_click_p1)
+        self.cursor.glide_to(p1_global, duration_ms=750, click_pulse=True, on_move=_hover_p1, on_done=_click_p1)
 
     def _shot_5_export_all_steel_pdfs(self):
         pt = self.win.planset_takeoff_tab

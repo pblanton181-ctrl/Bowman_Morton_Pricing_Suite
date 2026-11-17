@@ -21,6 +21,17 @@ def main():
     app.setPalette(pal)
     qdarktheme.setup_theme(theme="light", corner_shape="rounded", custom_colors={"primary": "#0284c7"})
     app.setFont(QFont("Segoe UI", 10))
+    app.setStyleSheet(app.styleSheet() + """
+        QToolTip, QTipLabel {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #94a3b8 !important;
+            border-radius: 5px;
+            padding: 7px 10px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 11.5px;
+        }
+    """)
 
 
     win = live_test.StandaloneManufacturingApp()
