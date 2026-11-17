@@ -10,6 +10,7 @@ def test_cad_canvas_tools_pressure(qtbot):
     canvas.resize(900, 700)
     pm = QPixmap(900, 700)
     pm.fill(Qt.white)
+    canvas._base_pix = pm
     canvas.setPixmap(pm)
     qtbot.addWidget(canvas)
     canvas.show()
@@ -57,6 +58,7 @@ def test_full_manufacturing_app_pressure(qtbot):
 
     # 2. Pressure test Catalog compute + Edit Selected Item back to left panel
     win.data_core.rfq_ledger_items.clear()
+    win.entry_manual_1.setText("2")
     win.calculate_standalone_pricing()
     assert len(win.data_core.rfq_ledger_items) == 1
     win.std_ledger_tree.setCurrentItem(win.std_ledger_tree.topLevelItem(0))
