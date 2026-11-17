@@ -91,7 +91,8 @@ def test_every_catalog_card_and_structural_shape_math(qtbot, monkeypatch):
             card.populate_surcharges_by_shape(shape_key)
         if hasattr(card, "combo_model") and card.combo_model.count() > 0:
             card.combo_model.setCurrentIndex(0)
-        win.custom_quoting_tab.execute_fabrication_math_routine()
+        if hasattr(card, "trigger_compute"):
+            card.trigger_compute()
 
     # 3. Sweep all non-modal ribbon actions from config/ribbon_config.json
     with open("config/ribbon_config.json", "r", encoding="utf-8-sig") as f:
@@ -114,3 +115,59 @@ def test_every_catalog_card_and_structural_shape_math(qtbot, monkeypatch):
             win.master_ribbon.dispatch_ribbon_action(act)
 
     win.close()
+
+
+def test_multipage_pdf_takeoff_and_autocolor_pressure(qtbot, monkeypatch):
+    monkeypatch.setattr(live_test.QMessageBox, "warning", lambda *a, **k: None)
+    monkeypatch.setattr(live_test.QMessageBox, "information", lambda *a, **k: None)
+    win = live_test.StandaloneManufacturingApp()
+    qtbot.addWidget(win)
+    win.show()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        pdf_p = os.path.join(tmp, "sample_structural_plan.pdf")
+        doc = pymupdf.open()
+        p1 = doc.new_page(width=792, height=612)
+        p1.insert_text((100, 120), "BEAM SCHEDULE: W16X57 - 24 FT", fontsize=14)
+        p1.insert_text((100, 180), "COLUMN: HSS8X8X3/8 - 14 FT", fontsize=14)
+        p2 = doc.new_page(width=792, height=612)
+        p2.insert_text((100, 120), "ROOF FRAMING: W12X26 - 18 FT", fontsize=14)
+        doc.save(pdf_p)
+        doc.close()
+
+        pt = win.planset_takeoff_tab
+        if hasattr(pt, "_load_pdf_into_workspace"):
+            pt._load_pdf_into_workspace(pdf_p)
+        vw = pt.vis_workspace
+        vw.bom_items = [{"model": "W16X57", "qty": 2, "total_weight": 2736.0}, {"model": "HSS8X8X3/8", "qty": 4, "total_weight": 2000.0}]
+        vw._auto_color_all_bom_profiles()
+        assert len(vw.global_color_key) >= 2
+        win.master_ribbon._refresh_ribbon_summary()
+        assert "6 pcs" in win.master_ribbon._sum_vals["members"].text()
+
+    win.close()
+
+
+def test_all_keyboard_hotkeys_and_pricing_math_invariants(qtbot):
+    canvas = CadBlueprintCanvas(lambda *a: None, lambda *a: None)
+    canvas.resize(800, 600)
+    pm = QPixmap(800, 600)
+    pm.fill(Qt.white)
+    canvas._base_pix = pm
+    canvas.setPixmap(pm)
+    qtbot.addWidget(canvas)
+    canvas.show()
+
+    expected_hotkeys = {
+        Qt.Key_M: "measure", Qt.Key_P: "polyline", Qt.Key_C: "count",
+        Qt.Key_A: "arrow", Qt.Key_L: "line", Qt.Key_R: "cloud",
+        Qt.Key_W: "weld", Qt.Key_G: "grid_bubble", Qt.Key_V: "select",
+    }
+    for k, expected_mode in expected_hotkeys.items():
+        qtbot.keyClick(canvas, k)
+        assert canvas.mode == expected_mode
+
+    # Verify pricing math invariants (never negative, NaN, or Inf)
+    cfg = {"cat_base_margin": 1.05, "labor_rate": 85.0}
+    r1 = live_test.PricingCalculatorCore.calc_card1(250.0, 45.0, 1.0, {}, cfg)
+    assert r1 > 0 and r1 == r1

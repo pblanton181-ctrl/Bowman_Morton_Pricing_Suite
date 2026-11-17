@@ -1311,6 +1311,7 @@ class CadBlueprintCanvas(QLabel):
             return
         is_active_draw = (
             (self.mode == "polyline" and bool(self._pline_pts))
+            or (self.mode == "area" and bool(getattr(self, "_poly_pts", [])))
             or (self.mode in ("line", "dashed", "centerline", "arrow", "measure", "calibrate") and self._p1 is not None)
             or (self.mode == "hanger_skew" and bool(getattr(self, "_skew_pts", [])))
         )
@@ -1320,6 +1321,8 @@ class CadBlueprintCanvas(QLabel):
             if ev.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space) and not self._dyn_input_buf and not self._dyn_ang_buf:
                 if self.mode == "polyline":
                     self._finish_polyline(close_loop=False)
+                elif self.mode == "area" and len(getattr(self, "_poly_pts", [])) >= 3:
+                    self._finish_area_polygon()
                 self._p1 = None; self._p2 = None; self._skew_pts.clear()
                 self._hide_hud_boxes()
                 self.update(); ev.accept(); return
