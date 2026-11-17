@@ -219,7 +219,7 @@ def scan_world_ocr(page, world_rect=None, dpi=200):
         "$bmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"
         "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
         "$res = Await ($eng.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult]);"
-        "foreach($l in $res.Lines){foreach($w in $l.Words){$r=$w.BoundingRect; Write-Output (\"{0}|{1}|{2}|{3}|{4}\" -f [math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$w.Text)}}"
+        "foreach($l in $res.Lines){$w=$l.Words; if($w.Count -gt 0){$r0=$w[0].BoundingRect; Write-Output (\"{0}|{1}|{2}|{3}|{4}\" -f [math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)}; foreach($wi in $w){$r=$wi.BoundingRect; Write-Output (\"{0}|{1}|{2}|{3}|{4}\" -f [math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}}"
     )
     hits = []
     try:

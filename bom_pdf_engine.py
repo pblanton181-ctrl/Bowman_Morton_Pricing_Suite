@@ -209,13 +209,17 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
         lines_grp = {}
         vert_words = []
         for wx0, wy0, wx1, wy1, wstr, bno, lno, wno in pg.get_text("words"):
-            if wx0 < mx and wy0 < my:
-                nw = normalize_cad_text(wstr)
-                cx_w, cy_w = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
-                items.append((cx_w, cy_w, nw))
-                if (wy1 - wy0) > (wx1 - wx0) * 1.35:
-                    vert_words.append((cx_w, cy_w, nw))
-                lines_grp.setdefault((bno, lno), []).append((wx0, wy0, wx1, wy1, nw))
+            cx_w, cy_w = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
+            if region_clip is not None:
+                if not region_clip.contains(pymupdf.Point(cx_w, cy_w)):
+                    continue
+            elif not (wx0 < mx and wy0 < my):
+                continue
+            nw = normalize_cad_text(wstr)
+            items.append((cx_w, cy_w, nw))
+            if (wy1 - wy0) > (wx1 - wx0) * 1.35:
+                vert_words.append((cx_w, cy_w, nw))
+            lines_grp.setdefault((bno, lno), []).append((wx0, wy0, wx1, wy1, nw))
         for (bno, lno), wlist in lines_grp.items():
             if len(wlist) > 1:
                 lx0 = min(w.__getitem__(0) for w in wlist)
@@ -226,8 +230,12 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                 if not STEEL_RX.search(ltxt) or any(k in ltxt for k in ("TREAD", "0'-6", "BASE", "PL", "WASHER", "CUSTOM", "FB")):
                     items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, ltxt))
 
-        if sum(len(t) for _, _, t in items) < 30 and use_native_ocr and (selected_pages or sh.startswith("S")) and len(pg.get_drawings()) >= 40:
-            items = scan_region_windows_native_ocr(pg, clip_rect=region_clip)
+        if region_clip is not None and use_native_ocr:
+            has_vec_steel = any(STEEL_RX.search(t) for _, _, t in items)
+            if not has_vec_steel:
+                items.extend(scan_region_windows_native_ocr(pg, clip_rect=region_clip, dpi=240))
+        elif sum(len(t) for _, _, t in items) < 30 and use_native_ocr and (selected_pages or sh.startswith("S")):
+            items = scan_region_windows_native_ocr(pg, clip_rect=region_clip, dpi=200)
 
         if not items:
             continue
