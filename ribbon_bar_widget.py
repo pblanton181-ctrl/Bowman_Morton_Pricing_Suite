@@ -731,7 +731,7 @@ class BowmanMortonRibbonBar(QFrame):
                     except Exception:
                         pass
         self._sum_vals["members"].setText(f"{bom_pcs:,} pcs")
-        self._sum_vals["takeoff_wt"].setText(f"{bom_lbs:,.0f} lbs")
+        self._sum_vals["weight"].setText(f"{bom_lbs:,.0f} lbs")
         cat_items = getattr(getattr(self.app, "data_core", None), "rfq_ledger_items", []) or []
         cat_tot = 0.0
         for it in cat_items:

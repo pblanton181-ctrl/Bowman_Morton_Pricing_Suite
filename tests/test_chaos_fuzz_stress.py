@@ -1,4 +1,4 @@
-﻿import random, pytest
+import random, pytest
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPixmap
 from blueprint_takeoff_ui import CadBlueprintCanvas
@@ -71,7 +71,7 @@ def test_15_member_structural_project_stress(qtbot, monkeypatch):
     shapes = ["W", "HSS", "L", "C", "PL", "Pipe", "FB"]
     for i in range(15):
         sh = shapes[i % len(shapes)]
-        card.populate_surcharges_by_shape(sh)
+        card.set_shape(sh)
         if card.combo_model.count() > 0:
             card.combo_model.setCurrentIndex(i % card.combo_model.count())
         card.chk_conn_hardware.setChecked(i % 2 == 0)

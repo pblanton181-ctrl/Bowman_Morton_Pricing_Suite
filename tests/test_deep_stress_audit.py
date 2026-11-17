@@ -88,7 +88,7 @@ def test_every_catalog_card_and_structural_shape_math(qtbot, monkeypatch):
     card = win.custom_quoting_tab.active_member_card
     for shape_key in ("W", "HSS", "L", "C", "PL", "Pipe", "FB"):
         if hasattr(card, "populate_surcharges_by_shape"):
-            card.populate_surcharges_by_shape(shape_key)
+            card.set_shape(shape_key)
         if hasattr(card, "combo_model") and card.combo_model.count() > 0:
             card.combo_model.setCurrentIndex(0)
         if hasattr(card, "trigger_compute"):

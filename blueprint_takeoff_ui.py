@@ -1756,7 +1756,7 @@ class CadBlueprintCanvas(QLabel):
             p_a = next(pts_iter, None)
             p_b = next(pts_iter, None)
             if p_a is not None and p_b is None:
-                qh1 = self._from_pdf_pt(p_a)
+                qh1 = self._from_pdf_pt(*p_a)
                 qh2 = self._snap_ortho(qh1, self._hover_pt, getattr(self, "ortho_lock", False))
                 p.setPen(QPen(self.active_color, max(2.2, float(self.active_line_width) * self.zoom), Qt.SolidLine))
                 p.drawLine(qh1, qh2)
@@ -1764,8 +1764,8 @@ class CadBlueprintCanvas(QLabel):
                 p.setPen(QColor("#0369a1"))
                 p.drawText(int(qh2.x() + 12), int(qh2.y() - 8), "Click 2: Set T-pivot point on header / wall")
             elif p_a is not None and p_b is not None:
-                qh1 = self._from_pdf_pt(p_a)
-                qh2 = self._from_pdf_pt(p_b)
+                qh1 = self._from_pdf_pt(*p_a)
+                qh2 = self._from_pdf_pt(*p_b)
                 self._draw_hanger_skew_diagram(p, qh1, qh2, self._hover_pt, self.active_color, lw=max(2.2, float(self.active_line_width) * self.zoom), font_pt=10)
         if self.mode == "area" and self._poly_pts:
             qpts = [self._from_pdf_pt(px, py) for px, py in self._poly_pts]
