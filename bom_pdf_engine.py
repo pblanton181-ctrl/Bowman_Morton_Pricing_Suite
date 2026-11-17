@@ -10,7 +10,6 @@ import subprocess
 
 try:
     import pymupdf
-from core.plan_world import PlanWorldModel, scan_world_ocr, round_structural_ft, parse_arch_scale
 except ImportError:
     import fitz as pymupdf
 
