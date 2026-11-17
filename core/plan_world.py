@@ -266,7 +266,8 @@ def _ocr_tile_worker(args):
         out = subprocess.check_output(
             ["powershell", "-NoProfile", "-Command", ps_script],
             stderr=subprocess.DEVNULL,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=35,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
