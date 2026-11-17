@@ -1225,11 +1225,11 @@ class CadBlueprintCanvas(QLabel):
         p.setPen(QPen(col, max(2.0, lw), Qt.SolidLine, Qt.RoundCap))
         p.drawLine(qr, qj_draw)
 
-        p.setFont(QFont("Cascadia Mono", max(8, font_pt), QFont.Bold))
+        p.setFont(QFont("Segoe UI", max(10, font_pt), QFont.Bold))
         fm = p.fontMetrics()
-        tw = fm.horizontalAdvance(lbl) + 14
-        th = fm.height() + 6
-        bx = int(qj_draw.x() + 10)
+        tw = fm.horizontalAdvance(lbl) + 24
+        th = fm.height() + 10
+        bx = int(qj_draw.x() + 14)
         by = int(qj_draw.y() - th // 2)
         badge_r = QRect(bx, by, tw, th)
         p.setBrush(QColor(15, 23, 42, 235))
@@ -1704,17 +1704,17 @@ class CadBlueprintCanvas(QLabel):
             p.drawLine(self._p1, hp)
         if self.mode == "hanger_skew" and self._skew_pts and self._hover_pt is not None:
             if len(self._skew_pts) == 1:
-                qh1 = self._from_pdf_pt(*self._skew_pts)
+                qh1 = self._from_pdf_pt(*self._skew_pts[0])
                 qh2 = self._snap_ortho(qh1, self._hover_pt, getattr(self, "ortho_lock", False))
                 p.setPen(QPen(self.active_color, max(2.2, float(self.active_line_width) * self.zoom), Qt.SolidLine))
                 p.drawLine(qh1, qh2)
-                p.setFont(QFont("Cascadia Mono", 9, QFont.Bold))
+                p.setFont(QFont("Segoe UI", 9, QFont.Bold))
                 p.setPen(QColor("#0369a1"))
-                p.drawText(int(qh2.x() + 10), int(qh2.y() - 8), "Click 2: Finish carrying header / wall line")
+                p.drawText(int(qh2.x() + 12), int(qh2.y() - 8), "Click 2: Finish carrying header / wall line")
             elif len(self._skew_pts) == 2:
-                qh1 = self._from_pdf_pt(*self._skew_pts)
-                qh2 = self._from_pdf_pt(*self._skew_pts)
-                self._draw_hanger_skew_diagram(p, qh1, qh2, self._hover_pt, self.active_color, lw=max(2.0, float(self.active_line_width) * self.zoom), font_pt=10)
+                qh1 = self._from_pdf_pt(*self._skew_pts[0])
+                qh2 = self._from_pdf_pt(*self._skew_pts[1])
+                self._draw_hanger_skew_diagram(p, qh1, qh2, self._hover_pt, self.active_color, lw=max(2.2, float(self.active_line_width) * self.zoom), font_pt=10)
         if self.mode == "area" and self._poly_pts:
             qpts = [self._from_pdf_pt(px, py) for px, py in self._poly_pts]
             p.setPen(QPen(self.active_color, max(1.5, float(self.active_line_width) * self.zoom), Qt.SolidLine))
