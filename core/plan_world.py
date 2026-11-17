@@ -233,7 +233,7 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
                 ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
                 rect = pymupdf.Rect(tx0, ty0, tx1, ty1)
                 max_side = max(1.0, rect.width, rect.height)
-                safe_dpi = max(200, min(int(dpi), int((2200.0 * 72.0) / max_side)))
+                safe_dpi = max(180, min(int(dpi), int((1350.0 * 72.0) / max_side)))
                 from PIL import Image, ImageDraw
                 sc = safe_dpi / 72.0
                 shx_paths = []
@@ -271,7 +271,7 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
                     pix.save(t_png)
                 tile_meta.append((t_png, tx0, ty0, 72.0 / float(safe_dpi)))
 
-        angles = "0,90,270,45,315" if multi_angle else "0,90,270"
+        angles = "0,22.5,45,67.5,90,270,292.5,315,337.5" if multi_angle else "0,90,270"
         ps_script = (
             "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
             "Add-Type -AssemblyName System.Drawing;"
@@ -332,16 +332,16 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
             parts = ln.split("|", 8)
             if len(parts) == 9 and parts.__getitem__(0) in meta_by_name:
                 t_ox, t_oy, sc = meta_by_name[parts.__getitem__(0)]
-                ang = int(parts.__getitem__(1))
+                ang = float(parts.__getitem__(1))
                 bw, bh = float(parts.__getitem__(2)), float(parts.__getitem__(3))
                 rx, ry = float(parts.__getitem__(4)), float(parts.__getitem__(5))
                 rw, rh = float(parts.__getitem__(6)), float(parts.__getitem__(7))
                 cx_r, cy_r = rx + rw * 0.5, ry + rh * 0.5
-                if ang == 0:
+                if abs(ang) < 0.1:
                     ox, oy = cx_r, cy_r
-                elif ang == 90:
+                elif abs(ang - 90.0) < 0.1:
                     ox, oy = cy_r, bh - cx_r
-                elif ang == 270:
+                elif abs(ang - 270.0) < 0.1:
                     ox, oy = bw - cy_r, cx_r
                 else:
                     diag = math.ceil(math.hypot(bw, bh))
