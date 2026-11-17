@@ -2502,11 +2502,7 @@ class VisualTakeoffWorkspace(QWidget):
                     cx, cy = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
                     txt_horiz = (wx1 - wx0) >= (wy1 - wy0)
                     best_seg, best_d = None, 7.5
-                    ws_ck = getattr(self.canvas, "world_state", None)
-                    if ws_ck is not None and (not hasattr(self, "chk_hl_lines") or self.chk_hl_lines.isChecked()):
-                        att = ws_ck.attach_beam_to_callout(cx, cy, is_horiz=txt_horiz, max_perp_pts=8.5, max_span_ft=34.0)
-                        if att is not None:
-                            best_seg = (att.__getitem__(0), att.__getitem__(1), att.__getitem__(2), att.__getitem__(3))
+                    best_seg = None
                     dup = False
                     for h_prev in highlights:
                         if h_prev["profile"] == nw:
