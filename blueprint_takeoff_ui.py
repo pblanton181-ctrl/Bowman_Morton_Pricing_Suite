@@ -1035,7 +1035,7 @@ class CadBlueprintCanvas(QLabel):
                     if self.on_calibrated and pdf_pts > 5.0:
                         self.on_calibrated(pdf_pts)
                 else:
-                    dist_ft = round((pdf_pts / max(1.0, self.pts_per_ft)) * 4.0) / 4.0
+                    import bom_pdf_engine as _eng; dist_ft = _eng.round_structural_ft(pdf_pts / max(1.0, self.pts_per_ft))
                     self.markups.append({"type": "span", "x1": x1, "y1": y1, "x2": x2, "y2": y2, "label": self._format_ft_in(dist_ft), "ft": dist_ft, "color": QColor(self.active_color), "line_width": float(self.active_line_width), "font_size": int(self.font_size)})
                     self.on_span_measured(dist_ft)
                 self._p1 = None
@@ -1707,7 +1707,7 @@ class CadBlueprintCanvas(QLabel):
             x1, y1 = self._to_pdf_pt(self._p1)
             x2, y2 = self._to_pdf_pt(self._hover_pt)
             pts_d = math.hypot(x2 - x1, y2 - y1)
-            lbl = f"Calibrate ({pts_d:.1f} pts)" if self.mode == "calibrate" else self._format_ft_in(round((pts_d / max(1.0, self.pts_per_ft)) * 4.0) / 4.0)
+            lbl = f"Calibrate ({pts_d:.1f} pts)" if self.mode == "calibrate" else self._format_ft_in(__import__('bom_pdf_engine').round_structural_ft(pts_d / max(1.0, self.pts_per_ft)))
             self._draw_cad_dimension(p, self._p1, self._hover_pt, lbl, self.active_color)
 
         if self.mode == "free_highlight" and len(self._free_pts) >= 2:
@@ -2337,42 +2337,6 @@ class VisualTakeoffWorkspace(QWidget):
         self._active_key_dict().clear()
         self._refresh_color_key_ui()
 
-    def render_sheet(self, page_num):
-        pno = max(0, int(page_num) - 1)
-        if pno >= len(self._doc):
-            return
-        pg = self._doc.load_page(pno)
-        pix = pg.get_pixmap(dpi=150, alpha=False)
-        qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888).copy()
-        self.canvas.load_pixmap(QPixmap.fromImage(qimg), render_dpi=150, page_markups=self.page_markups.setdefault(page_num, []))
-        if not hasattr(self, "_pdf_snap_cache"):
-            self._pdf_snap_cache = {}
-        if pno not in self._pdf_snap_cache:
-            eps, mps = set(), set()
-            try:
-                for drw in pg.get_drawings():
-                    for itm in drw.get("items", []):
-                        op, *args = itm
-                        if op == "l" and len(args) >= 2:
-                            p_a, p_b = args, args
-                            ax, ay, bx, by = round(p_a.x, 1), round(p_a.y, 1), round(p_b.x, 1), round(p_b.y, 1)
-                            eps.add((ax, ay)); eps.add((bx, by))
-                            mps.add((round((ax + bx) * 0.5, 1), round((ay + by) * 0.5, 1)))
-                        elif op == "re" and len(args) >= 1:
-                            rc = args
-                            x0, y0, x1, y1 = round(rc.x0, 1), round(rc.y0, 1), round(rc.x1, 1), round(rc.y1, 1)
-                            eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
-                            mps.update([(round((x0 + x1) * 0.5, 1), y0), (round((x0 + x1) * 0.5, 1), y1), (x0, round((y0 + y1) * 0.5, 1)), (x1, round((y0 + y1) * 0.5, 1))])
-                        if len(eps) > 8000:
-                            break
-                    if len(eps) > 8000:
-                        break
-            except Exception:
-                pass
-            self._pdf_snap_cache[pno] = (list(eps), list(mps))
-        self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints = self._pdf_snap_cache[pno]
-        self._refresh_color_key_ui()
-
     def _on_key_item_clicked(self, item):
         prof = item.data(Qt.UserRole)
         eff = self._effective_key_for_page(self.get_page_fn())
@@ -2405,48 +2369,15 @@ class VisualTakeoffWorkspace(QWidget):
             self._pdf_snap_cache = {}
         self.canvas._pdf_page_w = float(pg.rect.width)
         self.canvas._pdf_page_h = float(pg.rect.height)
+        import bom_pdf_engine as _eng
+        detected_ppf = float(_eng.get_sheet_calibration(pg))
         if pno not in self._pdf_snap_cache:
-            eps, mps = set(), set()
-            h_segs, v_segs = [], []
-            mx_vp = float(pg.rect.width) * 0.86
             try:
-                for drw in pg.get_drawings():
-                    for itm in drw.get("items", []):
-                        op = itm.__getitem__(0)
-                        if op == "l" and len(itm) >= 3:
-                            p_a, p_b = itm.__getitem__(1), itm.__getitem__(2)
-                            if p_a.x > mx_vp and p_b.x > mx_vp:
-                                continue
-                            ax, ay, bx, by = round(p_a.x, 1), round(p_a.y, 1), round(p_b.x, 1), round(p_b.y, 1)
-                            eps.add((ax, ay)); eps.add((bx, by))
-                            mps.add((round((ax + bx) * 0.5, 1), round((ay + by) * 0.5, 1)))
-                            if abs(ay - by) <= 0.6 and abs(bx - ax) >= 18.0:
-                                h_segs.append((min(ax, bx), max(ax, bx), ay))
-                            elif abs(ax - bx) <= 0.6 and abs(by - ay) >= 18.0:
-                                v_segs.append((min(ay, by), max(ay, by), ax))
-                        elif op == "re" and len(itm) >= 2:
-                            rc = itm.__getitem__(1)
-                            if rc.x0 > mx_vp:
-                                continue
-                            x0, y0, x1, y1 = round(rc.x0, 1), round(rc.y0, 1), round(rc.x1, 1), round(rc.y1, 1)
-                            eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
-                            mps.update([(round((x0 + x1) * 0.5, 1), y0), (round((x0 + x1) * 0.5, 1), y1), (x0, round((y0 + y1) * 0.5, 1)), (x1, round((y0 + y1) * 0.5, 1))])
-                        elif op == "c" and len(itm) >= 5:
-                            p_a, p_b = itm.__getitem__(1), itm.__getitem__(4)
-                            eps.add((round(p_a.x, 1), round(p_a.y, 1)))
-                            eps.add((round(p_b.x, 1), round(p_b.y, 1)))
-                # Add orthogonal beam-to-girder / column T-intersection nodes
-                for hx0, hx1, hy in h_segs[:600]:
-                    for vy0, vy1, vx in v_segs[:600]:
-                        if (hx0 - 2.0) <= vx <= (hx1 + 2.0) and (vy0 - 2.0) <= hy <= (vy1 + 2.0):
-                            eps.add((vx, hy))
+                self._pdf_snap_cache[pno] = _eng.extract_vector_snap_nodes(pg, detected_ppf)
             except Exception:
-                pass
-            self._pdf_snap_cache[pno] = (list(eps), list(mps))
+                self._pdf_snap_cache[pno] = ([], [])
         self.canvas.pdf_snap_endpoints, self.canvas.pdf_snap_midpoints = self._pdf_snap_cache[pno]
         try:
-            import bom_pdf_engine as _eng
-            detected_ppf = float(_eng.parse_arch_scale(pg.get_text("text").upper()))
             self.canvas.pts_per_ft = detected_ppf
             p_win = self.window()
             rb = getattr(p_win, "master_ribbon", None)

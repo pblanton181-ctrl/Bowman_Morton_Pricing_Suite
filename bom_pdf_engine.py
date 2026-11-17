@@ -135,6 +135,66 @@ def parse_arch_scale(txt):
     m2 = re.search(r"\b([1-3])\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)
     return float(m2.group(1)) * 72.0 if m2 else 18.0
 
+
+def round_structural_ft(raw_ft):
+    """Single shared 1/4-ft (3-inch) rounding rule for both BOM extraction and Measure tool."""
+    return round(float(raw_ft) * 4.0) / 4.0
+
+def get_sheet_calibration(page):
+    """Single source of truth for sheet scale (pts_per_ft) shared by BOM engine and Measure canvas."""
+    pw, ph = float(page.rect.width), float(page.rect.height)
+    mx, my = pw * 0.72, ph * 0.94
+    full_tb = normalize_cad_text(page.get_text("text"))
+    vp_words = [normalize_cad_text(wstr) for wx0, wy0, wx1, wy1, wstr, *_ in page.get_text("words") if wx0 < mx and wy0 < my]
+    all_txt = full_tb + " " + " ".join(vp_words)
+    return float(parse_arch_scale(all_txt))
+
+def extract_vector_snap_nodes(page, pts_per_ft=18.0):
+    """Extracts exact vector beam/wall endpoints, midpoints, and T-intersections across the full drawing."""
+    pw, ph = float(page.rect.width), float(page.rect.height)
+    mx_vp = pw * 0.88
+    eps, mps = set(), set()
+    h_segs, v_segs = [], []
+    min_beam_pts = max(12.0, float(pts_per_ft) * 2.0)
+    for drw in page.get_drawings():
+        for itm in drw.get("items", []):
+            op = itm.__getitem__(0)
+            if op == "l" and len(itm) >= 3:
+                p_a, p_b = itm.__getitem__(1), itm.__getitem__(2)
+                if p_a.x > mx_vp and p_b.x > mx_vp:
+                    continue
+                ax, ay = round(float(p_a.x), 2), round(float(p_a.y), 2)
+                bx, by = round(float(p_b.x), 2), round(float(p_b.y), 2)
+                eps.add((ax, ay))
+                eps.add((bx, by))
+                mps.add((round((ax + bx) * 0.5, 2), round((ay + by) * 0.5, 2)))
+                if abs(ay - by) <= 0.75 and abs(bx - ax) >= min_beam_pts:
+                    h_segs.append((min(ax, bx), max(ax, bx), ay))
+                elif abs(ax - bx) <= 0.75 and abs(by - ay) >= min_beam_pts:
+                    v_segs.append((min(ay, by), max(ay, by), ax))
+            elif op == "re" and len(itm) >= 2:
+                rc = itm.__getitem__(1)
+                if rc.x0 > mx_vp:
+                    continue
+                x0, y0 = round(float(rc.x0), 2), round(float(rc.y0), 2)
+                x1, y1 = round(float(rc.x1), 2), round(float(rc.y1), 2)
+                eps.update([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+                mps.update([
+                    (round((x0 + x1) * 0.5, 2), y0),
+                    (round((x0 + x1) * 0.5, 2), y1),
+                    (x0, round((y0 + y1) * 0.5, 2)),
+                    (x1, round((y0 + y1) * 0.5, 2)),
+                ])
+            elif op == "c" and len(itm) >= 5:
+                p_a, p_b = itm.__getitem__(1), itm.__getitem__(4)
+                eps.add((round(float(p_a.x), 2), round(float(p_a.y), 2)))
+                eps.add((round(float(p_b.x), 2), round(float(p_b.y), 2)))
+    for hx0, hx1, hy in h_segs:
+        for vy0, vy1, vx in v_segs:
+            if (hx0 - 2.5) <= vx <= (hx1 + 2.5) and (vy0 - 2.5) <= hy <= (vy1 + 2.5):
+                eps.add((vx, hy))
+    return list(eps), list(mps)
+
 def scan_region_windows_native_ocr(page, clip_rect=None, dpi=200):
     pw, ph = float(page.rect.width), float(page.rect.height)
     rect = clip_rect or pymupdf.Rect(0, 0, pw * 0.88, ph * 0.94)
@@ -254,7 +314,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
         if sheet_lbl in ("S-0", "S-1") or "SHEET S-1" not in all_txt and "GENERAL STRUCTURAL NOTES" in all_txt:
             continue
         is_detail = sheet_lbl.startswith("SD")
-        pts_per_ft = parse_arch_scale(all_txt)
+        pts_per_ft = get_sheet_calibration(pg)
 
         segs = []
         if not is_detail:
@@ -343,7 +403,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                         d_seg = math.hypot(cx - mx_s, cy - my_s)
                         if d_seg < best_dist:
                             best_dist = d_seg
-                            best_span = round(sft * 4.0) / 4.0
+                            best_span = round_structural_ft(sft)
                     if best_span:
                         meas_len = best_span
                 elif sk == "angle" and is_detail:
