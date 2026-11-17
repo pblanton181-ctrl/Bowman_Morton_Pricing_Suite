@@ -2428,6 +2428,15 @@ class VisualTakeoffWorkspace(QWidget):
         QTimer.singleShot(0, self.canvas.fit_to_viewport)
         QTimer.singleShot(120, self.canvas.fit_to_viewport)
 
+    def _get_cached_page_words(self, pg_idx):
+        cache = getattr(self, "_page_words_cache", None)
+        if cache is None:
+            cache = {}
+            self._page_words_cache = cache
+        if pg_idx not in cache and getattr(self, "_doc", None) and 0 <= pg_idx < len(self._doc):
+            cache[pg_idx] = self._doc.load_page(pg_idx).get_text("words")
+        return cache.get(pg_idx, [])
+
     def _refresh_color_key_ui(self):
         pg_num = self.get_page_fn()
         eff_key = self._effective_key_for_page(pg_num)
@@ -2517,7 +2526,7 @@ class VisualTakeoffWorkspace(QWidget):
                     for p_idx in range(len(self._doc)):
                         pg_i = self._doc.load_page(p_idx)
                         mx_i = float(pg_i.rect.width) * 0.72
-                        tot_vec += sum(1 for wx0, _, _, _, wstr, *_ in pg_i.get_text("words") if wx0 < mx_i and re.sub(r"\s+", "", wstr.upper()) == p_key)
+                        tot_vec += sum(1 for wx0, _, _, _, wstr, *_ in self._get_cached_page_words(i) if wx0 < mx_i and re.sub(r"\s+", "", wstr.upper()) == p_key)
                     counts[p_key] = tot_vec
 
         self.canvas.set_color_key_overlays(highlights, [(p, eff_key[p], counts.get(p, 0)) for p in eff_key])

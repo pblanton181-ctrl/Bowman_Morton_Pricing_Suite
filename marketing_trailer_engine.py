@@ -209,7 +209,19 @@ class MarketingTrailerDirector:
         if hits:
             return os.path.abspath(hits[0])
         raise FileNotFoundError("Could not find 1230-Dave Pugsley_3122 Broadway - Combined Plan Set.pdf")
-    def _glide_to_widget(self, widget, duration_ms=650, click_pulse=True, on_done=None):
+    def _find_button_by_text(self, root, *keywords):
+        from PySide6.QtWidgets import QAbstractButton
+        for btn in root.findChildren(QAbstractButton):
+            if not btn.isVisible():
+                continue
+            txt = (btn.text() or "").replace("\n", " ").strip().lower()
+            tip = (btn.toolTip() or "").strip().lower()
+            for kw in keywords:
+                if kw.lower() in txt or kw.lower() in tip:
+                    return btn
+        return None
+
+    def _glide_to_widget(self, widget, duration_ms=450, click_pulse=True, on_done=None):
         """Moves the real OS cursor smoothly to the center of `widget` using ease-in-out."""
         if widget is None or not widget.isVisible():
             if on_done:
@@ -218,7 +230,7 @@ class MarketingTrailerDirector:
         center_global = widget.mapToGlobal(QPoint(widget.width() // 2, widget.height() // 2))
         self._glide_to_global(center_global, duration_ms=duration_ms, click_pulse=click_pulse, on_done=on_done)
 
-    def _glide_to_global(self, target_gpos, duration_ms=650, click_pulse=True, on_move=None, on_done=None):
+    def _glide_to_global(self, target_gpos, duration_ms=450, click_pulse=True, on_move=None, on_done=None):
         self._anim_start = self.ripple.mapToGlobal(QPoint(36, 36))
         self._anim_end = target_gpos
         self._anim_t0 = time.perf_counter()
@@ -271,11 +283,11 @@ class MarketingTrailerDirector:
             "Live walkthrough on 1230 Dave Pugsley — 3122 Broadway Combined Plan Set",
         )
         self.recorder.start()
-        QTimer.singleShot(1400, self._scene_1_click_open_pdf)
+        QTimer.singleShot(850, self._scene_1_click_open_pdf)
 
     def _scene_1_click_open_pdf(self):
         rb = self.win.master_ribbon
-        btn_open = getattr(rb, "btn_open_pdf", None)
+        btn_open = self._find_button_by_text(rb, "Open PDF", "Open")
         self.banner.show_caption(
             "STEP 1 OF 6 • PLANSET INGESTION",
             "Opening Multi-Sheet Structural PDF",
@@ -292,10 +304,10 @@ class MarketingTrailerDirector:
                 QFileDialog.getOpenFileName = orig_open
             QTimer.singleShot(1300, self._scene_2_click_auto_scan)
 
-        self._glide_to_widget(btn_open, duration_ms=700, on_done=_do_load)
+        self._glide_to_widget(btn_open, duration_ms=480, on_done=_do_load)
     def _scene_2_click_auto_scan(self):
         rb = self.win.master_ribbon
-        btn_scan = getattr(rb, "btn_auto_scan", None)
+        btn_scan = self._find_button_by_text(rb, "Auto Scan", "Scan")
         self.banner.show_caption(
             "STEP 2 OF 6 • AUTOMATED STRUCTURAL BOM EXTRACTION",
             "Scanning Every Sheet for Steel Profiles & Lengths",
@@ -309,16 +321,16 @@ class MarketingTrailerDirector:
             if hasattr(pt, "tree"):
                 pt.tree.expandAll()
             QApplication.processEvents()
-            QTimer.singleShot(2200, self._scene_3_color_key_and_navigate)
+            QTimer.singleShot(1100, self._scene_3_color_key_and_navigate)
 
-        self._glide_to_widget(btn_scan, duration_ms=650, on_done=_do_scan)
+        self._glide_to_widget(btn_scan, duration_ms=450, on_done=_do_scan)
     def _scene_3_color_key_and_navigate(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
         pt._switch_dialog_view(1)
         QApplication.processEvents()
 
-        btn_auto_color = getattr(vw, "btn_auto_color", None)
+        btn_auto_color = self._find_button_by_text(vw, "Auto-Color", "Auto Color")
         self.banner.show_caption(
             "STEP 3 OF 6 • STEEL COLOR KEY & SHEET MARKUP EXPORT",
             "Auto-Assigning CAD Colors & Exporting Marked-Up Steel Sheets",
@@ -349,7 +361,7 @@ class MarketingTrailerDirector:
             self._sheet_cursor = 0
             QTimer.singleShot(1100, self._step_export_next_steel_sheet)
 
-        self._glide_to_widget(btn_auto_color, duration_ms=650, on_done=_do_color_and_collect)
+        self._glide_to_widget(btn_auto_color, duration_ms=450, on_done=_do_color_and_collect)
     def _step_export_next_steel_sheet(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
@@ -380,7 +392,7 @@ class MarketingTrailerDirector:
             g_pt,
             duration_ms=550,
             click_pulse=False,
-            on_done=lambda: QTimer.singleShot(850, self._step_export_next_steel_sheet),
+            on_done=lambda: QTimer.singleShot(420, self._step_export_next_steel_sheet),
         )
     def _write_marked_sheet_pdf(self, vw, pg_num, out_path):
         if not getattr(vw, "_doc", None):
@@ -428,7 +440,7 @@ class MarketingTrailerDirector:
                         beam_len_ft = 20.0
                     break
 
-        btn_measure = getattr(rb, "btn_measure", None)
+        btn_measure = self._find_button_by_text(rb, "Measure", "Linear Dim")
         self.banner.show_caption(
             "STEP 4 OF 6 • MEASURE TILE ACCURACY VERIFICATION",
             f"Selecting Measure Tool to Verify {beam_profile} Span",
@@ -436,7 +448,7 @@ class MarketingTrailerDirector:
         )
         self._glide_to_widget(
             btn_measure,
-            duration_ms=650,
+            duration_ms=450,
             on_done=lambda: self._animate_measure_span(beam_profile, beam_len_ft),
         )
     def _animate_measure_span(self, beam_profile, beam_len_ft):
@@ -470,7 +482,8 @@ class MarketingTrailerDirector:
 
             def _on_drag(cur_gpos):
                 cv._hover_pt = cv.mapFromGlobal(cur_gpos)
-                cv.update()
+                cv.repaint()
+                QApplication.processEvents()
 
             def _after_p2():
                 cv._p1 = None
@@ -497,15 +510,15 @@ class MarketingTrailerDirector:
                     f"Measured {lbl_str} == BOM {beam_profile} ({beam_len_ft:.2f} ft)",
                     "1:1 plan-set geometry verified before sending to Structural Quoting",
                 )
-                QTimer.singleShot(2200, self._scene_5_send_bom_to_structural)
+                QTimer.singleShot(1100, self._scene_5_send_bom_to_structural)
 
-            self._glide_to_global(p2_global, duration_ms=950, click_pulse=True, on_move=_on_drag, on_done=_after_p2)
+            self._glide_to_global(p2_global, duration_ms=650, click_pulse=True, on_move=_on_drag, on_done=_after_p2)
 
-        self._glide_to_global(p1_global, duration_ms=650, click_pulse=True, on_done=_after_p1)
+        self._glide_to_global(p1_global, duration_ms=450, click_pulse=True, on_done=_after_p1)
     def _scene_5_send_bom_to_structural(self):
         pt = self.win.planset_takeoff_tab
         rb = self.win.master_ribbon
-        btn_send = getattr(rb, "btn_send_bom", None)
+        btn_send = self._find_button_by_text(rb, "Send BOM", "Send Checked")
         self.banner.show_caption(
             "STEP 5 OF 6 • ONE-CLICK SEND TO STRUCTURAL QUOTING",
             "Pushing Verified BOM to Structural Quoting Workbench",
@@ -520,9 +533,9 @@ class MarketingTrailerDirector:
             sq = self.win.custom_quoting_tab
             self._total_members = len(getattr(sq, "current_project_items", []))
             self._edit_cursor = 0
-            QTimer.singleShot(1400, self._step_edit_next_structural_member)
+            QTimer.singleShot(850, self._step_edit_next_structural_member)
 
-        self._glide_to_widget(btn_send, duration_ms=650, on_done=_do_send)
+        self._glide_to_widget(btn_send, duration_ms=450, on_done=_do_send)
     def _step_edit_next_structural_member(self):
         sq = self.win.custom_quoting_tab
         items = getattr(sq, "current_project_items", [])
@@ -584,7 +597,7 @@ class MarketingTrailerDirector:
                     f"Plan-Set Add-Ons Applied: {spec_desc}",
                 )
                 self._edit_cursor += 1
-                QTimer.singleShot(1350, self._step_edit_next_structural_member)
+                QTimer.singleShot(700, self._step_edit_next_structural_member)
 
             self._glide_to_global(row_gpos, duration_ms=520, click_pulse=True, on_done=_after_row_click)
         else:
