@@ -46,7 +46,8 @@ def test_cad_canvas_tools_pressure(qtbot):
     assert len(canvas.markups) == 1
 
 
-def test_full_manufacturing_app_pressure(qtbot):
+def test_full_manufacturing_app_pressure(qtbot, monkeypatch):
+    monkeypatch.setattr(live_test.QMessageBox, "warning", lambda *a, **k: None)
     win = live_test.StandaloneManufacturingApp()
     qtbot.addWidget(win)
     win.show()
@@ -58,6 +59,8 @@ def test_full_manufacturing_app_pressure(qtbot):
 
     # 2. Pressure test Catalog compute + Edit Selected Item back to left panel
     win.data_core.rfq_ledger_items.clear()
+    if hasattr(win, "std_cust_input"): win.std_cust_input.setText("Test Client")
+    if hasattr(win, "std_proj_input"): win.std_proj_input.setText("Test Job")
     win.entry_manual_1.setText("2")
     if hasattr(win, "entry_manual_2"):
         win.entry_manual_2.setText("10")
