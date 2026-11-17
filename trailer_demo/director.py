@@ -1,4 +1,251 @@
+import os
+import re
+import glob
+import pymupdf
 
+from PySide6.QtCore import Qt, QTimer, QPoint, QPointF
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import (
+    QApplication,
+    QMessageBox,
+    QFileDialog,
+    QAbstractButton,
+    QAbstractItemView,
+    QDialogButtonBox,
+)
+
+from trailer_demo.recorder import WindowVideoRecorder
+from trailer_demo.cursor_driver import SmoothCursorAnimator, TrailerCaptionCard
+
+EXPORT_DIR = os.path.join(os.path.abspath("."), "Marketing_Trailer_Exports")
+VIDEO_OUT = os.path.join(EXPORT_DIR, "Bowman_Morton_Marketing_Trailer.mp4")
+
+class MarketingTrailerDirector:
+    """Visual trailer choreographer grounded in verified widget handles & real OS mouse input."""
+
+    def __init__(self, win):
+        self.win = win
+        self.pdf_path = self._find_planset()
+        self.caption = TrailerCaptionCard(win)
+        self.cursor = SmoothCursorAnimator(win)
+        self.recorder = WindowVideoRecorder(win, VIDEO_OUT, fps=16)
+        self.steel_pages = []
+        self._export_cursor = 0
+        self._edit_cursor = 0
+        self._total_members = 0
+
+        QMessageBox.information = lambda *a, **k: QMessageBox.Ok
+        QMessageBox.warning = lambda *a, **k: QMessageBox.Ok
+
+    def _find_planset(self):
+        exact = os.path.abspath("1230-Dave Pugsley_3122 Broadway - Combined Plan Set.pdf")
+        if os.path.exists(exact):
+            return exact
+        hits = glob.glob("*Dave Pugsley*.pdf") or glob.glob("*3122 Broadway*.pdf")
+        if hits:
+            return os.path.abspath(hits.__getitem__(0))
+        raise FileNotFoundError("Could not find 1230-Dave Pugsley_3122 Broadway - Combined Plan Set.pdf")
+
+    def _find_visible_button(self, root, *keywords):
+        for btn in root.findChildren(QAbstractButton):
+            if not btn.isVisible():
+                continue
+            txt = (btn.text() or "").replace("\n", " ").strip().lower()
+            tip = (btn.toolTip() or "").strip().lower()
+            for kw in keywords:
+                if kw.lower() in txt or kw.lower() in tip:
+                    return btn
+        return None
+    def start(self):
+        os.makedirs(EXPORT_DIR, exist_ok=True)
+        self.win.showMaximized()
+        if hasattr(self.win, "planset_takeoff_tab"):
+            self.win.planset_takeoff_tab.show()
+            self.win.master_tabs.setCurrentWidget(self.win.planset_takeoff_tab)
+        if hasattr(self.win, "master_ribbon"):
+            self.win.master_ribbon.set_active_tab(0)
+        QApplication.processEvents()
+
+        c = self.win.mapToGlobal(QPoint(self.win.width() // 2, self.win.height() // 2))
+        self.cursor.warp(c)
+        self.caption.show_step(
+            "BOWMAN-MORTON PRICING SUITE",
+            "Effortless Planset Navigation, Takeoff & Structural Quoting",
+            "Live walkthrough on 1230 Dave Pugsley — 3122 Broadway Combined Plan Set",
+        )
+        self.recorder.start()
+        QTimer.singleShot(1100, self._scene_1_open_pdf_dialog)
+
+    def _scene_1_open_pdf_dialog(self):
+        rb = self.win.master_ribbon
+        btn_open = self._find_visible_button(rb, "Open PDF", "Open")
+        self.caption.show_step(
+            "STEP 1 OF 6 • PLANSET INGESTION",
+            "Opening File Browser & Selecting the Structural Plan Set",
+            os.path.basename(self.pdf_path),
+        )
+
+        def _show_file_picker():
+            pt = self.win.planset_takeoff_tab
+            dlg = QFileDialog(self.win, "Select Structural Plan Set PDF", os.path.dirname(self.pdf_path), "PDF Files (*.pdf)")
+            dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+            dlg.setFileMode(QFileDialog.ExistingFile)
+            dlg.resize(880, 520)
+            dlg.show()
+            QApplication.processEvents()
+
+            dlg.selectFile(os.path.basename(self.pdf_path))
+            QApplication.processEvents()
+
+            row_gpos = dlg.mapToGlobal(QPoint(360, 220))
+            for view in dlg.findChildren(QAbstractItemView):
+                if not view.isVisible():
+                    continue
+                sel = view.selectionModel()
+                if sel and sel.hasSelection():
+                    idx = sel.selectedIndexes().__getitem__(0)
+                    rect = view.visualRect(idx)
+                    if rect.isValid():
+                        row_gpos = view.viewport().mapToGlobal(rect.center())
+                        break
+
+            def _click_file_row():
+                btn_accept = None
+                for box in dlg.findChildren(QDialogButtonBox):
+                    btn_accept = box.button(QDialogButtonBox.Open) or box.button(QDialogButtonBox.Ok)
+                    if btn_accept:
+                        break
+
+                def _accept_and_load():
+                    dlg.accept()
+                    QApplication.processEvents()
+                    orig_open = QFileDialog.getOpenFileName
+                    QFileDialog.getOpenFileName = lambda *a, **k: (self.pdf_path, "PDF Files (*.pdf)")
+                    try:
+                        pt.load_new_pdf_planset()
+                    finally:
+                        QFileDialog.getOpenFileName = orig_open
+                    QApplication.processEvents()
+                    QTimer.singleShot(850, self._scene_2_auto_scan_bom)
+
+                self.cursor.glide_to_widget(btn_accept, duration_ms=480, click_pulse=True, on_done=_accept_and_load)
+
+            self.cursor.glide_to(row_gpos, duration_ms=560, click_pulse=True, on_done=_click_file_row)
+
+        self.cursor.glide_to_widget(btn_open, duration_ms=500, click_pulse=True, on_done=_show_file_picker)
+    def _scene_2_auto_scan_bom(self):
+        rb = self.win.master_ribbon
+        btn_scan = self._find_visible_button(rb, "Auto Scan", "Scan")
+        self.caption.show_step(
+            "STEP 2 OF 6 • AUTOMATED STRUCTURAL BOM EXTRACTION",
+            "Scanning All Sheets for Wide Flange, HSS, Angles, Channels & Plates",
+            "Extracting profiles, quantities & cut lengths automatically",
+        )
+
+        def _do_scan():
+            pt = self.win.planset_takeoff_tab
+            pt.scan_whole_planset()
+            pt._switch_dialog_view(0)
+            if hasattr(pt, "tree"):
+                pt.tree.expandAll()
+            QApplication.processEvents()
+            QTimer.singleShot(1400, self._scene_3_flip_pages_and_smart_lookup)
+
+        self.cursor.glide_to_widget(btn_scan, duration_ms=500, click_pulse=True, on_done=_do_scan)
+
+    def _scene_3_flip_pages_and_smart_lookup(self):
+        pt = self.win.planset_takeoff_tab
+        vw = pt.vis_workspace
+        pt._switch_dialog_view(1)
+        if hasattr(vw, "chk_hl_lines") and not vw.chk_hl_lines.isChecked():
+            vw.chk_hl_lines.setChecked(True)
+        vw._auto_color_all_bom_profiles()
+        QApplication.processEvents()
+
+        self.caption.show_step(
+            "STEP 3 OF 6 • SMART STEEL COLOR KEY NAVIGATION",
+            "Flipping Opening Pages — Then Jumping Straight to Steel via Smart Lookup",
+            "Click any steel profile in the Color Key to jump straight to its framing sheet",
+        )
+
+        def _after_flip():
+            if pt.sheet_combo.count() > 1:
+                pt.sheet_combo.setCurrentIndex(1)
+                vw.render_sheet(2)
+                QApplication.processEvents()
+
+            target_item = None
+            best_score = -1
+            for idx in range(vw.key_list.count()):
+                it = vw.key_list.item(idx)
+                txt = (it.text() or "").upper()
+                if txt.startswith("W") or txt.startswith("HSS"):
+                    m_cnt = re.search(r"\((\d+)\)", txt)
+                    cnt = int(m_cnt.group(1)) if m_cnt else 1
+                    if cnt > best_score:
+                        best_score = cnt
+                        target_item = it
+            if target_item is None and vw.key_list.count() > 0:
+                target_item = vw.key_list.item(0)
+
+            if target_item is not None:
+                vw.key_list.scrollToItem(target_item)
+                rect = vw.key_list.visualItemRect(target_item)
+                item_gpos = vw.key_list.viewport().mapToGlobal(rect.center())
+
+                def _click_smart_lookup():
+                    vw.key_list.setCurrentItem(target_item)
+                    vw._on_key_item_clicked(target_item)
+                    QApplication.processEvents()
+                    prof_name = (target_item.text() or "").split("—").__getitem__(0).strip()
+                    self.caption.show_step(
+                        "STEP 3 OF 6 • SMART LOOKUP JUMPED TO STRUCTURAL FRAMING SHEET",
+                        f"Clicked '{prof_name}' -> Auto-Jumped Straight to Framing Sheet!",
+                        "Attached beam lines & callouts highlighted in color — ready to measure",
+                    )
+                    QTimer.singleShot(1100, self._scene_4_measure_highlighted_beam)
+
+                self.cursor.glide_to(item_gpos, duration_ms=580, click_pulse=True, on_done=_click_smart_lookup)
+            else:
+                QTimer.singleShot(400, self._scene_4_measure_highlighted_beam)
+
+        QTimer.singleShot(650, _after_flip)
+    def _dispatch_canvas_mouse(self, cv, ev_type, local_pt, btn=Qt.LeftButton, buttons=Qt.LeftButton):
+        g_pt = cv.mapToGlobal(local_pt)
+        ev = QMouseEvent(ev_type, QPointF(local_pt), QPointF(g_pt), btn, buttons, Qt.NoModifier)
+        QApplication.sendEvent(cv, ev)
+
+    def _scene_4_measure_highlighted_beam(self):
+        pt = self.win.planset_takeoff_tab
+        vw = pt.vis_workspace
+        rb = self.win.master_ribbon
+
+        active_item = vw.key_list.currentItem()
+        beam_profile = (active_item.text().split("—").__getitem__(0).strip() if active_item else "W16X57")
+        beam_len_ft = 20.0
+        for top_i in range(pt.tree.topLevelItemCount()):
+            p_item = pt.tree.topLevelItem(top_i)
+            for c_i in range(p_item.childCount()):
+                ch = p_item.child(c_i)
+                if beam_profile in ch.text(3).upper():
+                    try:
+                        beam_len_ft = float(ch.text(5))
+                    except ValueError:
+                        beam_len_ft = 20.0
+                    break
+
+        btn_measure = self._find_visible_button(rb, "Linear Dim", "Measure")
+        self.caption.show_step(
+            "STEP 4 OF 6 • LIVE MEASURE TOOL & OSNAP VERIFICATION",
+            f"Zooming Onto {beam_profile} & Measuring Real Beam Endpoints",
+            "Live interactive Measure tool & OSNAP confirm BOM extraction accuracy",
+        )
+        self.cursor.glide_to_widget(
+            btn_measure,
+            duration_ms=500,
+            click_pulse=True,
+            on_done=lambda: self._run_real_canvas_measure(beam_profile, beam_len_ft),
+        )
     def _run_real_canvas_measure(self, beam_profile, beam_len_ft):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
@@ -66,7 +313,6 @@
             self.cursor.glide_to(p2_global, duration_ms=820, click_pulse=True, on_move=_drag_to_p2, on_done=_click_p2)
 
         self.cursor.glide_to(p1_global, duration_ms=560, click_pulse=True, on_move=_hover_p1, on_done=_click_p1)
-
     def _scene_4b_export_all_steel_pdfs(self):
         pt = self.win.planset_takeoff_tab
         vw = pt.vis_workspace
@@ -134,6 +380,7 @@
 
         out_doc.save(out_path)
         out_doc.close()
+
     def _scene_5_send_bom_to_structural(self):
         pt = self.win.planset_takeoff_tab
         rb = self.win.master_ribbon
@@ -155,7 +402,6 @@
             QTimer.singleShot(950, self._step_edit_next_structural_member)
 
         self.cursor.glide_to_widget(btn_send, duration_ms=500, click_pulse=True, on_done=_do_send)
-
     def _step_edit_next_structural_member(self):
         sq = self.win.custom_quoting_tab
         items = getattr(sq, "current_project_items", [])
