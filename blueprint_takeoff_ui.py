@@ -2514,7 +2514,8 @@ class VisualTakeoffWorkspace(QWidget):
         return self.window()
 
     def _auto_color_all_bom_profiles(self):
-        dlg = self.window()
+        win = self.window()
+        dlg = getattr(win, "planset_takeoff_tab", None) or win
         profs = []
         # 1. Collect from BOM tree (checked items first, or all items if none explicitly checked)
         if hasattr(dlg, "tree"):
@@ -2531,7 +2532,7 @@ class VisualTakeoffWorkspace(QWidget):
                             checked_profs.append(nm)
             profs.extend(checked_profs or all_tree_profs)
         # 2. Fallback / merge from active staged bom_items
-        for bi in (getattr(dlg, "bom_items", None) or getattr(dlg, "staged_bom_items", []) or []):
+        for bi in (getattr(self, "bom_items", None) or getattr(dlg, "bom_items", None) or getattr(dlg, "staged_bom_items", []) or []):
             nm = re.sub(r"\s+", "", str(bi.get("model") or bi.get("designation") or "").upper()).strip()
             if nm and nm not in profs:
                 profs.append(nm)
