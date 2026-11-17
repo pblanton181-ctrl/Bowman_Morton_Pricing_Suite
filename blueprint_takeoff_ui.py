@@ -1185,7 +1185,7 @@ class CadBlueprintCanvas(QLabel):
             self.update()
 
     def _draw_hanger_skew_diagram(self, p, qh1, qh2, qj, col, lw=2.0, font_pt=10):
-        # Carrying header / wall face line
+        # Carrying header / wall face line (Click 1 -> Click 2; Click 2 is the fixed T-pivot root)
         p.setPen(QPen(col, max(2.4, lw * 1.3), Qt.SolidLine, Qt.RoundCap))
         p.drawLine(qh1, qh2)
         vx, vy = float(qh2.x() - qh1.x()), float(qh2.y() - qh1.y())
@@ -1193,15 +1193,15 @@ class CadBlueprintCanvas(QLabel):
         if vlen < 2.0:
             return
         ux, uy = vx / vlen, vy / vlen
-        t_proj = ((qj.x() - qh1.x()) * ux + (qj.y() - qh1.y()) * uy)
-        qr = QPointF(qh1.x() + t_proj * ux, qh1.y() + t_proj * uy)
+        qr = QPointF(qh2)
         nx, ny = -uy, ux
         sx, sy = float(qj.x() - qr.x()), float(qj.y() - qr.y())
         if (sx * nx + sy * ny) < 0:
             nx, ny = -nx, -ny
-        slen = max(28.0, math.hypot(sx, sy))
-        dot_n = max(-1.0, min(1.0, (sx * nx + sy * ny) / max(1.0, math.hypot(sx, sy))))
-        cross_n = (nx * sy - ny * sx) / max(1.0, math.hypot(sx, sy))
+        raw_len = math.hypot(sx, sy)
+        slen = max(36.0, raw_len)
+        dot_n = max(-1.0, min(1.0, (sx * nx + sy * ny) / max(1.0, raw_len)))
+        cross_n = (nx * sy - ny * sx) / max(1.0, raw_len)
         skew_deg = math.degrees(math.acos(dot_n))
         if skew_deg < 1.0:
             skew_deg = 0.0
@@ -1210,29 +1210,29 @@ class CadBlueprintCanvas(QLabel):
         else:
             side = "RIGHT" if cross_n < 0 else "LEFT"
             lbl = f"SKEW {side} {skew_deg:.1f}°"
-            qj_draw = QPointF(qj)
+            qj_draw = QPointF(qj) if raw_len >= 36.0 else QPointF(qr.x() + (sx / max(1.0, raw_len)) * slen, qr.y() + (sy / max(1.0, raw_len)) * slen)
 
-        # Dashed 0° STD (90° perpendicular) centerline extending past the joist stem
+        # Dashed 0° STD (90° perpendicular) T-square reference centerline
         q_norm_end = QPointF(qr.x() + nx * (slen * 1.15), qr.y() + ny * (slen * 1.15))
         p.setPen(QPen(QColor("#16a34a"), max(1.4, lw * 0.8), Qt.DashLine))
         p.drawLine(qr, q_norm_end)
 
-        # Swung joist/hanger centerline stem
+        # Swung joist/hanger stem line ("I") pivoting cleanly around Click 2
         p.setPen(QPen(col, max(2.2, lw * 1.1), Qt.SolidLine, Qt.RoundCap))
         p.drawLine(qr, qj_draw)
 
-        # Simpson-style curved skew dimension arc between 0° normal and swung joist stem
+        # Simpson-style curved skew dimension arc between 0° normal and swung stem
         arc_r = min(slen * 0.72, 68.0)
         if skew_deg >= 1.0 and arc_r > 12.0:
             a_norm = math.degrees(math.atan2(-ny, nx))
             a_joist = math.degrees(math.atan2(-(qj_draw.y() - qr.y()), qj_draw.x() - qr.x()))
             span = (a_joist - a_norm + 540.0) % 360.0 - 180.0
             p.setBrush(Qt.NoBrush)
-            p.setPen(QPen(QColor("#0284c7"), max(1.5, lw * 0.85), Qt.SolidLine))
+            p.setPen(QPen(QColor("#0284c7"), max(1.6, lw * 0.9), Qt.SolidLine))
             arc_rect = QRectF(qr.x() - arc_r, qr.y() - arc_r, arc_r * 2.0, arc_r * 2.0)
             p.drawArc(arc_rect, int(round(a_norm * 16)), int(round(span * 16)))
 
-        # Clean, uncramped readout pill offset cleanly beyond the joist tip
+        # Crisp readout pill offset beyond the stem tip
         p.setFont(QFont("Segoe UI", max(10, font_pt), QFont.Bold))
         fm = p.fontMetrics()
         tw = fm.horizontalAdvance(lbl) + 22
@@ -1741,7 +1741,7 @@ class CadBlueprintCanvas(QLabel):
                 p.drawLine(qh1, qh2)
                 p.setFont(QFont("Segoe UI", 9, QFont.Bold))
                 p.setPen(QColor("#0369a1"))
-                p.drawText(int(qh2.x() + 12), int(qh2.y() - 8), "Click 2: Finish carrying header / wall line")
+                p.drawText(int(qh2.x() + 12), int(qh2.y() - 8), "Click 2: Set T-pivot point on header / wall")
             elif len(self._skew_pts) == 2:
                 p_a, p_b = self._skew_pts[0], self._skew_pts[1]
                 qh1 = self._from_pdf_pt(p_a[0], p_a[1])
