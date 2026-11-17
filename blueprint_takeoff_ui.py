@@ -60,7 +60,10 @@ class CadBlueprintCanvas(QLabel):
         self._drag_start = None
         self._drag_cur = None
         self._p1 = None
+        self._p1_pdf = None
         self._p2 = None
+        self._rclick_start = None
+        self._rclick_moved = False
         self._poly_pts = []
         self._free_pts = []
         self._hover_pt = None
@@ -252,6 +255,7 @@ class CadBlueprintCanvas(QLabel):
         self._drag_start = None
         self._drag_cur = None
         self._p1 = None
+        self._p1_pdf = None
         self._p2 = None
         self._pline_pts.clear()
         self._poly_pts.clear()
@@ -290,11 +294,20 @@ class CadBlueprintCanvas(QLabel):
             self.update()
 
     def contextMenuEvent(self, ev):
-        if not getattr(self, "_rclick_moved", False):
-            self._show_canvas_context_menu(ev.globalPos(), ev.pos())
+        if getattr(self, "_rclick_moved", False):
+            self._rclick_moved = False
             ev.accept()
             return
-        super().contextMenuEvent(ev)
+        if self.mode in ("measure", "calibrate") and self._p1_pdf is not None:
+            self._p1_pdf = None
+            self._p1 = None
+            self._p2 = None
+            self._hide_hud_boxes()
+            self.update()
+            ev.accept()
+            return
+        self._show_canvas_context_menu(ev.globalPos(), ev.pos())
+        ev.accept()
 
     def _show_canvas_context_menu(self, global_pos, local_pos):
         from PySide6.QtWidgets import QMenu, QColorDialog, QInputDialog
@@ -439,6 +452,7 @@ class CadBlueprintCanvas(QLabel):
         self.selected_idx = -1
         self.selected_indices.clear()
         self._p1 = None
+        self._p1_pdf = None
         self._p2 = None
         if self.on_count_changed:
             self.on_count_changed(0)
@@ -720,7 +734,7 @@ class CadBlueprintCanvas(QLabel):
             if self.mode == "polyline":
                 self._finish_polyline(close_loop=False)
             else:
-                self._p1 = None; self._p2 = None; self.update()
+                self._p1 = None; self._p1_pdf = None; self._p2 = None; self.update()
             return
         try:
             x1, y1 = self._to_pdf_pt(active_p0)
@@ -741,7 +755,7 @@ class CadBlueprintCanvas(QLabel):
                 return
             if self.mode == "measure":
                 self.markups.append({"type": "span", "x1": x1, "y1": y1, "x2": x2, "y2": y2, "label": self._format_ft_in(val_ft), "ft": val_ft, "color": QColor(self.active_color), "line_width": float(self.active_line_width), "font_size": int(self.font_size)})
-                self.on_span_measured(val_ft); self._p1 = None; self._p2 = None
+                self.on_span_measured(val_ft); self._p1 = None; self._p1_pdf = None; self._p2 = None
             else:
                 self.markups.append({"type": self.mode, "x1": x1, "y1": y1, "x2": x2, "y2": y2, "color": QColor(self.active_color), "line_width": float(self.active_line_width)})
                 self.selected_idx = len(self.markups) - 1
@@ -838,7 +852,7 @@ class CadBlueprintCanvas(QLabel):
         if ev.button() == Qt.RightButton and self.mode == "hanger_skew" and self._skew_pts:
             self._skew_pts.clear(); self.update(); ev.accept(); return
         if ev.button() == Qt.RightButton and self.mode in ("line", "dashed", "centerline", "arrow") and self._p1 is not None:
-            self._p1 = None; self._p2 = None; self._dyn_input_buf = ""; self._dyn_ang_buf = ""; self.update(); ev.accept(); return
+            self._p1 = None; self._p1_pdf = None; self._p2 = None; self._dyn_input_buf = ""; self._dyn_ang_buf = ""; self.update(); ev.accept(); return
         if ev.button() == Qt.RightButton and self.mode == "area" and len(self._poly_pts) >= 3:
             self._finish_area_polygon()
             ev.accept()
@@ -865,6 +879,9 @@ class CadBlueprintCanvas(QLabel):
         if btn == Qt.LeftButton and self.mode == "pan" and self._hit_test_markup(pos) >= 0:
             pass
         elif btn in (Qt.MiddleButton, Qt.RightButton) or (btn == Qt.LeftButton and self.mode == "pan"):
+            if btn == Qt.RightButton:
+                self._rclick_start = gpos
+                self._rclick_moved = False
             self._panning = True
             self._pan_origin = gpos
             self.setCursor(Qt.ClosedHandCursor)
@@ -1023,23 +1040,28 @@ class CadBlueprintCanvas(QLabel):
             self.update()
             return
         elif self.mode in ("measure", "calibrate"):
-            if self._p1 is None or self._p2 is not None:
+            if self._p1_pdf is None:
+                self._p1_pdf = self._to_pdf_pt(pos)
                 self._p1 = pos
                 self._p2 = None
             else:
-                self._p2 = self._snap_ortho(self._p1, pos, shift_held)
-                x1, y1 = self._to_pdf_pt(self._p1)
+                p1_cur = self._from_pdf_pt(*self._p1_pdf)
+                self._p2 = self._snap_ortho(p1_cur, pos, shift_held)
+                x1, y1 = self._p1_pdf
                 x2, y2 = self._to_pdf_pt(self._p2)
                 pdf_pts = math.hypot(x2 - x1, y2 - y1)
                 if self.mode == "calibrate":
                     if self.on_calibrated and pdf_pts > 5.0:
                         self.on_calibrated(pdf_pts)
                 else:
-                    import bom_pdf_engine as _eng; dist_ft = _eng.round_structural_ft(pdf_pts / max(1.0, self.pts_per_ft))
+                    import bom_pdf_engine as _eng
+                    dist_ft = _eng.round_structural_ft(pdf_pts / max(1.0, self.pts_per_ft))
                     self.markups.append({"type": "span", "x1": x1, "y1": y1, "x2": x2, "y2": y2, "label": self._format_ft_in(dist_ft), "ft": dist_ft, "color": QColor(self.active_color), "line_width": float(self.active_line_width), "font_size": int(self.font_size)})
                     self.on_span_measured(dist_ft)
+                self._p1_pdf = None
                 self._p1 = None
                 self._p2 = None
+                self._hide_hud_boxes()
         self.update()
 
     def mouseMoveEvent(self, ev):
@@ -1049,7 +1071,10 @@ class CadBlueprintCanvas(QLabel):
         shift_held = bool(ev.modifiers() & Qt.ShiftModifier) or getattr(self, 'ortho_lock', False)
         if self.mode == "polyline" and self._pline_pts:
             self._hover_pt = pos if getattr(self, "_snap_badge_pt", None) is not None else self._snap_ortho(self._from_pdf_pt(*self._pline_pts[-1]), pos, shift_held)
-        elif self.mode in ("measure", "calibrate", "line", "dashed", "centerline", "arrow") and self._p1:
+        elif self.mode in ("measure", "calibrate") and self._p1_pdf is not None:
+            self._p1 = self._from_pdf_pt(*self._p1_pdf)
+            self._hover_pt = self._snap_ortho(self._p1, pos, shift_held)
+        elif self.mode in ("line", "dashed", "centerline", "arrow") and self._p1:
             self._hover_pt = self._snap_ortho(self._p1, pos, shift_held)
         else:
             self._hover_pt = pos
@@ -1096,10 +1121,14 @@ class CadBlueprintCanvas(QLabel):
             return
 
         if self._panning and self._pan_origin is not None and self.scroll_area:
+            if self._rclick_start is not None and (gpos - self._rclick_start).manhattanLength() > 4:
+                self._rclick_moved = True
             diff = gpos - self._pan_origin
             self._pan_origin = gpos
             self.scroll_area.horizontalScrollBar().setValue(self.scroll_area.horizontalScrollBar().value() - diff.x())
             self.scroll_area.verticalScrollBar().setValue(self.scroll_area.verticalScrollBar().value() - diff.y())
+            if self._p1_pdf is not None:
+                self._p1 = self._from_pdf_pt(*self._p1_pdf)
             ev.accept()
             return
 
@@ -1328,7 +1357,7 @@ class CadBlueprintCanvas(QLabel):
                     self._finish_polyline(close_loop=False)
                 elif self.mode == "area" and len(getattr(self, "_poly_pts", [])) >= 3:
                     self._finish_area_polygon()
-                self._p1 = None; self._p2 = None; self._skew_pts.clear()
+                self._p1 = None; self._p1_pdf = None; self._p2 = None; self._skew_pts.clear()
                 self._hide_hud_boxes()
                 self.update(); ev.accept(); return
             if ev.key() == Qt.Key_Backspace and not self._dyn_input_buf and not self._dyn_ang_buf:
@@ -1337,10 +1366,10 @@ class CadBlueprintCanvas(QLabel):
                 elif getattr(self, "_skew_pts", []):
                     self._skew_pts.pop()
                 else:
-                    self._p1 = None; self._p2 = None; self._hide_hud_boxes()
+                    self._p1 = None; self._p1_pdf = None; self._p2 = None; self._hide_hud_boxes()
                 self.update(); ev.accept(); return
             if ev.key() in (Qt.Key_Escape, Qt.Key_Delete):
-                self._pline_pts.clear(); self._p1 = None; self._p2 = None; self._drag_start = None; self._drag_cur = None
+                self._pline_pts.clear(); self._p1 = None; self._p1_pdf = None; self._p2 = None; self._drag_start = None; self._drag_cur = None
                 if hasattr(self, "_skew_pts"):
                     self._skew_pts.clear()
                 self._hide_hud_boxes()
@@ -1379,7 +1408,7 @@ class CadBlueprintCanvas(QLabel):
                         self.update(); ev.accept(); return
                     if self.mode == "measure":
                         self.markups.append({"type": "span", "x1": x1, "y1": y1, "x2": x2, "y2": y2, "label": self._format_ft_in(val_ft), "ft": val_ft, "color": QColor(self.active_color), "line_width": float(self.active_line_width), "font_size": int(self.font_size)})
-                        self.on_span_measured(val_ft); self._p1 = None; self._p2 = None
+                        self.on_span_measured(val_ft); self._p1 = None; self._p1_pdf = None; self._p2 = None
                     else:
                         self.markups.append({"type": self.mode, "x1": x1, "y1": y1, "x2": x2, "y2": y2, "color": QColor(self.active_color), "line_width": float(self.active_line_width)})
                         self._drag_start = None; self._drag_cur = None
@@ -1703,7 +1732,8 @@ class CadBlueprintCanvas(QLabel):
                 deg = math.degrees(math.atan2(dy_a, max(1.0, dx_a)))
                 pitch = (dy_a / max(1.0, dx_a)) * 12.0
                 p.drawText(self._drag_cur.x() + 8, self._drag_cur.y() - 6, f"{deg:.1f} deg | {pitch:.1f}:12")
-        elif self.mode in ("measure", "calibrate") and self._p1 and self._hover_pt:
+        elif self.mode in ("measure", "calibrate") and self._p1_pdf is not None and self._hover_pt:
+            self._p1 = self._from_pdf_pt(*self._p1_pdf)
             x1, y1 = self._to_pdf_pt(self._p1)
             x2, y2 = self._to_pdf_pt(self._hover_pt)
             pts_d = math.hypot(x2 - x1, y2 - y1)
