@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPixmap
 from blueprint_takeoff_ui import CadBlueprintCanvas
@@ -59,6 +59,8 @@ def test_full_manufacturing_app_pressure(qtbot):
     # 2. Pressure test Catalog compute + Edit Selected Item back to left panel
     win.data_core.rfq_ledger_items.clear()
     win.entry_manual_1.setText("2")
+    if hasattr(win, "entry_manual_2"):
+        win.entry_manual_2.setText("10")
     win.calculate_standalone_pricing()
     assert len(win.data_core.rfq_ledger_items) == 1
     win.std_ledger_tree.setCurrentItem(win.std_ledger_tree.topLevelItem(0))
