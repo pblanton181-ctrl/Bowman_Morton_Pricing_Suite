@@ -2526,7 +2526,7 @@ class VisualTakeoffWorkspace(QWidget):
                     for p_idx in range(len(self._doc)):
                         pg_i = self._doc.load_page(p_idx)
                         mx_i = float(pg_i.rect.width) * 0.72
-                        tot_vec += sum(1 for wx0, _, _, _, wstr, *_ in self._get_cached_page_words(i) if wx0 < mx_i and re.sub(r"\s+", "", wstr.upper()) == p_key)
+                        tot_vec += sum(1 for wx0, _, _, _, wstr, *_ in self._get_cached_page_words(pg_i.number) if wx0 < mx_i and re.sub(r"\s+", "", wstr.upper()) == p_key)
                     counts[p_key] = tot_vec
 
         self.canvas.set_color_key_overlays(highlights, [(p, eff_key[p], counts.get(p, 0)) for p in eff_key])
