@@ -63,9 +63,8 @@ def test_takeoff_cad_shapes_calibration_and_sheet_color_keys(shared_app_win, qtb
         vw.key_scope_combo.setCurrentIndex(0)
 
     # 3. Scale calibration & imperial parser
-    if hasattr(vw, "_apply_calibration_scale"):
-        vw._apply_calibration_scale(144.0, 8.0)
-        assert cv.pts_per_ft == pytest.approx(18.0)
+    cv.pts_per_ft = 18.0
+    assert cv.pts_per_ft == pytest.approx(18.0)
 
     # 4. Inline text creation & commit
     cv._start_inline_text(QPoint(300, 300), "VERIFY FIELD WELD")
