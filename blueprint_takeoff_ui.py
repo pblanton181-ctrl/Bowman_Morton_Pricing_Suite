@@ -1185,7 +1185,8 @@ class CadBlueprintCanvas(QLabel):
             self.update()
 
     def _draw_hanger_skew_diagram(self, p, qh1, qh2, qj, col, lw=2.0, font_pt=10):
-        p.setPen(QPen(col, max(2.2, lw * 1.25), Qt.SolidLine, Qt.RoundCap))
+        # Carrying header / wall face line
+        p.setPen(QPen(col, max(2.4, lw * 1.3), Qt.SolidLine, Qt.RoundCap))
         p.drawLine(qh1, qh2)
         vx, vy = float(qh2.x() - qh1.x()), float(qh2.y() - qh1.y())
         vlen = math.hypot(vx, vy)
@@ -1198,42 +1199,51 @@ class CadBlueprintCanvas(QLabel):
         sx, sy = float(qj.x() - qr.x()), float(qj.y() - qr.y())
         if (sx * nx + sy * ny) < 0:
             nx, ny = -nx, -ny
-        slen = max(12.0, math.hypot(sx, sy))
-        dot_n = max(-1.0, min(1.0, (sx * nx + sy * ny) / slen))
-        cross_n = (nx * sy - ny * sx) / slen
+        slen = max(28.0, math.hypot(sx, sy))
+        dot_n = max(-1.0, min(1.0, (sx * nx + sy * ny) / max(1.0, math.hypot(sx, sy))))
+        cross_n = (nx * sy - ny * sx) / max(1.0, math.hypot(sx, sy))
         skew_deg = math.degrees(math.acos(dot_n))
         if skew_deg < 1.0:
             skew_deg = 0.0
             lbl = "0.0° STD (90°)"
             qj_draw = QPointF(qr.x() + nx * slen, qr.y() + ny * slen)
         else:
-            side = "RIGHT" if cross_n > 0 else "LEFT"
+            side = "RIGHT" if cross_n < 0 else "LEFT"
             lbl = f"SKEW {side} {skew_deg:.1f}°"
             qj_draw = QPointF(qj)
 
-        q_norm_end = QPointF(qr.x() + nx * slen, qr.y() + ny * slen)
-        p.setPen(QPen(QColor("#16a34a"), max(1.3, lw * 0.75), Qt.DashLine))
+        # Dashed 0° STD (90° perpendicular) centerline extending past the joist stem
+        q_norm_end = QPointF(qr.x() + nx * (slen * 1.15), qr.y() + ny * (slen * 1.15))
+        p.setPen(QPen(QColor("#16a34a"), max(1.4, lw * 0.8), Qt.DashLine))
         p.drawLine(qr, q_norm_end)
 
-        sq = min(11.0, slen * 0.22)
-        p.drawPolyline([
-            QPointF(qr.x() + ux * sq, qr.y() + uy * sq),
-            QPointF(qr.x() + ux * sq + nx * sq, qr.y() + uy * sq + ny * sq),
-            QPointF(qr.x() + nx * sq, qr.y() + ny * sq),
-        ])
-
-        p.setPen(QPen(col, max(2.0, lw), Qt.SolidLine, Qt.RoundCap))
+        # Swung joist/hanger centerline stem
+        p.setPen(QPen(col, max(2.2, lw * 1.1), Qt.SolidLine, Qt.RoundCap))
         p.drawLine(qr, qj_draw)
 
+        # Simpson-style curved skew dimension arc between 0° normal and swung joist stem
+        arc_r = min(slen * 0.72, 68.0)
+        if skew_deg >= 1.0 and arc_r > 12.0:
+            a_norm = math.degrees(math.atan2(-ny, nx))
+            a_joist = math.degrees(math.atan2(-(qj_draw.y() - qr.y()), qj_draw.x() - qr.x()))
+            span = (a_joist - a_norm + 540.0) % 360.0 - 180.0
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor("#0284c7"), max(1.5, lw * 0.85), Qt.SolidLine))
+            arc_rect = QRectF(qr.x() - arc_r, qr.y() - arc_r, arc_r * 2.0, arc_r * 2.0)
+            p.drawArc(arc_rect, int(round(a_norm * 16)), int(round(span * 16)))
+
+        # Clean, uncramped readout pill offset cleanly beyond the joist tip
         p.setFont(QFont("Segoe UI", max(10, font_pt), QFont.Bold))
         fm = p.fontMetrics()
-        tw = fm.horizontalAdvance(lbl) + 24
-        th = fm.height() + 10
-        bx = int(qj_draw.x() + 14)
-        by = int(qj_draw.y() - th // 2)
+        tw = fm.horizontalAdvance(lbl) + 22
+        th = fm.height() + 8
+        dir_x = (qj_draw.x() - qr.x()) / max(1.0, slen)
+        dir_y = (qj_draw.y() - qr.y()) / max(1.0, slen)
+        bx = int(qj_draw.x() + dir_x * 16 - (tw if dir_x < -0.2 else 0))
+        by = int(qj_draw.y() + dir_y * 16 - th // 2)
         badge_r = QRect(bx, by, tw, th)
-        p.setBrush(QColor(15, 23, 42, 235))
-        p.setPen(QPen(QColor("#38bdf8" if skew_deg > 0 else "#22c55e"), 1.5))
+        p.setBrush(QColor(15, 23, 42, 238))
+        p.setPen(QPen(QColor("#38bdf8" if skew_deg > 0 else "#22c55e"), 1.6))
         p.drawRoundedRect(badge_r, 4, 4)
         p.setPen(QColor("#f8fafc"))
         p.drawText(badge_r, Qt.AlignCenter, lbl)
