@@ -1293,14 +1293,34 @@ class CadBlueprintCanvas(QLabel):
         if self._inline_editor.isVisible():
             super().keyPressEvent(ev)
             return
-        if self.mode == "polyline" and self._pline_pts:
-            if ev.key() == Qt.Key_C and len(self._pline_pts) >= 3:
+        is_active_draw = (
+            (self.mode == "polyline" and bool(self._pline_pts))
+            or (self.mode in ("line", "dashed", "centerline", "arrow", "measure", "calibrate") and self._p1 is not None)
+            or (self.mode == "hanger_skew" and bool(getattr(self, "_skew_pts", [])))
+        )
+        if is_active_draw:
+            if ev.key() == Qt.Key_C and self.mode == "polyline" and len(self._pline_pts) >= 3:
                 self._finish_polyline(close_loop=True); ev.accept(); return
-            if ev.key() in (Qt.Key_Return, Qt.Key_Enter) and not self._dyn_input_buf and not self._dyn_ang_buf:
-                self._finish_polyline(close_loop=False); ev.accept(); return
-            if ev.key() == Qt.Key_Escape:
+            if ev.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space) and not self._dyn_input_buf and not self._dyn_ang_buf:
+                if self.mode == "polyline":
+                    self._finish_polyline(close_loop=False)
+                self._p1 = None; self._p2 = None; self._skew_pts.clear()
+                self._hide_hud_boxes()
+                self.update(); ev.accept(); return
+            if ev.key() == Qt.Key_Backspace and not self._dyn_input_buf and not self._dyn_ang_buf:
+                if self.mode == "polyline" and self._pline_pts:
+                    self._pline_pts.pop()
+                elif getattr(self, "_skew_pts", []):
+                    self._skew_pts.pop()
+                else:
+                    self._p1 = None; self._p2 = None; self._hide_hud_boxes()
+                self.update(); ev.accept(); return
+            if ev.key() in (Qt.Key_Escape, Qt.Key_Delete):
                 self._pline_pts.clear(); self._p1 = None; self._p2 = None; self._drag_start = None; self._drag_cur = None
-                self._dyn_input_buf = ""; self._dyn_ang_buf = ""; self._dyn_field = "len"; self.update(); ev.accept(); return
+                if hasattr(self, "_skew_pts"):
+                    self._skew_pts.clear()
+                self._hide_hud_boxes()
+                self.update(); ev.accept(); return
 
         active_p0 = (self._from_pdf_pt(*self._pline_pts[-1]) if (self.mode == "polyline" and self._pline_pts) else (self._p1 or self._drag_start))
         active_p1 = self._hover_pt or self._drag_cur
@@ -1714,7 +1734,7 @@ class CadBlueprintCanvas(QLabel):
             p.drawLine(self._p1, hp)
         if self.mode == "hanger_skew" and self._skew_pts and self._hover_pt is not None:
             if len(self._skew_pts) == 1:
-                qh1 = self._from_pdf_pt(*self._skew_pts[0])
+                qh1 = self._from_pdf_pt(self._skew_pts[0][0], self._skew_pts[0][1])
                 qh2 = self._snap_ortho(qh1, self._hover_pt, getattr(self, "ortho_lock", False))
                 p.setPen(QPen(self.active_color, max(2.2, float(self.active_line_width) * self.zoom), Qt.SolidLine))
                 p.drawLine(qh1, qh2)
@@ -1722,8 +1742,8 @@ class CadBlueprintCanvas(QLabel):
                 p.setPen(QColor("#0369a1"))
                 p.drawText(int(qh2.x() + 12), int(qh2.y() - 8), "Click 2: Finish carrying header / wall line")
             elif len(self._skew_pts) == 2:
-                qh1 = self._from_pdf_pt(*self._skew_pts[0])
-                qh2 = self._from_pdf_pt(*self._skew_pts[1])
+                qh1 = self._from_pdf_pt(self._skew_pts[0][0], self._skew_pts[0][1])
+                qh2 = self._from_pdf_pt(self._skew_pts[1][0], self._skew_pts[1][1])
                 self._draw_hanger_skew_diagram(p, qh1, qh2, self._hover_pt, self.active_color, lw=max(2.2, float(self.active_line_width) * self.zoom), font_pt=10)
         if self.mode == "area" and self._poly_pts:
             qpts = [self._from_pdf_pt(px, py) for px, py in self._poly_pts]
