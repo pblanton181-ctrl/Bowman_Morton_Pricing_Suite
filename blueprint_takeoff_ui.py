@@ -601,19 +601,28 @@ class CadBlueprintCanvas(QLabel):
         deg = (-math.degrees(math.atan2(y2 - y1, x2 - x1))) % 360.0
         if deg > 180.0:
             deg -= 360.0
+
+        # Position the two sleek dark CAD boxes cleanly near the midpoint & cursor
         mx, my = int((hud_p0.x() + hud_p1.x()) * 0.5), int((hud_p0.y() + hud_p1.y()) * 0.5)
-        self._hud_len_edit.setFixedWidth(84)
-        self._hud_len_edit.move(max(4, mx - 42), max(4, my - 28))
+        self._hud_len_edit.setFixedSize(88, 22)
+        self._hud_len_edit.move(max(4, mx - 44), max(4, my - 30))
         if not self._dyn_input_buf:
-            self._hud_len_edit.setPlaceholderText(self._format_ft_in(dist_ft))
+            self._hud_len_edit.blockSignals(True)
+            self._hud_len_edit.setText(self._format_ft_in(dist_ft))
+            self._hud_len_edit.selectAll()
+            self._hud_len_edit.blockSignals(False)
         if not self._hud_len_edit.isVisible():
             self._hud_len_edit.show()
             self._hud_len_edit.setFocus()
+            self._hud_len_edit.selectAll()
 
-        self._hud_ang_edit.setFixedWidth(68)
-        self._hud_ang_edit.move(min(self.width() - 74, int(hud_p1.x()) + 14), min(self.height() - 26, int(hud_p1.y()) + 10))
+        self._hud_ang_edit.setFixedSize(72, 22)
+        self._hud_ang_edit.move(min(self.width() - 78, int(hud_p1.x()) + 14), min(self.height() - 28, int(hud_p1.y()) + 10))
         if not self._dyn_ang_buf:
-            self._hud_ang_edit.setPlaceholderText(f"{deg:.1f}°")
+            self._hud_ang_edit.blockSignals(True)
+            self._hud_ang_edit.setText(f"{deg:.1f}°")
+            self._hud_ang_edit.selectAll()
+            self._hud_ang_edit.blockSignals(False)
         if not self._hud_ang_edit.isVisible():
             self._hud_ang_edit.show()
 
@@ -622,16 +631,21 @@ class CadBlueprintCanvas(QLabel):
         active_p1 = self._hover_pt or self._drag_cur
         if not active_p0 or not active_p1:
             return
-        if self.mode == "polyline" and not self._dyn_input_buf and not self._dyn_ang_buf:
+        if self.mode in ("polyline", "line", "dashed", "centerline") and not self._dyn_input_buf and not self._dyn_ang_buf:
             self._hide_hud_boxes()
-            self._finish_polyline(close_loop=False)
+            if self.mode == "polyline":
+                self._finish_polyline(close_loop=False)
+            else:
+                self._p1 = None; self._p2 = None; self.update()
             return
         try:
             x1, y1 = self._to_pdf_pt(active_p0)
             x2_raw, y2_raw = self._to_pdf_pt(active_p1)
             ppf = max(1.0, self.pts_per_ft)
-            val_ft = float(self._dyn_input_buf) if self._dyn_input_buf else (math.hypot(x2_raw - x1, y2_raw - y1) / ppf)
-            ang = -math.radians(float(self._dyn_ang_buf)) if self._dyn_ang_buf else math.atan2(y2_raw - y1, x2_raw - x1)
+            raw_len = re.sub(r"[^0-9.\-]", "", self._dyn_input_buf or "")
+            raw_ang = re.sub(r"[^0-9.\-]", "", self._dyn_ang_buf or "")
+            val_ft = float(raw_len) if raw_len else (math.hypot(x2_raw - x1, y2_raw - y1) / ppf)
+            ang = -math.radians(float(raw_ang)) if raw_ang else math.atan2(y2_raw - y1, x2_raw - x1)
             self._hide_hud_boxes()
             dist_pts = val_ft * ppf
             x2, y2 = x1 + dist_pts * math.cos(ang), y1 + dist_pts * math.sin(ang)
@@ -646,9 +660,15 @@ class CadBlueprintCanvas(QLabel):
                 self.on_span_measured(val_ft); self._p1 = None; self._p2 = None
             else:
                 self.markups.append({"type": self.mode, "x1": x1, "y1": y1, "x2": x2, "y2": y2, "color": QColor(self.active_color), "line_width": float(self.active_line_width)})
+                self.selected_idx = len(self.markups) - 1
+                if self.mode == "arrow":
+                    self._p1 = None
+                else:
+                    nxt = self._from_pdf_pt(x2, y2)
+                    self._p1 = nxt
+                    self._hover_pt = nxt
+                    self._update_hud_boxes(nxt, nxt)
                 self._drag_start = None; self._drag_cur = None
-            self.selected_idx = len(self.markups) - 1
-            self.setFocus()
             self.update()
         except ValueError:
             self._hide_hud_boxes()
@@ -1552,9 +1572,13 @@ class CadBlueprintCanvas(QLabel):
             x1, y1 = self._to_pdf_pt(hud_p0)
             x2, y2 = self._to_pdf_pt(hud_p1)
             deg = abs(math.degrees(math.atan2(-(y2 - y1), x2 - x1))) % 180.0
-            if any(abs(deg - a) < 1.5 for a in (0.0, 45.0, 90.0, 135.0, 180.0)):
-                p.setPen(QPen(QColor(22, 163, 74, 150), 1.0, Qt.DashLine))
-                p.drawLine(hud_p0, hud_p1)
+            if any(abs(deg - a) < 3.5 for a in (0.0, 45.0, 90.0, 135.0, 180.0)):
+                p.setPen(QPen(QColor(22, 163, 74, 180), 1.2, Qt.DashLine))
+                vx, vy = float(hud_p1.x() - hud_p0.x()), float(hud_p1.y() - hud_p0.y())
+                vlen = math.hypot(vx, vy)
+                if vlen > 1.0:
+                    ux, uy = vx / vlen, vy / vlen
+                    p.drawLine(QPointF(hud_p0), QPointF(hud_p0.x() + ux * 2400.0, hud_p0.y() + uy * 2400.0))
             self._update_hud_boxes(hud_p0, hud_p1)
         elif hasattr(self, "_hud_len_edit") and self._hud_len_edit.isVisible():
             self._hide_hud_boxes()
