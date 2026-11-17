@@ -1,16 +1,11 @@
 [run]
-source =
-    live_test.py
-    blueprint_takeoff_ui.py
-    custom_quoting_module.py
-    ribbon_bar_widget.py
-    bom_pdf_engine.py
-    bom_summary_panel.py
-    core
-    ui
+source = .
 omit =
     *_backup*
     *_pre_unify*
     _archive_backups/*
     archive_baks/*
     tests/*
+    test_quoting.py
+    patch_suite.py
+    New Text Document.py
