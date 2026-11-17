@@ -560,6 +560,19 @@ class CadBlueprintCanvas(QLabel):
         if not getattr(self, "endpoint_snap", True):
             return qpt
 
+        # Prioritize exact endpoints of highlighted steel beam segments so Measure matches BOM 1:1
+        beam_eps = []
+        for hl in getattr(self, "key_highlights", []):
+            seg = hl.get("seg")
+            if seg and len(seg) == 4:
+                sx1, sy1, sx2, sy2 = seg
+                beam_eps.extend([self._from_pdf_pt(sx1, sy1), self._from_pdf_pt(sx2, sy2)])
+        for bep in beam_eps:
+            if math.hypot(qpt.x() - bep.x(), qpt.y() - bep.y()) <= 24.0:
+                self._snap_badge_pt = bep
+                self._snap_kind = "endpoint"
+                return bep
+
         endpoints = [self._from_pdf_pt(px, py) for px, py in getattr(self, "pdf_snap_endpoints", [])]
         midpoints = [self._from_pdf_pt(px, py) for px, py in getattr(self, "pdf_snap_midpoints", [])]
         for m in self.markups:
