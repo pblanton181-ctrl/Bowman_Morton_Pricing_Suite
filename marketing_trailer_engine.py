@@ -28,8 +28,13 @@ class WindowVideoRecorder:
         self._running = False
         self._thread = None
         self.frame_count = 0
+        self.mon = {"left": 0, "top": 0, "width": 1920, "height": 1080}
     def start(self):
         os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
+        geo = self.target.frameGeometry()
+        w = max(640, (geo.width() // 2) * 2)
+        h = max(480, (geo.height() // 2) * 2)
+        self.mon = {"left": max(0, int(geo.x())), "top": max(0, int(geo.y())), "width": int(w), "height": int(h)}
         self._running = True
         self._thread = threading.Thread(target=self._record_loop, daemon=True)
         self._thread.start()
@@ -41,15 +46,11 @@ class WindowVideoRecorder:
     def _record_loop(self):
         dt = 1.0 / max(1, self.fps)
         writer = None
-        with mss.mss() as sct:
+        with mss.MSS() as sct:
             while self._running:
                 t0 = time.perf_counter()
                 try:
-                    geo = self.target.frameGeometry()
-                    w = max(640, (geo.width() // 2) * 2)
-                    h = max(480, (geo.height() // 2) * 2)
-                    mon = {"left": max(0, geo.x()), "top": max(0, geo.y()), "width": w, "height": h}
-                    raw = sct.grab(mon)
+                    raw = sct.grab(self.mon)
                     frame = np.asarray(raw)[:, :, :3][:, :, ::-1]
                     if writer is None:
                         writer = imageio.get_writer(
@@ -162,7 +163,13 @@ class MarketingTrailerDirector:
             "Loading Multi-Sheet Structural PDF",
             os.path.basename(self.pdf_path),
         )
-        pt.load_new_pdf_planset(self.pdf_path)
+        from PySide6.QtWidgets import QFileDialog
+        orig_open = QFileDialog.getOpenFileName
+        QFileDialog.getOpenFileName = lambda *a, **k: (self.pdf_path, "PDF Files (*.pdf)")
+        try:
+            pt.load_new_pdf_planset()
+        finally:
+            QFileDialog.getOpenFileName = orig_open
         QTimer.singleShot(1800, self._scene_2_scan_bom)
     def _scene_2_scan_bom(self):
         pt = self.win.planset_takeoff_tab
