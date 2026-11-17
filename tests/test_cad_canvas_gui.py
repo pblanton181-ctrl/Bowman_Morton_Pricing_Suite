@@ -91,3 +91,21 @@ def test_full_manufacturing_app_pressure(qtbot, monkeypatch):
     no_hw_count = len(card.addon_rows)
     assert with_hw_count >= no_hw_count
     win.close()
+
+
+def test_full_window_canvas_select_floating_toolbar(qtbot):
+    win = live_test.StandaloneManufacturingApp()
+    qtbot.addWidget(win)
+    win.show()
+    cv = win.planset_takeoff_tab.vis_workspace.canvas
+    pm = QPixmap(800, 600)
+    pm.fill(Qt.white)
+    cv._base_pix = pm
+    cv.setPixmap(pm)
+    cv.mode = "line"
+    qtbot.mouseClick(cv, Qt.LeftButton, pos=QPoint(120, 120))
+    qtbot.mouseClick(cv, Qt.LeftButton, pos=QPoint(280, 120))
+    cv.mode = "select"
+    qtbot.mouseClick(cv, Qt.LeftButton, pos=QPoint(200, 120))
+    assert cv.selected_idx == 0
+    win.close()

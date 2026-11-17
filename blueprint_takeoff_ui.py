@@ -381,6 +381,9 @@ class CadBlueprintCanvas(QLabel):
 
         menu.exec(global_pos)
 
+    def _markup_bbox_px(self, m):
+        return self._markup_screen_rect(m)
+
     def _markup_screen_rect(self, m):
         mt = m.get("type")
         if mt in ("count", "text", "grid_bubble"):
@@ -1013,8 +1016,8 @@ class CadBlueprintCanvas(QLabel):
                         "line_width": float(self.active_line_width),
                         "font_size": int(self.font_size)
                     })
-                    self.selected_idx = len(self.markups) - 1
-                    self.selected_indices = {self.selected_idx}
+                    self.selected_idx = -1
+                    self.selected_indices.clear()
             self.update()
             return
         elif self.mode in ("measure", "calibrate"):
@@ -1852,11 +1855,19 @@ class CadBlueprintCanvas(QLabel):
         # Multi-selection cyan bounding boxes & AutoCAD Window/Crossing Marquee Box
         for s_idx in getattr(self, "selected_indices", set()):
             if 0 <= s_idx < len(self.markups):
-                sr = self._markup_screen_rect(self.markups[s_idx]).adjusted(-4, -4, 4, 4)
-                if not sr.isNull():
-                    p.setBrush(Qt.NoBrush)
-                    p.setPen(QPen(QColor("#0284c7"), 1.5, Qt.DashLine))
-                    p.drawRect(sr)
+                sm = self.markups[s_idx]
+                if sm.get("type") == "hanger_skew":
+                    p.setBrush(QColor("#0284c7"))
+                    p.setPen(QPen(QColor("#ffffff"), 1.2))
+                    for gx, gy in ((sm["hx1"], sm["hy1"]), (sm["hx2"], sm["hy2"]), (sm["jx"], sm["jy"])):
+                        gp = self._from_pdf_pt(gx, gy)
+                        p.drawRect(QRect(gp.x() - 4, gp.y() - 4, 8, 8))
+                else:
+                    sr = self._markup_screen_rect(sm).adjusted(-4, -4, 4, 4)
+                    if not sr.isNull():
+                        p.setBrush(Qt.NoBrush)
+                        p.setPen(QPen(QColor("#0284c7"), 1.5, Qt.DashLine))
+                        p.drawRect(sr)
         if self._marquee_start is not None and self._marquee_cur is not None:
             mr = QRect(self._marquee_start, self._marquee_cur).normalized()
             crossing = self._marquee_cur.x() < self._marquee_start.x()
