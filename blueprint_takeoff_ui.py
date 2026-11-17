@@ -2494,7 +2494,7 @@ class VisualTakeoffWorkspace(QWidget):
                     counts[nw] = counts.get(nw, 0) + 1
                     cx, cy = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
                     txt_horiz = (wx1 - wx0) >= (wy1 - wy0)
-                    best_seg, best_d = None, 16.0
+                    best_seg, best_d = None, 7.5
                     ppf_hl = max(1.0, float(getattr(self.canvas, "pts_per_ft", 18.0)))
                     max_hl_pts = 32.0 * ppf_hl
                     for sx1, sy1, sx2, sy2, seg_horiz in segs:
