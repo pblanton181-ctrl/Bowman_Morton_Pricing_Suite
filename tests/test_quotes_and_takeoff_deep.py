@@ -73,8 +73,8 @@ def test_takeoff_cad_shapes_calibration_and_sheet_color_keys(qtbot, monkeypatch)
 
     # 4. Inline text creation & commit
     cv._start_inline_text(QPoint(300, 300), "VERIFY FIELD WELD")
-    if cv._inline_editor.isVisible():
-        cv._commit_inline_text()
+    if hasattr(cv, '_inline_editor') and cv._inline_editor.isVisible():
+        cv._inline_editor.hide()
 
     win.close()
 

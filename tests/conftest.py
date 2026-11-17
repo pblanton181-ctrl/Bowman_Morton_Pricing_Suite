@@ -1,4 +1,3 @@
-import gc
 import pytest
 from PySide6.QtWidgets import QApplication
 
@@ -9,4 +8,3 @@ def _flush_qt_events_between_tests():
     app = QApplication.instance()
     if app is not None:
         app.processEvents()
-    gc.collect()
