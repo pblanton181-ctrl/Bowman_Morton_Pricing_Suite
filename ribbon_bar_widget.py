@@ -172,7 +172,7 @@ class BowmanMortonRibbonBar(QFrame):
             ("marks", "Marks:", "0", "#b45309"),
         ]):
             r_i, c_i = divmod(idx_s, 2)
-            row_w = QWidget(); rl = QHBoxLayout(row_w); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(4)
+            row_w = QWidget(); row_w.setStyleSheet("background: transparent !important; border: none !important;"); rl = QHBoxLayout(row_w); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(4)
             l_cap = QLabel(s_lbl); l_cap.setStyleSheet("color: #475569 !important; background: transparent !important; font-size: 10.5px; font-weight: 700; border: none;")
             l_val = QLabel(s_init); l_val.setStyleSheet(f"color: {s_col} !important; background: transparent !important; font-size: 11px; font-weight: 800; border: none;")
             rl.addWidget(l_cap); rl.addWidget(l_val)

@@ -16,11 +16,11 @@ class SmartBomSummaryPanel(QFrame):
         self.setObjectName("SmartBomSummaryPanel")
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(8)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
 
         hdr = QLabel("SMART ESTIMATING BREAKDOWN")
-        hdr.setStyleSheet("color: #0369a1; font-size: 12px; font-weight: 700;")
+        hdr.setStyleSheet("color: #0369a1; font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px;")
         root.addWidget(hdr)
 
         # Top KPI Strip
@@ -33,13 +33,13 @@ class SmartBomSummaryPanel(QFrame):
         self.lbl_kpi_tons = QLabel("0.00 Tons")
         for lbl, col in ((self.lbl_kpi_pcs, "#0369a1"), (self.lbl_kpi_lft, "#0f172a"), (self.lbl_kpi_tons, "#047857")):
             lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet(f"color: {col}; font-size: 12px; font-weight: 700; border: none;")
+            lbl.setStyleSheet(f"color: {col}; font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px; border: none;")
             kl.addWidget(lbl)
         root.addWidget(kpi_box)
 
         # Section 1: Category Weight Breakdown Bars
         lbl_cat = QLabel("CATEGORY TONNAGE SHARE")
-        lbl_cat.setStyleSheet("color: #1e3a8a; font-size: 12px; font-weight: 700;")
+        lbl_cat.setStyleSheet("color: #1e3a8a; font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px;")
         root.addWidget(lbl_cat)
 
         self.cat_container = QWidget()
@@ -51,14 +51,14 @@ class SmartBomSummaryPanel(QFrame):
 
         # Section 2: One-Click Sheet Jump Cards
         lbl_sh = QLabel("JUMP TO PLANSET SHEET (CLICK TO VIEW)")
-        lbl_sh.setStyleSheet("color: #1e3a8a; font-size: 12px; font-weight: 700;")
+        lbl_sh.setStyleSheet("color: #1e3a8a; font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px;")
         root.addWidget(lbl_sh)
 
         self.sheet_list = QListWidget()
         self.sheet_list.setToolTip("<b>One-Click Sheet Jump</b><br>Click any sheet below to open that exact page<br>in Visual Sheet Preview & Takeoff.")
         self.sheet_list.setStyleSheet(
             "QListWidget { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; border-radius: 6px; font-size: 11.5px; font-weight: 600; } "
-            "QListWidget::item { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; } "
+            "QListWidget::item { padding: 3px 6px; border-bottom: 1px solid #f1f5f9; font-size: 11px; } "
             "QListWidget::item:hover { background-color: #f1f5f9; } "
             "QListWidget::item:selected, QListWidget::item:selected:!active { background-color: #e0f2fe; color: #0369a1; border-left: 4px solid #0284c7; }"
         )
@@ -67,13 +67,13 @@ class SmartBomSummaryPanel(QFrame):
 
         # Section 3: Top Steel Profiles Summary
         lbl_pr = QLabel("TOP STEEL PROFILES (CHECKED)")
-        lbl_pr.setStyleSheet("color: #1e3a8a; font-size: 12px; font-weight: 700;")
+        lbl_pr.setStyleSheet("color: #1e3a8a; font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px;")
         root.addWidget(lbl_pr)
 
         self.prof_list = QListWidget()
         self.prof_list.setStyleSheet(
             "QListWidget { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; border-radius: 6px; font-size: 11.5px; font-weight: 600; } "
-            "QListWidget::item { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; }"
+            "QListWidget::item { padding: 3px 6px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }"
         )
         self.prof_list.itemClicked.connect(self._handle_prof_click)
         root.addWidget(self.prof_list, 1)
