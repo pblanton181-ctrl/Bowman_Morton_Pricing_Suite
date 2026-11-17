@@ -59,7 +59,7 @@ class BowmanMortonRibbonBar(QFrame):
 
         self.setObjectName("OfficeGreyRibbon"); self.setAttribute(Qt.WA_StyledBackground, True)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setMinimumHeight(156); self.setMaximumHeight(156)
+        self.setMinimumHeight(164); self.setMaximumHeight(164)
         self.setStyleSheet("""
             QFrame#OfficeGreyRibbon { background-color: #e5e7eb; border: none; border-bottom: 1px solid #c8c6c4; }
             QFrame#OfficeCommandBand { background-color: #f3f2f1; border: 1px solid #c8c6c4; border-radius: 6px; margin: 0px 8px 6px 8px; }
@@ -268,8 +268,8 @@ class BowmanMortonRibbonBar(QFrame):
     def _toggle_collapse(self):
         self._collapsed = not self._collapsed
         self.cmd_band.setVisible(not self._collapsed)
-        self.setMinimumHeight(62 if self._collapsed else 156)
-        self.setMaximumHeight(62 if self._collapsed else 156)
+        self.setMinimumHeight(62 if self._collapsed else 164)
+        self.setMaximumHeight(62 if self._collapsed else 164)
         self.btn_pin.setText("Expand" if self._collapsed else "Collapse")
 
     def _init_smart_completer(self):
@@ -718,9 +718,10 @@ class BowmanMortonRibbonBar(QFrame):
         if pt:
             pg_cnt = max(1, pt.sheet_combo.count()) if hasattr(pt, "sheet_combo") else 1
             self._sum_vals["sheets"].setText(str(pg_cnt))
-            bom_items = getattr(pt, "staged_bom_items", [])
-            self._sum_vals["members"].setText(f"{len(bom_items)} pcs")
-            tot_wt = sum(float(x.get("weight", 0) or 0) for x in bom_items)
+            bom_items = getattr(pt, "bom_items", None) or getattr(pt, "staged_bom_items", [])
+            tot_pcs = sum(int(float(x.get("qty", 1) or 1)) for x in bom_items)
+            self._sum_vals["members"].setText(f"{tot_pcs} pcs")
+            tot_wt = sum(float(x.get("total_weight", 0) or x.get("weight", 0) or 0) for x in bom_items)
             self._sum_vals["weight"].setText(f"{tot_wt:,.0f} lbs")
             cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None)
             if cv:

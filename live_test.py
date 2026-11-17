@@ -586,7 +586,7 @@ class AdminDashboardWindow(QDialog):
 
         self.btn_save_titles = QPushButton("COMMIT AND ENCRYPT NEW TITLES TO DATABASE")
         self.btn_save_titles.setObjectName("EmeraldAction")
-        self.btn_save_titles.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 10px; } QPushButton:hover { background-color: rgba(110, 231, 183, 0.82); color: #000000; }")
+        self.btn_save_titles.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 4px 12px; } QPushButton:hover { background-color: rgba(110, 231, 183, 0.82); color: #000000; }")
         self.btn_save_titles.setMinimumHeight(40)
         self.btn_save_titles.clicked.connect(self.admin_save_encrypted_titles)
         lay.addWidget(self.btn_save_titles)
@@ -652,7 +652,7 @@ class AdminDashboardWindow(QDialog):
         left_l.addStretch()
 
         self.btn_save_item = QPushButton("COMMIT SINGLE VARIANT TO DISK")
-        self.btn_save_item.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 10px; } QPushButton:hover { background-color: rgba(167, 243, 208, 0.68); color: #0f172a; }")
+        self.btn_save_item.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 4px 12px; } QPushButton:hover { background-color: rgba(167, 243, 208, 0.68); color: #0f172a; }")
         self.btn_save_item.setMinimumHeight(42)
         self.btn_save_item.clicked.connect(self.save_database_entry)
         left_l.addWidget(self.btn_save_item)
@@ -754,7 +754,7 @@ class AdminDashboardWindow(QDialog):
         right_l.addWidget(self.btn_dl_template)
 
         self.btn_bulk_import = QPushButton("LOAD EXCEL SHEET (.XLSX)...")
-        self.btn_bulk_import.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 10px; } QPushButton:hover { background-color: rgba(96, 165, 250, 0.82); color: #0f172a; }")
+        self.btn_bulk_import.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 4px 12px; } QPushButton:hover { background-color: rgba(96, 165, 250, 0.82); color: #0f172a; }")
         self.btn_bulk_import.setMinimumHeight(42)
         self.btn_bulk_import.clicked.connect(lambda: self.admin_bulk_import_excel_sheet())
         right_l.addWidget(self.btn_bulk_import)
@@ -827,7 +827,7 @@ class AdminDashboardWindow(QDialog):
         del_btns.addWidget(btn_sel_all, 1)
 
         self.btn_delete_item = QPushButton("ERASE SELECTED MODELS FROM DATABASE")
-        self.btn_delete_item.setStyleSheet("QPushButton { background-color: #ffffff; border: 1px solid #fca5a5; color: #b91c1c; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 10px; } QPushButton:hover { background-color: rgba(252, 165, 165, 0.84); color: #7f1d1d; }")
+        self.btn_delete_item.setStyleSheet("QPushButton { background-color: #ffffff; border: 1px solid #fca5a5; color: #b91c1c; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 4px 12px; } QPushButton:hover { background-color: rgba(252, 165, 165, 0.84); color: #7f1d1d; }")
         self.btn_delete_item.setObjectName("DangerAction")
         self.btn_delete_item.setMinimumHeight(38)
         self.btn_delete_item.clicked.connect(self.admin_purge_single_item_record)
@@ -847,7 +847,7 @@ class AdminDashboardWindow(QDialog):
         bot_l.addWidget(self.pct_input)
 
         self.btn_bulk_scale = QPushButton("MULTIPLY ENTIRE CARD PRICING MATRIX BY SCALE FACTOR %")
-        self.btn_bulk_scale.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 10px; } QPushButton:hover { background-color: rgba(96, 165, 250, 0.82); color: #0f172a; }")
+        self.btn_bulk_scale.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 4px 12px; } QPushButton:hover { background-color: rgba(96, 165, 250, 0.82); color: #0f172a; }")
         self.btn_bulk_scale.setObjectName("PrimaryAction")
         self.btn_bulk_scale.setMinimumHeight(42)
         self.btn_bulk_scale.clicked.connect(self.admin_execute_bulk_percentage_scale)
@@ -1200,7 +1200,7 @@ class AdminDashboardWindow(QDialog):
         self.populate_inline_catalog_grid()
         for _b in tab4_page.findChildren(QPushButton):
             if _b is not btn_cat_undo:
-                _b.setStyleSheet("QPushButton { background-color: #ffffff !important; border: 1.5px solid #0284c7 !important; color: #0284c7 !important; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 10px; } QPushButton:hover { background-color: rgba(110, 231, 183, 0.86) !important; }")
+                _b.setStyleSheet("QPushButton { background-color: #ffffff !important; border: 1.5px solid #0284c7 !important; color: #0284c7 !important; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 4px 12px; } QPushButton:hover { background-color: rgba(110, 231, 183, 0.86) !important; }")
         self.admin_tabs_deck.addTab(tab4_page, "Inline Catalog Grid Editor")
 
     def push_catalog_snapshot(self, label):
@@ -1450,7 +1450,7 @@ class StandaloneManufacturingApp(QMainWindow):
             QLabel { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; font-weight: 600; background: transparent !important; border: none !important; color: #0f172a; }
             QLineEdit, QComboBox { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #475569 !important; border-radius: 4px; padding: 6px; }
             QComboBoxPrivateContainer { background-color: #eff6ff !important; border: 1.5px solid #0284c7 !important; padding: 0px !important; margin: 0px !important; }
-            QPushButton#EmeraldAction { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 10px; }
+            QPushButton#EmeraldAction { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 4px 12px; }
             QPushButton#EmeraldAction:hover { background-color: #047857; }
         """
         self.custom_admin_tab.setStyleSheet(UNIFIED_ADMIN_CSS)
@@ -1549,7 +1549,7 @@ class StandaloneManufacturingApp(QMainWindow):
             ("AVERAGE QUOTE VALUE", f"${avg_val:,.2f}", "#d97706"),
         ]:
             card = QFrame()
-            card.setStyleSheet("QFrame { background-color: rgba(239, 246, 255, 0.88); border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; }")
+            card.setStyleSheet("QFrame { background-color: rgba(239, 246, 255, 0.88); border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 12px; }")
             cl = QVBoxLayout(card); cl.setContentsMargins(8, 6, 8, 6); cl.setSpacing(4)
             t_l = QLabel(title); t_l.setStyleSheet("color: #475569; font-size: 12px; font-weight: 700; border: none; background: transparent;")
             v_l = QLabel(val); v_l.setStyleSheet(f"color: {accent}; font-size: 18px; font-weight: 700; border: none; background: transparent;")
@@ -2004,10 +2004,10 @@ QComboBox, QLineEdit {
         c4_layout.addWidget(self.spec_label)
         scroll_layout.addWidget(c4)
 
-        self.btn_compute = QPushButton("COMPUTE DISK RATE AND WRITE TO CONSOLIDATED RFQ LEDGER")
+        self.btn_compute = QPushButton("Compute & Add to Quote")
         self.btn_compute.setObjectName("PrimaryAction")
-        self.btn_compute.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 10px; } QPushButton:hover { background-color: rgba(96, 165, 250, 0.82); color: #0f172a; }")
-        self.btn_compute.setMinimumHeight(52)
+        self.btn_compute.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 4px 12px; } QPushButton:hover { background-color: rgba(96, 165, 250, 0.82); color: #0f172a; }")
+        self.btn_compute.setFixedHeight(32)
         self.btn_compute.clicked.connect(self.calculate_standalone_pricing)
         scroll_layout.addWidget(self.btn_compute)
         
@@ -2169,7 +2169,7 @@ QComboBox, QLineEdit {
         right_layout.addWidget(self.std_estimator_notes)
         right_layout.addWidget(totals_card)
 
-        blue_g = 'background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 10px;'
+        blue_g = 'background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 4px 12px;'
         red_g = 'background-color: #ffffff; border: 1px solid #fca5a5; color: #b91c1c; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 8px;'
 
         self.btn_finalize_std = QPushButton("FINALIZE & SAVE TO RUNNING PROJECT LEDGER")
@@ -2478,18 +2478,39 @@ QComboBox, QLineEdit {
         top = cur.parent() if cur.parent() else cur
         idx = self.std_ledger_tree.indexOfTopLevelItem(top)
         if 0 <= idx < len(self.data_core.rfq_ledger_items):
-            it = self.data_core.rfq_ledger_items[idx]
-            cur_c = float(str(it["cost"]).replace("$", "").replace(",", "").strip() or 0.0)
-            cur_w = float(str(it["weight"]).lower().replace("lbs", "").strip() or 0.0)
-            new_m, ok1 = QInputDialog.getText(self, "Edit Item Label", "Item Description:", text=str(it.get("model", "")))
-            if not ok1 or not new_m.strip(): return
-            new_c, ok2 = QInputDialog.getDouble(self, "Edit Line Price ($)", "Price ($):", cur_c, 0.0, 9999999.0, 2)
-            if not ok2: return
-            new_w, ok3 = QInputDialog.getDouble(self, "Edit Weight (lbs)", "Weight (lbs):", cur_w, 0.0, 9999999.0, 1)
-            if not ok3: return
-            it["model"] = new_m.strip()
-            it["cost"] = f"${new_c:,.2f}"
-            it["weight"] = f"{new_w:.1f} lbs"
+            it = self.data_core.rfq_ledger_items.pop(idx)
+            raw_lbl = str(it.get("model", "")).strip()
+            base_model = raw_lbl.split(" (x")[0].strip()
+            qty_str = "1"
+            if " (x" in raw_lbl:
+                qty_str = raw_lbl.split(" (x", 1)[1].rstrip(")").strip() or "1"
+
+            # Find matching category card & model on the left builder panel
+            found_cat = None
+            for cat_name, cat_obj in self.data_core.clean_database.items():
+                if base_model in cat_obj.get("models", {}):
+                    found_cat = cat_name
+                    break
+            if found_cat and hasattr(self, "category_box"):
+                c_idx = self.category_box.findText(found_cat)
+                if c_idx >= 0:
+                    self.category_box.setCurrentIndex(c_idx)
+                    self.handle_card_switch()
+            if hasattr(self, "model_box"):
+                m_idx = self.model_box.findText(base_model)
+                if m_idx >= 0:
+                    self.model_box.setCurrentIndex(m_idx)
+            if hasattr(self, "entry_manual_1"):
+                self.entry_manual_1.setText(qty_str)
+                self.entry_manual_1.setFocus()
+                self.entry_manual_1.selectAll()
+
+            # Restore any checked modifiers from addon_lines
+            addon_blob = " | ".join(str(x) for x in it.get("addon_lines", []))
+            for cb in getattr(self, "check_boxes", []):
+                if cb.isVisible() and cb.text():
+                    cb.setChecked(cb.text().lower() in addon_blob.lower())
+
             self.update_rfq_ledger_view()
 
     def _delete_highlighted_t1_item(self):

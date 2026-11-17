@@ -1804,6 +1804,15 @@ class VisualTakeoffWorkspace(QWidget):
         self.chk_hl_lines.toggled.connect(self._refresh_color_key_ui)
         kl.addWidget(self.chk_hl_lines)
 
+        nav_key_row = QHBoxLayout()
+        nav_key_row.setSpacing(4)
+        btn_key_prev = QToolButton(); btn_key_prev.setText("◀ Prev Sheet"); btn_key_prev.setFixedHeight(24)
+        btn_key_next = QToolButton(); btn_key_next.setText("Next Sheet ▶"); btn_key_next.setFixedHeight(24)
+        btn_key_prev.clicked.connect(lambda: self._step_color_key_sheet(-1))
+        btn_key_next.clicked.connect(lambda: self._step_color_key_sheet(1))
+        nav_key_row.addWidget(btn_key_prev, 1)
+        nav_key_row.addWidget(btn_key_next, 1)
+        kl.addLayout(nav_key_row)
         btn_assign = QPushButton("+ Assign Member to Color Key")
         btn_assign.setStyleSheet("QPushButton { border-color: #34d399; color: #34d399; } QPushButton:hover { background-color: rgba(52, 211, 153, 0.18); color: #ffffff; }")
         btn_assign.setStyleSheet("QPushButton { background-color: rgba(5, 150, 105, 0.24); border: 2px solid #059669; color: #000000; font-weight: 700; font-weight: bold; } QPushButton:hover { background-color: rgba(5, 150, 105, 0.42); color: #0f172a; }")
@@ -2061,13 +2070,19 @@ class VisualTakeoffWorkspace(QWidget):
             self.lbl_prof_sheets.setText(f"{norm_prof}: 0 vector matches")
 
     def _jump_page_from_pill(self, page_num):
-        dlg = self.window()
+        dlg = self._find_bom_dialog()
         if hasattr(dlg, "sheet_combo"):
             for idx in range(dlg.sheet_combo.count()):
                 if dlg.sheet_combo.itemData(idx) == page_num:
                     dlg.sheet_combo.setCurrentIndex(idx)
                     break
         self.canvas.fit_to_viewport()
+
+    def _step_color_key_sheet(self, delta: int):
+        dlg = self._find_bom_dialog()
+        if hasattr(dlg, "sheet_combo") and dlg.sheet_combo.count() > 0:
+            nxt = max(0, min(dlg.sheet_combo.count() - 1, dlg.sheet_combo.currentIndex() + delta))
+            dlg.sheet_combo.setCurrentIndex(nxt)
 
     def highlight_profile_and_fit(self, profile_str):
         norm = re.sub(r"\s+", "", str(profile_str).upper()).strip()
@@ -2083,18 +2098,40 @@ class VisualTakeoffWorkspace(QWidget):
             self._populate_profile_sheet_pills(norm)
         self.canvas.fit_to_viewport()
 
+    def _find_bom_dialog(self):
+        p = self.parent()
+        while p is not None:
+            if hasattr(p, "tree"):
+                return p
+            p = p.parent()
+        return self.window()
+
     def _auto_color_all_bom_profiles(self):
         dlg = self.window()
         profs = []
+        # 1. Collect from BOM tree (checked items first, or all items if none explicitly checked)
         if hasattr(dlg, "tree"):
+            checked_profs, all_tree_profs = [], []
             for i in range(dlg.tree.topLevelItemCount()):
                 p_it = dlg.tree.topLevelItem(i)
                 for j in range(p_it.childCount()):
                     ch = p_it.child(j)
-                    if ch.checkState(0) == Qt.Checked:
-                        nm = re.sub(r"\s+", "", ch.text(3).upper()).strip()
-                        if nm and nm not in profs:
-                            profs.append(nm)
+                    nm = re.sub(r"\s+", "", ch.text(3).upper()).strip()
+                    if nm:
+                        if nm not in all_tree_profs:
+                            all_tree_profs.append(nm)
+                        if ch.checkState(0) == Qt.Checked and nm not in checked_profs:
+                            checked_profs.append(nm)
+            profs.extend(checked_profs or all_tree_profs)
+        # 2. Fallback / merge from active staged bom_items
+        for bi in (getattr(dlg, "bom_items", None) or getattr(dlg, "staged_bom_items", []) or []):
+            nm = re.sub(r"\s+", "", str(bi.get("model") or bi.get("designation") or "").upper()).strip()
+            if nm and nm not in profs:
+                profs.append(nm)
+        if not profs and hasattr(self, "key_prof_combo"):
+            cur_p = re.sub(r"\s+", "", self.key_prof_combo.currentText().upper()).strip()
+            if cur_p:
+                profs.append(cur_p)
         if not profs:
             return
         extra_palette = self.SWATCH_HEXES + ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#e11d48", "#0891b2", "#4f46e5", "#65a30d"]
@@ -2106,6 +2143,7 @@ class VisualTakeoffWorkspace(QWidget):
         self._refresh_color_key_ui()
         if profs:
             self._populate_profile_sheet_pills(profs[0])
+        self.canvas.update()
 
     def _export_marked_pdf(self):
         pg_num = self.get_page_fn()
