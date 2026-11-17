@@ -1,6 +1,6 @@
-﻿__pycache__/
+__pycache__/
 *.py[cod]
-*$py.class
+*.class
 .pytest_cache/
 .coverage
 htmlcov/
@@ -8,7 +8,14 @@ htmlcov/
 venv/
 *.log
 *.tmp
+*.zip
+*.exe
+*.pkg
+*.bak*
+*_backup*
+*_pre_unify*
+build/
+dist/
+_archive_backups/
+archive_baks/
 temp_exports/
-
-htmlcov/
-.coverage
