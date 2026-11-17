@@ -205,6 +205,12 @@ class CadBlueprintCanvas(QLabel):
         self._inline_editor.resize(w, h)
 
     def _start_inline_text(self, qpos, initial_text=""):
+        if ev.key() == Qt.Key_Escape and getattr(self, "selected_indices", None):
+            self.selected_indices.clear()
+            self.selected_idx = -1
+            self.update()
+            ev.accept()
+            return
         if self._inline_editor.isVisible():
             self._commit_inline_text()
         self._inline_pdf_pt = self._to_pdf_pt(qpos)
