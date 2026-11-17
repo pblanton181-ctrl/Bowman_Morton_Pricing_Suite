@@ -559,12 +559,19 @@ class CadBlueprintCanvas(QLabel):
         return qpt
 
     def _snap_ortho(self, p1, p2, shift_held):
-        if not shift_held or p1 is None or p2 is None:
+        if p1 is None or p2 is None:
             return p2
         dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
-        rad = math.radians(round(math.degrees(math.atan2(dy, dx)) / 45.0) * 45.0)
         dist = math.hypot(dx, dy)
-        return QPoint(int(round(p1.x() + dist * math.cos(rad))), int(round(p1.y() + dist * math.sin(rad))))
+        if dist < 1.0:
+            return p2
+        deg = math.degrees(math.atan2(dy, dx))
+        nearest_45 = round(deg / 45.0) * 45.0
+        # Hard lock when Shift/Ortho is held, or magnetic AutoCAD Polar Snap within ±4.0° on any line
+        if shift_held or abs(deg - nearest_45) <= 4.0:
+            rad = math.radians(nearest_45)
+            return QPoint(int(round(p1.x() + dist * math.cos(rad))), int(round(p1.y() + dist * math.sin(rad))))
+        return p2
 
     def wheelEvent(self, ev):
         if not self.scroll_area:
