@@ -215,7 +215,7 @@ class MarketingTrailerDirector:
             return exact
         hits = glob.glob("*Dave Pugsley*.pdf") or glob.glob("*3122 Broadway*.pdf")
         if hits:
-            return os.path.abspath(hits)
+            return os.path.abspath(hits[0])
         raise FileNotFoundError("Could not find 1230-Dave Pugsley_3122 Broadway - Combined Plan Set.pdf")
 
     def _find_button_by_text(self, root, *keywords):
@@ -381,7 +381,7 @@ class MarketingTrailerDirector:
                 vw.key_list.setCurrentItem(target_item)
                 vw._on_key_item_clicked(target_item)
                 QApplication.processEvents()
-                prof_name = (target_item.text() or "").split("—").strip()
+                prof_name = (target_item.text() or "").split("—")[0].strip()
                 self.banner.show_caption(
                     "STEP 3 OF 6 • SMART LOOKUP JUMPED TO FRAMING SHEET",
                     f"Clicked '{prof_name}' in Steel Color Key -> Auto-Jumped to Sheet!",
@@ -400,7 +400,7 @@ class MarketingTrailerDirector:
 
         # Read the exact highlighted steel profile & its BOM length on the active framing sheet
         active_item = vw.key_list.currentItem()
-        beam_profile = (active_item.text().split("—").strip() if active_item else "W16X57")
+        beam_profile = (active_item.text().split("—")[0].strip() if active_item else "W16X57")
         beam_len_ft = 20.0
         for top_i in range(pt.tree.topLevelItemCount()):
             p_item = pt.tree.topLevelItem(top_i)
@@ -428,7 +428,7 @@ class MarketingTrailerDirector:
 
             # Snap directly onto the real highlighted beam segment or callout box on the framing sheet!
             if cv.key_highlights:
-                hl = cv.key_highlights
+                hl = cv.key_highlights[0]
                 if hl.get("seg"):
                     sx1, sy1, sx2, sy2 = hl["seg"]
                     p1_local = cv._from_pdf_pt(sx1, sy1)
@@ -511,7 +511,7 @@ class MarketingTrailerDirector:
             pt.sheet_combo.setCurrentIndex(pg_idx)
             vw.render_sheet(pg_idx + 1)
             pg_num = pg_idx + 1
-            sh_label = pt.sheet_combo.currentText().split("—").strip().replace("/", "-")
+            sh_label = pt.sheet_combo.currentText().split("—")[0].strip().replace("/", "-")
             out_pdf = os.path.join(EXPORT_DIR, f"3122_Broadway_{sh_label}_Pg{pg_num}_MarkedUp.pdf")
             self._write_marked_sheet_pdf(vw, pg_num, out_pdf)
 
