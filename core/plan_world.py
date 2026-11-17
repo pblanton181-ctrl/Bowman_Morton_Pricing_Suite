@@ -319,8 +319,8 @@ def _ocr_tile_worker(args):
 
 def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
     """Unified Dynamic Neighbor-Aware Grid OCR: pads drag-box selections by +18 PDF pts
-    and subdivides ANY region (drag-box OR full sheet) into overlapping <=420pt tiles
-    at 320 DPI so every single callout gets identical 1:1 optical sharpness."""
+    and subdivides ANY region (drag-box OR full sheet) into overlapping <=360pt tiles
+    at 320 DPI across 0, 90, 270, +-30, +-45 deg, stitching split HSS/W tokens."""
     from concurrent.futures import ThreadPoolExecutor
 
     pdf_path = getattr(getattr(page, "parent", None), "name", None)
@@ -363,7 +363,8 @@ def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
                 ):
                     continue
                 merged_hits.append((hx0, hy0, hx1, hy1, htxt))
-    # Stitch adjacent split OCR tokens on the same reading line (e.g. 'HSS' + '4X2X1/4' -> 'HSS4X2X1/4')
+
+    # Stitch adjacent split OCR tokens (e.g. 'HSS' + '4X2X1/4' -> 'HSS4X2X1/4', 'W12' + 'X53' -> 'W12X53')
     stitched = list(merged_hits)
     for i, (ax0, ay0, ax1, ay1, atxt) in enumerate(merged_hits):
         if atxt in ("HSS", "W", "PL", "MC", "C", "L") or re.match(r"^(W\d+|HSS\d+X\d+)$", atxt):
