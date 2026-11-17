@@ -942,8 +942,7 @@ class PdfBomImporterDialog(QDialog):
     def _handle_box_ocr(self, clip_rect):
         pdf_p = self.pdf_path or getattr(getattr(self, "vis_workspace", None), "pdf_path", "")
         if not pdf_p or not os.path.exists(pdf_p):
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(self, "No PDF Loaded", "Please load a PDF planset first before running Box OCR.")
+                        QMessageBox.information(self, "No PDF Loaded", "Please load a PDF planset first before running Box OCR.")
             return
         self.pdf_path = pdf_p
         import bom_pdf_engine as eng
