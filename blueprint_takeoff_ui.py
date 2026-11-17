@@ -2733,9 +2733,25 @@ class VisualTakeoffWorkspace(QWidget):
         painter.drawPixmap(x_off, y_off, scaled)
         painter.end()
 
+    def _centered_open_pdf_dialog(self):
+        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtCore import QTimer
+        win = self.window()
+        dlg = QFileDialog(win, "Select Structural PDF Planset", "", "PDF Drawings (*.pdf)")
+        dlg.setFileMode(QFileDialog.ExistingFile)
+        dlg.resize(900, 560)
+        def _center():
+            if win is not None:
+                c = win.frameGeometry().center()
+                dlg.move(c.x() - dlg.width() // 2, c.y() - dlg.height() // 2)
+        QTimer.singleShot(0, _center)
+        if dlg.exec() == QFileDialog.Accepted and dlg.selectedFiles():
+            return dlg.selectedFiles().__getitem__(0), "PDF Drawings (*.pdf)"
+        return "", ""
+
     def open_pdf_dialog(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
-        fp, _ = QFileDialog.getOpenFileName(self, "Select Structural PDF Planset", "", "PDF Drawings (*.pdf)")
+        fp, _ = self._centered_open_pdf_dialog()
         if not fp:
             return
         try:
