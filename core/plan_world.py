@@ -203,24 +203,57 @@ class SheetWorldState:
 
 
 def _ocr_tile_worker(args):
-    """Runs Windows Native OCR on one bite-size tile (<= 2000px, rotated diagonal <= 2820px < 4096px)
-    at 320 DPI with 1.5x bicubic stroke enhancement across 0, 90, 270, +-45 deg."""
+    """Unified tile OCR worker: isolates pure black AutoCAD SHX text pen strokes
+    (stripping walls, joists, and dimension lines) when vector drawings are present,
+    or renders full raster for scanned PDFs, and scans across 0, 90, 270, +-32, +-45 deg."""
+    from PIL import Image, ImageDraw
+
     pdf_path, page_num, rect_tuple, dpi, angles, tile_id = args
     rx0, ry0, rx1, ry1 = rect_tuple
     rect = pymupdf.Rect(rx0, ry0, rx1, ry1)
     doc = pymupdf.open(pdf_path)
+    tmp_png = os.path.join(tempfile.gettempdir(), f"bm_tile_{os.getpid()}_{tile_id}.png")
     try:
         page = doc.load_page(int(page_num) - 1)
         max_side_pt = max(1.0, float(rect.width), float(rect.height))
-        safe_dpi = min(int(dpi), int((1850.0 * 72.0) / max_side_pt))
-        safe_dpi = max(240, safe_dpi)
-        pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
+        safe_dpi = max(240, min(int(dpi), int((1850.0 * 72.0) / max_side_pt)))
+        sc = safe_dpi / 72.0
+
+        # Check if tile contains AutoCAD SHX black text strokes (0.24..0.85 pen width, <= 12 pt)
+        shx_strokes = []
+        for drw in page.get_drawings():
+            r = drw.get("rect")
+            if not r or not rect.intersects(r):
+                continue
+            w_pen = round(float(drw.get("width") or 0.0), 2)
+            col = drw.get("color") or ()
+            is_blk = (len(col) >= 3 and col.__getitem__(0) < 0.1 and col.__getitem__(1) < 0.1 and col.__getitem__(2) < 0.1)
+            if is_blk and 0.24 <= w_pen <= 0.85 and r.width <= 12.0 and r.height <= 12.0:
+                shx_strokes.append((w_pen, drw.get("items", ())))
+
+        if len(shx_strokes) >= 12:
+            w_px = max(32, int(round(rect.width * sc)))
+            h_px = max(32, int(round(rect.height * sc)))
+            clean_im = Image.new("L", (w_px, h_px), 255)
+            draw = ImageDraw.Draw(clean_im)
+            for w_pen, items in shx_strokes:
+                lw = max(2, int(round(w_pen * sc * 1.45)))
+                for itm in items:
+                    op = itm.__getitem__(0)
+                    if op == "l" and len(itm) >= 3:
+                        p1, p2 = itm.__getitem__(1), itm.__getitem__(2)
+                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=0, width=lw)
+                    elif op == "c" and len(itm) >= 5:
+                        p1, p2 = itm.__getitem__(1), itm.__getitem__(4)
+                        draw.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=0, width=lw)
+            clean_im.save(tmp_png)
+            eff_scale = 72.0 / float(safe_dpi)
+        else:
+            pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
+            pix.save(tmp_png)
+            eff_scale = 72.0 / float(safe_dpi)
     finally:
         doc.close()
-
-    tmp_png = os.path.join(tempfile.gettempdir(), f"bm_tile_{os.getpid()}_{tile_id}.png")
-    pix.save(tmp_png)
-    scale = 72.0 / (float(safe_dpi) * 1.5)
 
     ps_script = (
         "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
@@ -230,13 +263,8 @@ def _ocr_tile_worker(args):
         "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"
         "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"
         "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
-        f"$rawBmp = New-Object System.Drawing.Bitmap('{tmp_png}');"
-        "$bw = [int]($rawBmp.Width * 1.5); $bh = [int]($rawBmp.Height * 1.5);"
-        "$baseBmp = New-Object System.Drawing.Bitmap($bw, $bh);"
-        "$g0 = [System.Drawing.Graphics]::FromImage($baseBmp);"
-        "$g0.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic;"
-        "$g0.DrawImage($rawBmp, 0, 0, $bw, $bh);"
-        "$g0.Dispose(); $rawBmp.Dispose();"
+        f"$baseBmp = New-Object System.Drawing.Bitmap('{tmp_png}');"
+        "$bw = $baseBmp.Width; $bh = $baseBmp.Height;"
         f"foreach($ang in @({angles})) {{"
         "  $rotPng = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.png');"
         "  $bmpDraw = $null;"
@@ -300,9 +328,9 @@ def _ocr_tile_worker(args):
                     dx, dy = cx_r - diag * 0.5, cy_r - diag * 0.5
                     ox = dx * math.cos(rad) - dy * math.sin(rad) + bw * 0.5
                     oy = dx * math.sin(rad) + dy * math.cos(rad) + bh * 0.5
-                wcx = rect.x0 + max(0.0, min(bw, ox)) * scale
-                wcy = rect.y0 + max(0.0, min(bh, oy)) * scale
-                hw, hh = (rw * scale) * 0.5, (rh * scale) * 0.5
+                wcx = rect.x0 + max(0.0, min(bw, ox)) * eff_scale
+                wcy = rect.y0 + max(0.0, min(bh, oy)) * eff_scale
+                hw, hh = (rw * eff_scale) * 0.5, (rh * eff_scale) * 0.5
                 ntxt = normalize_cad_text(parts.__getitem__(7))
                 if ntxt:
                     hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt))
@@ -350,7 +378,7 @@ def scan_world_ocr(page, world_rect=None, dpi=320, multi_angle=True):
             ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
             tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
             ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
-            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,30,45,315,330", f"r{r_i}c{c_i}"))
+            tasks.append((pdf_path, page_num, (tx0, ty0, tx1, ty1), 320, "0,90,270,32,45,315,328", f"r{r_i}c{c_i}"))
 
     merged_hits = []
     with ThreadPoolExecutor(max_workers=min(6, len(tasks))) as pool:
