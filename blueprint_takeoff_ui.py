@@ -123,6 +123,7 @@ class CadBlueprintCanvas(QLabel):
 
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.setMouseTracking(True)
         self.setCursor(Qt.OpenHandCursor)
         self.setStyleSheet("background-color: #f1f5f9; border: 1px solid #cbd5e1;")
@@ -545,16 +546,22 @@ class CadBlueprintCanvas(QLabel):
     def _to_pdf_pt(self, qpt):
         pw = getattr(self, "_pdf_page_w", 0.0)
         ph = getattr(self, "_pdf_page_h", 0.0)
-        if pw > 0 and ph > 0 and self.width() > 0 and self.height() > 0:
-            return float(qpt.x()) * (pw / float(self.width())), float(qpt.y()) * (ph / float(self.height()))
+        pm = self.pixmap()
+        w_px = float(pm.width()) if (pm and not pm.isNull() and pm.width() > 0) else float(self.width())
+        h_px = float(pm.height()) if (pm and not pm.isNull() and pm.height() > 0) else float(self.height())
+        if pw > 0 and ph > 0 and w_px > 0 and h_px > 0:
+            return float(qpt.x()) * (pw / w_px), float(qpt.y()) * (ph / h_px)
         sc = 72.0 / (self.render_dpi * self.zoom)
         return float(qpt.x()) * sc, float(qpt.y()) * sc
 
     def _from_pdf_pt(self, px, py):
         pw = getattr(self, "_pdf_page_w", 0.0)
         ph = getattr(self, "_pdf_page_h", 0.0)
-        if pw > 0 and ph > 0 and self.width() > 0 and self.height() > 0:
-            return QPoint(int(round(float(px) * (float(self.width()) / pw))), int(round(float(py) * (float(self.height()) / ph))))
+        pm = self.pixmap()
+        w_px = float(pm.width()) if (pm and not pm.isNull() and pm.width() > 0) else float(self.width())
+        h_px = float(pm.height()) if (pm and not pm.isNull() and pm.height() > 0) else float(self.height())
+        if pw > 0 and ph > 0 and w_px > 0 and h_px > 0:
+            return QPoint(int(round(float(px) * (w_px / pw))), int(round(float(py) * (h_px / ph))))
         inv = (self.render_dpi * self.zoom) / 72.0
         return QPoint(int(round(px * inv)), int(round(py * inv)))
 
