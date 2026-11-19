@@ -1,0 +1,11 @@
+[run]
+source = .
+omit =
+    *_backup*
+    *_pre_unify*
+    _archive_backups/*
+    archive_baks/*
+    tests/*
+    test_quoting.py
+    patch_suite.py
+    New Text Document.py

@@ -1,0 +1,26 @@
+name: Python CI & PySide6 GUI Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PySide6 pymupdf openpyxl ezdxf pytest pytest-qt pytest-cov ruff
+      - name: Static Bug & Undefined Name Audit (Ruff)
+        run: |
+          ruff check live_test.py blueprint_takeoff_ui.py custom_quoting_module.py ribbon_bar_widget.py bom_pdf_engine.py bom_summary_panel.py engineering_math_dialog.py core ui --select E9,F63,F7,F82
+      - name: Run Automated PySide6 GUI & Coverage Suite
+        run: |
+          pytest tests/ --cov --cov-report=term-missing

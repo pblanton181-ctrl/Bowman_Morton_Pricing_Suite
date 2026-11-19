@@ -1,0 +1,13 @@
+﻿__pycache__/
+*.pyc
+*.pyo
+*.bak
+*.spec
+build/
+dist/
+release_out/
+Marketing_Trailer_Exports/
+*.mp4
+*.mov
+dev_mode.flag
+config/draft_*.json

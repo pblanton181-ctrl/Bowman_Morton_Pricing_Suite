@@ -1,0 +1,1 @@
+CreateObject("Wscript.Shell").Run "pythonw.exe ""C:\Bowman_Morton_Pricing_Suite\live_test.py""", 0, False
