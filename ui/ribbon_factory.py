@@ -12,7 +12,7 @@ from ui.icon_loader import get_icon
 
 def load_ribbon_schema():
     if getattr(sys, "frozen", False):
-        base = os.path.dirname(sys.executable)
+        base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
     else:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     cfg_path = os.path.join(base, "config", "ribbon_config.json")

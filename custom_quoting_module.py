@@ -21,7 +21,11 @@ from PySide6.QtWidgets import (
 
 def get_workspace_path(filename=""):
     if getattr(sys, 'frozen', False):
-        base_dir = os.path.dirname(sys.executable)
+        exe_dir = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+        mei_dir = getattr(sys, '_MEIPASS', exe_dir)
+        base_dir = exe_dir
+        if filename and not os.path.exists(os.path.join(exe_dir, filename)) and os.path.exists(os.path.join(mei_dir, filename)):
+            return os.path.join(mei_dir, filename)
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
     if filename in ("project_ledger.json", "matrix.json", "steel_matrix.json", "shop_safeguards.json"):

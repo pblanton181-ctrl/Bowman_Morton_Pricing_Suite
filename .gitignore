@@ -11,3 +11,8 @@ Marketing_Trailer_Exports/
 *.mov
 dev_mode.flag
 config/draft_*.json
+
+*.zip
+*.exe
+dist/
+build/

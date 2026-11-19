@@ -30,7 +30,11 @@ from reportlab.lib import colors
 
 def get_workspace_path(filename=""):
     if getattr(sys, 'frozen', False):
-        base_dir = os.path.dirname(sys.executable)
+        exe_dir = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+        mei_dir = getattr(sys, '_MEIPASS', exe_dir)
+        base_dir = exe_dir
+        if filename and not os.path.exists(os.path.join(exe_dir, filename)) and os.path.exists(os.path.join(mei_dir, filename)):
+            return os.path.join(mei_dir, filename)
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
     if filename in ("project_ledger.json", "matrix.json", "steel_matrix.json", "shop_safeguards.json"):
@@ -3343,7 +3347,16 @@ if __name__ == "__main__":
     # Hardware D3D11 enabled for smooth frameless window drag
     import qdarktheme
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.RoundPreferFloor)
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("BowmanMorton.PricingSuite.v1")
+    except Exception:
+        pass
     app = QApplication(sys.argv)
+    _ico_p = get_workspace_path("BMAPP.ico")
+    if os.path.exists(_ico_p):
+        from PySide6.QtGui import QIcon
+        app.setWindowIcon(QIcon(_ico_p))
     from core.shop_guardrails import install_global_error_catcher, UniversalSummaryTooltipFilter
     install_global_error_catcher()
     _universal_tip_filter = UniversalSummaryTooltipFilter(app)

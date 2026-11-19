@@ -39,7 +39,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
-    icon='app_logo.ico',
+    icon='BMAPP.ico',
 )
 coll = COLLECT(
     exe,

@@ -1,4 +1,4 @@
-﻿import os, sys, json, time, zipfile, tempfile, subprocess, urllib.request
+import os, sys, json, time, zipfile, tempfile, subprocess, urllib.request
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QMessageBox
 
@@ -13,7 +13,7 @@ def _parse_ver(v_str):
 
 def get_app_dir():
     if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
+        return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_local_version():
