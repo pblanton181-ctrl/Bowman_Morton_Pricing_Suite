@@ -1,37 +1,19 @@
-[Setup]
+﻿[Setup]
 AppName=Bowman-Morton Pricing Tool Suite
-AppVersion=2026.3
-
-; Centralized flat corporate network share directory destination path
-DefaultDirName=\\BOWMANSERVER\shared\Bowman-Morton Pricing & Bidding 2025
-AllowUNCPath=yes
-DisableDirPage=yes
-UsePreviousAppDir=no
-
+AppVersion=1.0.0
+DefaultDirName={autopf}\Bowman-Morton Pricing Suite
 DefaultGroupName=Bowman-Morton Manufacturing
-UninstallDisplayIcon={app}\live_test.exe
+UninstallDisplayIcon={app}\BowmanMortonPricingSuite.exe
 Compression=lzma2
 SolidCompression=yes
 OutputDir=.
-OutputBaseFilename=Bowman_Morton_Pricing_Suite_Setup_Wizard
-
+OutputBaseFilename=Bowman_Morton_Setup_v1.0.0
 SetupIconFile=C:\Bowman_Morton_Pricing_Suite\app_logo.ico
 WizardSmallImageFile=C:\Bowman_Morton_Pricing_Suite\sidebar_logo.bmp
 
 [Files]
-; 1. Primary standalone executable binary
-Source: "C:\Bowman_Morton_Pricing_Suite\dist\live_test\live_test.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace uninsrestartdelete
-
-; 2. Packages all support files, dlls, matrix, and background image flat into the root share folder path
-Source: "C:\Bowman_Morton_Pricing_Suite\dist\live_test\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Bowman_Morton_Pricing_Suite\matrix.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Bowman_Morton_Pricing_Suite\steel_matrix.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Bowman_Morton_Pricing_Suite\shop_safeguards.json"; DestDir: "{app}"; Flags: onlyifdoesntexist
-Source: "C:\Bowman_Morton_Pricing_Suite\project_ledger.json"; DestDir: "{app}"; Flags: onlyifdoesntexist
-Source: "C:\Bowman_Morton_Pricing_Suite\BMAPP.jpg"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Bowman_Morton_Pricing_Suite\app_logo.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Bowman_Morton_Pricing_Suite\dist\BowmanMortonPricingSuite\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-; Shortcuts extract icon metadata fields natively out of the executable's system binary wrapper
-Name: "{autodesktop}\Bowman-Morton Pricing Tool"; Filename: "{app}\live_test.exe"; WorkingDir: "{app}"; IconFilename: "{app}\live_test.exe"; IconIndex: 0
-Name: "{autoprograms}\Bowman-Morton Pricing Tool"; Filename: "{app}\live_test.exe"; WorkingDir: "{app}"; IconFilename: "{app}\live_test.exe"; IconIndex: 0
+Name: "{autodesktop}\Bowman-Morton Pricing Suite"; Filename: "{app}\BowmanMortonPricingSuite.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BowmanMortonPricingSuite.exe"; IconIndex: 0
+Name: "{autoprograms}\Bowman-Morton Pricing Suite"; Filename: "{app}\BowmanMortonPricingSuite.exe"; WorkingDir: "{app}"; IconFilename: "{app}\BowmanMortonPricingSuite.exe"; IconIndex: 0

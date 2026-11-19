@@ -24,6 +24,19 @@ def get_workspace_path(filename=""):
         base_dir = os.path.dirname(sys.executable)
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
+    if filename in ("project_ledger.json", "matrix.json", "steel_matrix.json", "shop_safeguards.json"):
+        srv_dir = r"\\BOWMANSERVER\shared\Bowman-Morton Pricing & Bidding 2025\AppData"
+        try:
+            if os.path.exists(r"\\BOWMANSERVER\shared\Bowman-Morton Pricing & Bidding 2025"):
+                os.makedirs(srv_dir, exist_ok=True)
+                srv_fp = os.path.join(srv_dir, filename)
+                loc_fp = os.path.join(base_dir, filename)
+                if not os.path.exists(srv_fp) and os.path.exists(loc_fp):
+                    import shutil
+                    shutil.copy2(loc_fp, srv_fp)
+                return srv_fp
+        except Exception:
+            pass
     return os.path.join(base_dir, filename) if filename else base_dir
 
 
