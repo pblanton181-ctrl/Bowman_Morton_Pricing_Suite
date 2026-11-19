@@ -1,5 +1,5 @@
 {
-    "next_seq": 1051,
+    "next_seq": 1055,
     "quotes": [
         {
             "quote_num": "BM-2026-1045",
@@ -2417,6 +2417,213 @@
                         "Rush: +$15.49",
                         "Flush To Top: +$15.49",
                         "Rough BM Sz: +$15.49"
+                    ]
+                }
+            ]
+        },
+        {
+            "quote_num": "BM-2026-1051",
+            "timestamp": "2026-11-19 08:56",
+            "customer": "Super Anchor",
+            "project": "Thompsons Point",
+            "weight": 6055.5504,
+            "cost": 24797.84,
+            "summary": " Item #1: 1.5' 3.0\" Pipe (Sch 40) (x92) [HDG] (Ship Wgt: 6055.6 lbs | Mill Wgt: 6070.7 lbs | Mat: $7,013.31 | Labor: $10,699.43 | Raw: $17,712.74) [Addons: Auto Band Saw Cut (x92), Shop Handling (15m/pc), Oversized Base Plate(x1) [3/8\" Fillet Wrap], Oversized Base Plate(x1) [3/8\" Fillet Wrap], Hot-Dip Galvanized ($0.62/lb)]\n \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Raw Steel Materials: $7,013.31  |  Raw Shop & Eng. Labor: $10,699.43\n Combined Raw Subtotal: $17,712.74  |  Bid Markup (40%): +$7,085.10",
+            "customer_lines": [
+                {
+                    "qty": 92,
+                    "desc": "1.5' 3.0\" Pipe (Sch 40) [HDG]",
+                    "unit_price": 269.54,
+                    "customer_supplied": true,
+                    "customer_supplied_label": "Customer Supplied Pipe",
+                    "specs": "Auto Band Saw Cut (x92) || Shop Handling (15m/pc) || Oversized Base Plate(x1) [3/8\" Fillet Wrap] || Oversized Base Plate(x1) [3/8\" Fillet Wrap] || Hot-Dip Galvanized ($0.62/lb)",
+                    "weight": 6055.6,
+                    "price": 24797.84,
+                    "form_state": {
+                        "shape_key": "pipe",
+                        "model": "3.0\" Pipe (Sch 40)",
+                        "qty": "92",
+                        "length": "1.5",
+                        "plate_w": "12.0",
+                        "plate_thk": "0.25",
+                        "alloy": "Carbon Steel",
+                        "steel_rate": "1.4",
+                        "primer": false,
+                        "pc": false,
+                        "hdg": true,
+                        "custom_mill": "",
+                        "addons_list": [
+                            {
+                                "mode": "Oversized Base Plate",
+                                "p1": 0.375,
+                                "p2": 16.0,
+                                "p3": 16.0,
+                                "p4": 5.0,
+                                "sub": "",
+                                "nsc_end": false,
+                                "qty": 1,
+                                "field_weld": false,
+                                "full_wrap": true,
+                                "weld_type": "Fillet",
+                                "weld_size": "3/8\""
+                            },
+                            {
+                                "mode": "Oversized Base Plate",
+                                "p1": 0.375,
+                                "p2": 16.0,
+                                "p3": 16.0,
+                                "p4": 5.0,
+                                "sub": "",
+                                "nsc_end": false,
+                                "qty": 1,
+                                "field_weld": false,
+                                "full_wrap": true,
+                                "weld_type": "Fillet",
+                                "weld_size": "3/8\""
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "quote_num": "BM-2026-1052",
+            "timestamp": "2026-11-19 07:51",
+            "customer": "Retail Customer",
+            "project": "Standard Build",
+            "weight": 783.0,
+            "cost": 7716.17,
+            "summary": " Item #1: 1.5625' FB 1/4 x 8 (x72) [316 SS] (Ship Wgt: 783.0 lbs | Mill Wgt: 835.2 lbs | Mat: $2,931.55 | Labor: $2,580.00 | Raw: $5,511.55) [Addons: Auto Band Saw Cut (x72), Shop Handling (15m/pc)]\n \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Raw Steel Materials: $2,931.55  |  Raw Shop & Eng. Labor: $2,580.00\n Combined Raw Subtotal: $5,511.55  |  Bid Markup (40%): +$2,204.62",
+            "customer_lines": [
+                {
+                    "desc": "1.5625' FB 1/4 x 8 (x72) [316 SS] [$107.17 ea]",
+                    "specs": "Auto Band Saw Cut (x72), Shop Handling (15m/pc)",
+                    "weight": 783.0,
+                    "price": 7716.17,
+                    "form_state": {
+                        "shape_key": "flat_bar",
+                        "model": "FB 1/4 x 8",
+                        "qty": "72",
+                        "length": "1.5625",
+                        "plate_w": "8",
+                        "plate_thk": "0.25",
+                        "alloy": "316 Stainless",
+                        "steel_rate": "3.51",
+                        "primer": false,
+                        "pc": false,
+                        "hdg": false,
+                        "custom_mill": "",
+                        "addons_list": []
+                    }
+                }
+            ]
+        },
+        {
+            "quote_num": "BM-2026-1053",
+            "timestamp": "2026-11-19 08:05",
+            "customer": "Retail Customer",
+            "project": "Standard Build",
+            "weight": 3110.6304,
+            "cost": 2366.78,
+            "summary": " Item #1: 15' HSS5.5X5.5X1/2 (x6) (Ship Wgt: 3110.6 lbs | Mill Wgt: 722.6 lbs | Mat: $1,047.81 | Labor: $642.75 | Raw: $1,690.56) [Addons: Shop Handling (15m/pc), Oversized Base Plate(x1) [1/4\" Fillet Wrap], Shop Primer ($0.12/lb), OVERRIDES: CUSTOM STOCK (15.0ft)]\n \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n Raw Steel Materials: $1,047.81  |  Raw Shop & Eng. Labor: $642.75\n Combined Raw Subtotal: $1,690.56  |  Bid Markup (40%): +$676.22",
+            "customer_lines": [
+                {
+                    "desc": "15' HSS5.5X5.5X1/2 (x6) [$394.46 ea]",
+                    "specs": "Shop Handling (15m/pc), Oversized Base Plate(x1) [1/4\" Fillet Wrap], Shop Primer ($0.12/lb)",
+                    "weight": 3110.6304,
+                    "price": 2366.7839999999997,
+                    "form_state": {
+                        "shape_key": "hss_tube",
+                        "model": "HSS5.5X5.5X1/2",
+                        "qty": "6",
+                        "length": "15",
+                        "plate_w": "12.0",
+                        "plate_thk": "0.25",
+                        "alloy": "Carbon Steel",
+                        "steel_rate": "1.45",
+                        "primer": true,
+                        "pc": false,
+                        "hdg": false,
+                        "custom_mill": "15",
+                        "addons_list": [
+                            {
+                                "mode": "Oversized Base Plate",
+                                "p1": 0.25,
+                                "p2": 24.0,
+                                "p3": 24.0,
+                                "p4": 14.0,
+                                "sub": "",
+                                "nsc_end": false,
+                                "qty": 1,
+                                "field_weld": false,
+                                "full_wrap": true,
+                                "weld_type": "Fillet",
+                                "weld_size": "1/4\""
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "quote_type": "catalog",
+            "quote_num": "BM-2026-1054",
+            "timestamp": "2026-11-19 12:40",
+            "customer": "Retail Customer",
+            "project": "Standard Catalog Order",
+            "tier_label": "Lumber Yard (40%)",
+            "weight": 80.3,
+            "base_total": 700.56,
+            "addon_total": 0.0,
+            "list_total": 1751.4,
+            "cost": 700.56,
+            "summary": "ITEMIZED MANIFEST (BM-2026-1054)\n? Customer: Retail Customer\n? Project: Standard Catalog Order\n? Date: 2026-11-19 12:40\nClient Tier Matrix: Lumber Yard (40%)\n--------------------------------------------------\nItem #1: BECCQLL/LR 6x (x1) (Ship Wgt: 27.5 lbs | Price: $201.60) [Addons: None]\nItem #2: BCCTQ 6x (x1) (Ship Wgt: 30.7 lbs | Price: $224.28) [Addons: None]\nItem #3: BCCCQ 6x (x1) (Ship Wgt: 22.1 lbs | Price: $274.68) [Addons: None]\n--------------------------------------------------\nBase Catalog Items: $700.56  |  Add-ons & Coatings: $0.00\nTOTAL PROJECT WEIGHT: 80.3 lbs  |  GRAND PROJECT VALUE: $700.56",
+            "customer_lines": [
+                {
+                    "desc": "BECCQLL/LR 6x (x1)",
+                    "specs": "None",
+                    "weight": 27.5,
+                    "price": 201.6
+                },
+                {
+                    "desc": "BCCTQ 6x (x1)",
+                    "specs": "None",
+                    "weight": 30.7,
+                    "price": 224.28
+                },
+                {
+                    "desc": "BCCCQ 6x (x1)",
+                    "specs": "None",
+                    "weight": 22.1,
+                    "price": 274.68
+                }
+            ],
+            "catalog_items": [
+                {
+                    "model": "BECCQLL/LR 6x (x1)",
+                    "weight": 27.5,
+                    "cost": 201.6,
+                    "addon_lines": [
+                        "Base Catalog Item: $201.60",
+                        "Standard Stock (No Add-ons)"
+                    ]
+                },
+                {
+                    "model": "BCCTQ 6x (x1)",
+                    "weight": 30.7,
+                    "cost": 224.28,
+                    "addon_lines": [
+                        "Base Catalog Item: $224.28",
+                        "Standard Stock (No Add-ons)"
+                    ]
+                },
+                {
+                    "model": "BCCCQ 6x (x1)",
+                    "weight": 22.1,
+                    "cost": 274.68,
+                    "addon_lines": [
+                        "Base Catalog Item: $274.68",
+                        "Standard Stock (No Add-ons)"
                     ]
                 }
             ]

@@ -69,6 +69,22 @@ QHeaderView::section {
     border: 1px solid #60a5fa;
 }
 """
+def _ensure_pdf_writable(parent_widget, target_path):
+    if not target_path or not os.path.exists(target_path):
+        return True
+    try:
+        with open(target_path, "ab"):
+            return True
+    except (PermissionError, OSError):
+        QMessageBox.warning(
+            parent_widget,
+            "PDF Currently Open",
+            f"Cannot overwrite this PDF because it is currently open in another program:\n\n"
+            f"  • {os.path.basename(target_path)}\n\n"
+            f"Please close the PDF in your PDF viewer first (or save under a new file name) and try again.",
+        )
+        return False
+
 class BidFormMathEngine:
     ALLOY_DENSITIES = {
         "Carbon Steel": 0.2836,
@@ -421,6 +437,41 @@ class AddonRowWidget(QWidget):
         except ValueError:
             return 0.0
 
+    def load_state(self, st):
+        if not isinstance(st, dict):
+            return
+        mode_val = str(st.get("mode", "")).strip()
+        if mode_val:
+            idx = self.type_select.findText(mode_val, Qt.MatchFixedString)
+            if idx < 0:
+                idx = self.type_select.findText(mode_val, Qt.MatchContains)
+            if idx >= 0:
+                self.type_select.setCurrentIndex(idx)
+                self.adapt_field_visibility_slots()
+        for slot_w, key_p in ((self.in_param1, "p1"), (self.in_param2, "p2"), (self.in_param3, "p3"), (self.in_param4, "p4")):
+            v = st.get(key_p, 0)
+            if slot_w.isVisible() and slot_w.isEnabled() and v not in (None, "", 0, 0.0):
+                slot_w.setText(f"{float(v):g}" if isinstance(v, (int, float)) else str(v))
+        sub_v = str(st.get("sub", "")).strip()
+        if self.combo_sub.isVisible() and sub_v:
+            s_idx = self.combo_sub.findText(sub_v, Qt.MatchFixedString)
+            if s_idx >= 0:
+                self.combo_sub.setCurrentIndex(s_idx)
+        if self.chk_nsc_end.isVisible():
+            self.chk_nsc_end.setChecked(bool(st.get("nsc_end", False)))
+        self.in_qty.setText(str(max(1, int(float(st.get("qty", 1) or 1)))))
+        if self.weld_bar.isVisible():
+            fw = bool(st.get("field_weld", False))
+            self.chk_field_weld.setChecked(fw)
+            self.toggle_weld_controls(fw)
+            self.combo_weld_wrap.setCurrentIndex(0 if st.get("full_wrap", True) else 1)
+            wt = str(st.get("weld_type", "Fillet")).strip()
+            if wt:
+                self.combo_weld_type.setCurrentText(wt)
+            ws = str(st.get("weld_size", "1/4\"")).strip()
+            if ws:
+                self.combo_weld_size.setCurrentText(ws)
+
     def get_payload(self):
         try:
             qty = int(self.in_qty.text().strip()) if self.in_qty.text().strip() else 1
@@ -673,10 +724,11 @@ from blueprint_takeoff_ui import VisualTakeoffWorkspace
 from PySide6.QtCore import QThread, Signal
 
 class _BomBackgroundScanWorker(QThread):
+    progress_scan = Signal(int, int, str, int)
     finished_scan = Signal(list, float, str)
     failed_scan = Signal(str)
 
-    def __init__(self, pdf_path, matrix_path, selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None, mode_tag="sheet", parent=None):
+    def __init__(self, pdf_path, matrix_path, selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None, mode_tag="sheet", scan_mode="hybrid", parent=None):
         super().__init__(parent)
         self.pdf_path = pdf_path
         self.matrix_path = matrix_path
@@ -685,18 +737,46 @@ class _BomBackgroundScanWorker(QThread):
         self.use_native_ocr = use_native_ocr
         self.sheet_scales = sheet_scales
         self.mode_tag = mode_tag
+        self.scan_mode = scan_mode or ("hybrid" if use_native_ocr else "vector")
+        self._stop_flag = False
+
+    def request_stop(self):
+        self._stop_flag = True
 
     def run(self):
         try:
-            import bom_pdf_engine as eng
-            rows, dt, _ = eng.extract_full_bom(
-                self.pdf_path,
-                matrix_path=self.matrix_path,
-                selected_pages=self.selected_pages,
-                region_clip=self.region_clip,
-                use_native_ocr=self.use_native_ocr,
-                sheet_scales=self.sheet_scales,
-            )
+            if self.mode_tag == "box" and self.region_clip is not None and self.selected_pages:
+                from core.region_sheet_scan_engine import scan_drag_region_bom
+                rows, dt, _ = scan_drag_region_bom(
+                    self.pdf_path,
+                    self.selected_pages[0],
+                    self.region_clip,
+                    scan_mode=self.scan_mode,
+                    matrix_path=self.matrix_path,
+                    sheet_scales=self.sheet_scales,
+                )
+            elif self.mode_tag == "sheet" and self.selected_pages:
+                from core.region_sheet_scan_engine import scan_current_sheet_bom
+                rows, dt, _ = scan_current_sheet_bom(
+                    self.pdf_path,
+                    self.selected_pages[0],
+                    scan_mode=self.scan_mode,
+                    matrix_path=self.matrix_path,
+                    sheet_scales=self.sheet_scales,
+                )
+            else:
+                import bom_pdf_engine as eng
+                rows, dt, _ = eng.extract_full_bom(
+                    self.pdf_path,
+                    matrix_path=self.matrix_path,
+                    selected_pages=self.selected_pages,
+                    region_clip=self.region_clip,
+                    use_native_ocr=(self.scan_mode != "vector"),
+                    sheet_scales=self.sheet_scales,
+                    scan_mode=self.scan_mode,
+                    progress_cb=lambda cur, tot, sh, cnt: self.progress_scan.emit(cur, tot, sh, cnt),
+                    cancel_check=lambda: bool(self._stop_flag),
+                )
             self.finished_scan.emit(rows, float(dt), self.mode_tag)
         except Exception as ex:
             self.failed_scan.emit(str(ex))
@@ -867,6 +947,12 @@ class PdfBomImporterDialog(QDialog):
         st_l.addWidget(self.lbl_cad_coords)
         st_l.addWidget(QLabel("|"))
         st_l.addWidget(self.lbl_cad_hint, 1)
+        self.btn_stop_scan = QPushButton("Stop Scan")
+        self.btn_stop_scan.setVisible(False)
+        self.btn_stop_scan.setFixedHeight(20)
+        self.btn_stop_scan.setStyleSheet("QPushButton { background-color: #fee2e2; border: 1px solid #dc2626; color: #991b1b; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0px 8px; } QPushButton:hover { background-color: #fecaca; }")
+        self.btn_stop_scan.clicked.connect(self.stop_active_scan)
+        st_l.addWidget(self.btn_stop_scan)
         vis_l.addWidget(cad_status)
         self.view_stack.addWidget(vis_page)
 
@@ -1001,71 +1087,107 @@ class PdfBomImporterDialog(QDialog):
         self.qa_len.setText(f"{span_ft:.2f}")
         self.lbl_summary.setText(f"Measured Span: {span_ft:.2f} ft  |  Adjust profile/qty in Quick Add bar and click '+ Add to BOM Tree'.")
 
-    def _start_bg_bom_scan(self, selected_pages, region_clip=None, use_native_ocr=True, mode_tag="sheet"):
+    def _start_bg_bom_scan(self, selected_pages, region_clip=None, use_native_ocr=True, mode_tag="sheet", scan_mode=None):
         if getattr(self, "_bg_scan_worker", None) and self._bg_scan_worker.isRunning():
             if hasattr(self, "lbl_cad_hint"):
                 self.lbl_cad_hint.setText("BACKGROUND SCAN ALREADY IN PROGRESS — KEEP WORKING FREELY...")
             return
+        sm = scan_mode or ("hybrid" if use_native_ocr else "vector")
+        engine_names = {
+            "vector": "CAD Vector Engine",
+            "ocr": "High-DPI OCR Engine",
+            "hybrid": "Vector + OCR Hybrid Fusion Engine",
+        }
+        eng_lbl = "300-DPI Region Engine" if mode_tag == "box" else ("Current-Sheet Engine" if mode_tag == "sheet" else engine_names.get(sm, "Hybrid Engine"))
         scales = getattr(getattr(self, "vis_workspace", None), "sheet_scales", None)
+        if hasattr(self, "btn_stop_scan"):
+            self.btn_stop_scan.setVisible(True)
         if hasattr(self, "lbl_cad_hint"):
-            self.lbl_cad_hint.setText("BACKGROUND SCANNING SHEET(S) — YOU CAN KEEP USING THE APP...")
+            self.lbl_cad_hint.setText(f"RUNNING {eng_lbl.upper()} — UI STAYS UNLOCKED...")
         if hasattr(self, "lbl_summary"):
-            self.lbl_summary.setText("Background BOM Scan running... (UI stays unlocked)")
+            self.lbl_summary.setText(f"{eng_lbl} scanning... (UI stays unlocked)")
 
         w = _BomBackgroundScanWorker(
             self.pdf_path, get_workspace_path("steel_matrix.json"),
             selected_pages=selected_pages, region_clip=region_clip,
-            use_native_ocr=use_native_ocr, sheet_scales=scales, mode_tag=mode_tag, parent=self
+            use_native_ocr=(sm != "vector"), sheet_scales=scales, mode_tag=mode_tag, scan_mode=sm, parent=self
         )
         self._bg_scan_worker = w
 
         def _on_done(rows, dt, tag):
+            if hasattr(self, "btn_stop_scan"):
+                self.btn_stop_scan.setVisible(False)
+            if getattr(w, "_stop_flag", False):
+                if hasattr(self, "lbl_cad_hint"):
+                    self.lbl_cad_hint.setText(f"SCAN STOPPED BY USER ({len(rows)} partial group(s) kept)")
+                return
             if hasattr(self, "lbl_cad_hint"):
-                self.lbl_cad_hint.setText(f"READY  |  Last Scan: {len(rows)} group(s) in {dt:.1f}s")
+                self.lbl_cad_hint.setText(f"READY ({eng_lbl})  |  Last Scan: {len(rows)} group(s) in {dt:.1f}s")
             if not rows:
                 if hasattr(self, "lbl_summary"):
-                    self.lbl_summary.setText(f"Scan finished in {dt:.1f}s — 0 structural steel callouts detected.")
+                    self.lbl_summary.setText(f"{eng_lbl} finished in {dt:.1f}s — 0 structural steel callouts detected.")
                 return
             if tag == "planset":
                 self._load_rows_into_tree(rows)
             else:
                 self._append_rows_to_tree(rows)
             if hasattr(self, "lbl_summary"):
-                self.lbl_summary.setText(f"Background Scan Complete ({dt:.1f}s): Staged {len(rows)} steel group(s) to BOM Tree.")
+                self.lbl_summary.setText(f"{eng_lbl} Complete ({dt:.1f}s): Staged {len(rows)} steel group(s) to BOM Tree.")
 
         def _on_err(err_msg):
+            if hasattr(self, "btn_stop_scan"):
+                self.btn_stop_scan.setVisible(False)
             if hasattr(self, "lbl_cad_hint"):
-                self.lbl_cad_hint.setText(f"SCAN ERROR: {err_msg}")
+                self.lbl_cad_hint.setText(f"SCAN ERROR ({eng_lbl}): {err_msg}")
 
+        def _on_prog(cur_p, tot_p, sh_lbl, found_cnt):
+            pct = int(round((cur_p / max(1, tot_p)) * 100))
+            msg = f"{eng_lbl}: Scanning Sheet {cur_p} of {tot_p} ({sh_lbl}) [{pct}%] — {found_cnt} steel group(s) found so far..."
+            if hasattr(self, "lbl_cad_hint"):
+                self.lbl_cad_hint.setText(msg.upper())
+            if hasattr(self, "lbl_summary"):
+                self.lbl_summary.setText(msg)
+
+        w.progress_scan.connect(_on_prog)
         w.finished_scan.connect(_on_done)
         w.failed_scan.connect(_on_err)
         w.start()
 
+    def stop_active_scan(self):
+        w = getattr(self, "_bg_scan_worker", None)
+        if w and w.isRunning():
+            w.request_stop()
+            if hasattr(self, "lbl_cad_hint"):
+                self.lbl_cad_hint.setText("STOPPING SCAN AFTER CURRENT SHEET...")
+            if hasattr(self, "btn_stop_scan"):
+                self.btn_stop_scan.setVisible(False)
+
     def _handle_box_ocr(self, clip_rect):
         pdf_p = self.pdf_path or getattr(getattr(self, "vis_workspace", None), "pdf_path", "")
         if not pdf_p or not os.path.exists(pdf_p):
-            QMessageBox.information(self, "No PDF Loaded", "Please load a PDF planset first before running Box OCR.")
+            QMessageBox.information(self, "No PDF Loaded", "Please load a PDF planset first before running Drag & Scan.")
             return
         self.pdf_path = pdf_p
         pg_num = int(self.sheet_combo.currentData() or 1)
-        self._start_bg_bom_scan(selected_pages=[pg_num], region_clip=clip_rect, use_native_ocr=True, mode_tag="box")
+        self._start_bg_bom_scan(selected_pages=[pg_num], region_clip=clip_rect, use_native_ocr=True, mode_tag="box", scan_mode="hybrid")
 
-    def scan_whole_planset(self, use_ocr=True, prompt_if_empty=False):
+    def scan_whole_planset(self, use_ocr=True, prompt_if_empty=False, scan_mode=None):
         if not self.pdf_path or not os.path.exists(self.pdf_path):
             self.load_new_pdf_planset()
             return
         import bom_pdf_engine as eng
         sheets = eng.inspect_pdf_sheets(self.pdf_path)
         rec_pages = [s["page"] for s in sheets if s.get("recommended")] or [s["page"] for s in sheets]
-        self._start_bg_bom_scan(selected_pages=rec_pages, region_clip=None, use_native_ocr=bool(use_ocr), mode_tag="planset")
+        sm = scan_mode or ("hybrid" if use_ocr else "vector")
+        self._start_bg_bom_scan(selected_pages=rec_pages, region_clip=None, use_native_ocr=(sm != "vector"), mode_tag="planset", scan_mode=sm)
 
-    def _scan_selected_sheet(self):
+    def _scan_selected_sheet(self, scan_mode="hybrid"):
         if not self.pdf_path or not os.path.exists(self.pdf_path):
             if hasattr(self, "load_new_pdf_planset"):
                 self.load_new_pdf_planset()
             return
         pg_num = int(self.sheet_combo.currentData() or 1)
-        self._start_bg_bom_scan(selected_pages=[pg_num], region_clip=None, use_native_ocr=True, mode_tag="sheet")
+        self._start_bg_bom_scan(selected_pages=[pg_num], region_clip=None, use_native_ocr=(scan_mode != "vector"), mode_tag="sheet", scan_mode=scan_mode)
 
     def _add_quick_member_to_tree(self):
         sk = self.qa_shape.currentText()
@@ -1519,6 +1641,10 @@ class StructuralQuotingSandbox(QWidget):
         btn_t2_edit.setStyleSheet("background-color: #ffffff; border: 1px solid #94a3b8; color: #0f172a; font-weight: 700; font-weight: 600; border-radius: 6px; padding: 6px;")
         btn_t2_edit.clicked.connect(self.edit_selected_project_item)
         t2_item_ops.addWidget(btn_t2_dup, 1)
+        self.btn_waive_sub = QPushButton("Waive / Restore Sub-Line Cost")
+        self.btn_waive_sub.setStyleSheet("QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; border-radius: 6px; padding: 6px 10px; } QPushButton:hover { background-color: #e0f2fe; color: #0369a1; }")
+        self.btn_waive_sub.clicked.connect(self.toggle_selected_subline_waive)
+        t2_item_ops.addWidget(self.btn_waive_sub)
         t2_item_ops.addWidget(btn_t2_edit, 1)
         right_layout.addLayout(t2_item_ops)
 
@@ -1534,16 +1660,19 @@ class StructuralQuotingSandbox(QWidget):
 
         self.lbl_tot_wgt = QLabel("0.0 lbs")
         self.lbl_tot_mat = QLabel("$0.00")
+        self.lbl_tot_mach = QLabel("$0.00")
         self.lbl_tot_lab = QLabel("$0.00")
+        self.lbl_tot_fin = QLabel("$0.00")
         self.lbl_tot_sub = QLabel("$0.00")
-        self.lbl_markup_title = QLabel("BID MARKUP (40%):")
-        self.lbl_tot_mkp = QLabel("+$0.00")
+        self.lbl_tot_mkp = QLabel("$0.00")
         self.lbl_tot_grand = QLabel("$0.00")
-
+        self.lbl_markup_title = QLabel("BID MARKUP (40%):")
         for r_i, (t_txt, v_w, lc, vc) in enumerate([
             ("ACTUAL SHIP WEIGHT:", self.lbl_tot_wgt, m_lbl, m_val),
             ("RAW STEEL MATERIALS:", self.lbl_tot_mat, m_lbl, m_val),
+            ("RAW SHOP MACHINING:", self.lbl_tot_mach, m_lbl, m_val),
             ("RAW SHOP & ENG. LABOR:", self.lbl_tot_lab, m_lbl, m_val),
+            ("RAW COATING & FINISH:", self.lbl_tot_fin, m_lbl, m_val),
             ("COMBINED RAW SUBTOTAL:", self.lbl_tot_sub, m_lbl, m_val),
             (None, self.lbl_tot_mkp, m_lbl, m_val),
             ("TOTAL CUSTOMER QUOTE:", self.lbl_tot_grand, g_lbl, g_lbl),
@@ -1692,15 +1821,44 @@ class StructuralQuotingSandbox(QWidget):
                 mat_c = bill_wgt * rate_per_lb
                 lbl = f"{ln_ft:g}' {prof} (x{qty})"
 
-            lab_c = ((handling_mins / 60.0) * base_rate * qty) + (act_wgt * primer_rate)
+            heavy_cut = float(self.safeguards.get("heavy_weight_cutoff", 40.0))
+            light_hm = float(self.safeguards.get("light_handling_mins_per_pc", 0.75))
+            u_pc_w = act_wgt / max(1, qty)
+            tot_hm = (handling_mins + max(0, qty - 1) * (handling_mins * 0.5)) if u_pc_w >= heavy_cut else (min(3.0, handling_mins * 0.25) + light_hm * qty)
+            hand_c = round((tot_hm / 60.0) * base_rate, 2)
+            prim_c = round(act_wgt * primer_rate, 2)
+            lab_c = round(hand_c + prim_c, 2)
+            sub_rows = [
+                {
+                    "label": f"Shop Handling ({handling_mins:g}m/pc)",
+                    "cost": hand_c,
+                    "ea_cost": round(hand_c / max(1, qty), 2),
+                    "category": "labor",
+                    "formula": f"Handling: ({handling_mins:g} mins / 60) x ${base_rate:.2f}/hr x {qty} pcs = ${hand_c:,.2f}",
+                },
+                {
+                    "label": f"Shop Primer (${primer_rate:.2f}/lb)",
+                    "cost": prim_c,
+                    "ea_cost": round(prim_c / max(1, qty), 2),
+                    "category": "finish",
+                    "formula": f"Shop Primer: {act_wgt:,.1f} lbs x ${primer_rate:.2f}/lb = ${prim_c:,.2f}",
+                },
+            ]
             self.current_project_items.append({
                 "model": lbl,
                 "weight": round(act_wgt, 1),
                 "billable_weight": round(bill_wgt, 1),
+                "main_mat_cost": round(mat_c, 2),
+                "addon_mat_cost": 0.0,
                 "mat_cost": round(mat_c, 2),
-                "labor_cost": round(lab_c, 2),
+                "waived_keys": [],
+                "machining_cost": 0.0,
+                "fab_labor_cost": hand_c,
+                "finish_cost": prim_c,
+                "labor_cost": lab_c,
                 "cost": round(mat_c + lab_c, 2),
                 "addons": f"Shop Primer (${primer_rate:.2f}/lb), Sheet {sh_ref}",
+                "subline_details": sub_rows,
                 "form_state": {
                     "shape_key": sk, "model": prof, "qty": qty, "length": str(ln_ft),
                     "plate_w": str(r.get("plate_w", "12")), "plate_thk": str(r.get("plate_thk", "")),
@@ -1804,9 +1962,10 @@ class StructuralQuotingSandbox(QWidget):
         if getattr(self, "_suppress_t2_fx_sel", False):
             return
         if cur is None:
-            self.struct_fx_bar.set_formula("ACTIVE", "Select any steel member or detail row to edit its wording in the fx bar...")
+            self.struct_fx_bar.set_formula("ACTIVE", "Click any main line or sub-line to inspect its live cost & formula...")
             return
         parent = cur.parent()
+        fx_detail = cur.data(0, Qt.UserRole + 1)
         if parent is None:
             r_idx = self.ledger_tree.indexOfTopLevelItem(cur)
             if 0 <= r_idx < len(self.current_project_items):
@@ -1821,27 +1980,12 @@ class StructuralQuotingSandbox(QWidget):
                         if i < self.ledger_tree.topLevelItemCount():
                             self.ledger_tree.setCurrentItem(self.ledger_tree.topLevelItem(i))
                         self._suppress_t2_fx_sel = False
-                self.struct_fx_bar.set_editable_entry(f"ROW {r_idx + 1}", clean_m, _save_t2_main)
-                return
+                self.struct_fx_bar.set_formula(f"ROW {r_idx + 1}", str(fx_detail or clean_m))
         else:
-            r_idx = self.ledger_tree.indexOfTopLevelItem(parent)
+            p_idx = self.ledger_tree.indexOfTopLevelItem(parent)
             c_idx = parent.indexOfChild(cur)
-            if 0 <= r_idx < len(self.current_project_items):
-                cur_sub = cur.text(0).lstrip("•- ").strip()
-                def _save_t2_sub(new_v, i=r_idx, ci=c_idx):
-                    if 0 <= i < len(self.current_project_items):
-                        rec = self.current_project_items[i]
-                        sub_map = rec.setdefault("custom_sublines", {})
-                        sub_map[str(ci)] = new_v
-                        self._suppress_t2_fx_sel = True
-                        self.sync_local_workbench_view()
-                        if i < self.ledger_tree.topLevelItemCount():
-                            p_it = self.ledger_tree.topLevelItem(i)
-                            self.ledger_tree.setCurrentItem(p_it.child(ci) if ci < p_it.childCount() else p_it)
-                        self._suppress_t2_fx_sel = False
-                self.struct_fx_bar.set_editable_entry(f"ROW {r_idx + 1}.{c_idx + 1}", cur_sub, _save_t2_sub)
-                return
-        self.struct_fx_bar.set_formula("ACTIVE", "Select any steel member or detail row to edit its wording in the fx bar...")
+            disp_fx = str(fx_detail or cur.text(0).lstrip("- ").strip())
+            self.struct_fx_bar.set_formula(f"ROW {p_idx + 1}.{c_idx + 1}", disp_fx)
 
     def save_structural_draft(self, silent=False):
         payload = {
@@ -1984,10 +2128,14 @@ class StructuralQuotingSandbox(QWidget):
             weight_ft = active_item.get(weight_key, active_item.get("weight_steel_lb_ft", 13.0)) if active_item else 13.0
             actual_wgt = weight_ft * (extent * qty)
             billable_wgt = weight_ft * billable_footage
-            base_material_cost = billable_wgt * rate_per_lb
+            main_member_mat_cost = round(billable_wgt * rate_per_lb, 2)
+            base_material_cost = main_member_mat_cost
             label_desc = f"{extent:g}' {model}"
 
         active_nsc_angle = 0.0
+        machining_accum = 0.0
+        fab_labor_accum = 0.0
+        subline_details = []
         for op in addons_list:
             if op["mode"] == "NSC-Angled cuts" and op["qty"] > 0:
                 active_nsc_angle = op["p1"]
@@ -2194,32 +2342,113 @@ class StructuralQuotingSandbox(QWidget):
             if mode in ["Drill Holes", "Punch Holes"]:
                 total_holes = int(p2 * a_qty)
                 op_label = f"{mode} ({total_holes} @ {p1:g}\")"
+                op_cat = "machining"
+            elif mode in ["Cope", "Torch Cut", "Torch cut", "Shear Cuts", "Press Brake Bend", "Saddle Cut", "Laser Cut", "Angle Cut", "NSC-Angled Cut"]:
+                if mode in ["Top Flange End Plate", "Oversized Base Plate", "Shear Tabs"] and p2 > 0 and p3 > 0:
+                    op_label = f"{mode} ({p1:g}\" x {p2:g}\" x {p3:g}\") (x{a_qty}) {weld_tag}".strip()
+                else:
+                    op_label = f"{mode}(x{a_qty}) {weld_tag}".strip()
+                op_cat = "machining"
             else:
                 op_label = f"{mode}(x{a_qty}) {weld_tag}".strip()
+                op_cat = "labor"
+            op_total_run = round(line_cost * qty, 2)
             addon_summary_tokens.append(op_label)
+            if op_cat == "machining":
+                machining_accum += op_total_run
+            else:
+                fab_labor_accum += op_total_run
+            subline_details.append({
+                "label": op_label,
+                "cost": op_total_run,
+                "ea_cost": round(line_cost, 2),
+                "category": op_cat,
+                "formula": f"{op_label}: ${line_cost:,.2f}/pc x {qty} pcs = ${op_total_run:,.2f} raw",
+            })
 
         base_rate = float(self.safeguards.get('base_labor_rate', 86.0))
         baseline_labor_accum = 0.0
-        if shape_key != "plate" and extent < billable_footage / max(1, qty):
+        saw_cost = 0.0
+        has_manual_cut = any(
+            op.get("qty", 0) > 0 and op.get("mode") in ("Band Saw Cut", "NSC-Angled cuts", "Shear Cuts", "Torch cut")
+            for op in (addons_list or [])
+        )
+        if shape_key != "plate" and not has_manual_cut and extent < billable_footage / max(1, qty):
             dim_a = float(active_item.get("depth_in", 4.0)) if active_item else 4.0
             dim_b = float(active_item.get("flange_width_in", 4.0)) if active_item else 4.0
             saw_ipm = max(0.1, float(self.safeguards.get('saw_ipm', 0.8)))
-            baseline_labor_accum += (((dim_a + dim_b) / saw_ipm) / 60.0) * base_rate * qty
-            addon_summary_tokens.insert(0, f"Auto Band Saw Cut (x{qty})")
+            saw_cost = (((dim_a + dim_b) / saw_ipm) / 60.0) * base_rate * qty
+            baseline_labor_accum += saw_cost
+            machining_accum += saw_cost
+            saw_lbl = f"Auto Band Saw Cut (x{qty})"
+            addon_summary_tokens.insert(0, saw_lbl)
+            subline_details.insert(0, {
+                "label": saw_lbl, "cost": round(saw_cost, 2), "ea_cost": round(saw_cost / max(1, qty), 2),
+                "category": "machining",
+                "formula": f"Saw Cut: (({dim_a:g}\" + {dim_b:g}\") / {saw_ipm:g} ipm / 60) x ${base_rate:.2f}/hr x {qty} pcs = ${saw_cost:,.2f}",
+            })
+        heavy_cutoff = float(self.safeguards.get("heavy_weight_cutoff", 40.0))
         handling_mins = float(self.safeguards.get("handling_mins_per_pc", 15.0))
+        light_hand_mins = float(self.safeguards.get("light_handling_mins_per_pc", 0.75))
+        unit_pc_wgt = actual_wgt / max(1, qty)
+        hand_cost = 0.0
         if handling_mins > 0:
-            baseline_labor_accum += (handling_mins / 60.0) * base_rate * qty
-            addon_summary_tokens.insert(1 if (shape_key != "plate" and extent < billable_footage / max(1, qty)) else 0, f"Shop Handling ({handling_mins:g}m/pc)")
-        primer = self.active_card.chk_primer.isChecked() if (hasattr(self, "active_card") and hasattr(self.active_card, "chk_primer")) else True
+            if unit_pc_wgt >= heavy_cutoff:
+                tot_hand_mins = handling_mins + max(0, qty - 1) * (handling_mins * 0.5)
+                hand_lbl = f"Shop Handling ({tot_hand_mins:g}m batch)"
+                hand_fx = f"Heavy Batch Handling: {handling_mins:g}m setup + {max(0, qty - 1)} x {handling_mins * 0.5:g}m = {tot_hand_mins:g}m @ ${base_rate:.2f}/hr"
+            else:
+                setup_m = min(3.0, handling_mins * 0.25)
+                tot_hand_mins = setup_m + (light_hand_mins * qty)
+                hand_lbl = f"Bench Handling ({tot_hand_mins:g}m batch)"
+                hand_fx = f"Light Bench Handling: {setup_m:g}m setup + ({qty} x {light_hand_mins:g}m) = {tot_hand_mins:g}m @ ${base_rate:.2f}/hr"
+            hand_cost = (tot_hand_mins / 60.0) * base_rate
+            baseline_labor_accum += hand_cost
+            fab_labor_accum += hand_cost
+            ins_idx = 1 if saw_cost > 0 else 0
+            addon_summary_tokens.insert(ins_idx, hand_lbl)
+            subline_details.insert(ins_idx, {
+                "label": hand_lbl, "cost": round(hand_cost, 2), "ea_cost": round(hand_cost / max(1, qty), 2),
+                "category": "labor",
+                "formula": f"{hand_fx} = ${hand_cost:,.2f}",
+            })
+
+        ac_chk = getattr(self, "active_member_card", None)
+        raw_primer_chk = bool(ac_chk.chk_primer.isChecked()) if (ac_chk and hasattr(ac_chk, "chk_primer")) else False
+        primer = raw_primer_chk and not (pc or hdg)
         primer_rate = float(self.safeguards.get("primer_rate_per_lb", 0.12))
         primer_cost = (actual_wgt * primer_rate) if primer else 0.0
         if primer:
-            addon_summary_tokens.append(f"Shop Primer (${primer_rate:.2f}/lb)")
+            p_lbl = f"Shop Primer (${primer_rate:.2f}/lb)"
+            addon_summary_tokens.append(p_lbl)
+            subline_details.append({
+                "label": p_lbl, "cost": round(primer_cost, 2), "ea_cost": round(primer_cost / max(1, qty), 2),
+                "category": "finish",
+                "formula": f"Shop Primer: {actual_wgt:,.1f} lbs x ${primer_rate:.2f}/lb = ${primer_cost:,.2f}",
+            })
         pc_rate_lb = float(self.safeguards.get("pc_rate_per_lb", 1.80))
         hdg_h_lb = float(self.safeguards.get("hdg_heavy_rate_per_lb", 0.62))
         hdg_l_lb = float(self.safeguards.get("hdg_light_rate_per_lb", 1.88))
         pc_fee = (actual_wgt * pc_rate_lb) if pc else 0.0
-        hdg_fee = (actual_wgt * (hdg_h_lb if actual_wgt >= 20.0 else hdg_l_lb)) if hdg else 0.0
+        if pc:
+            pc_lbl = f"Powder Coating (${pc_rate_lb:.2f}/lb)"
+            addon_summary_tokens.append(pc_lbl)
+            subline_details.append({
+                "label": pc_lbl, "cost": round(pc_fee, 2), "ea_cost": round(pc_fee / max(1, qty), 2),
+                "category": "finish",
+                "formula": f"Powder Coating: {actual_wgt:,.1f} lbs x ${pc_rate_lb:.2f}/lb = ${pc_fee:,.2f}",
+            })
+        hdg_eff_rate = (hdg_h_lb if actual_wgt >= 20.0 else hdg_l_lb)
+        hdg_fee = (actual_wgt * hdg_eff_rate) if hdg else 0.0
+        if hdg:
+            hdg_lbl = f"Hot-Dip Galvanized (${hdg_eff_rate:.2f}/lb)"
+            addon_summary_tokens.append(hdg_lbl)
+            subline_details.append({
+                "label": hdg_lbl, "cost": round(hdg_fee, 2), "ea_cost": round(hdg_fee / max(1, qty), 2),
+                "category": "finish",
+                "formula": f"Hot-Dip Galvanized: {actual_wgt:,.1f} lbs x ${hdg_eff_rate:.2f}/lb = ${hdg_fee:,.2f}",
+            })
+        finish_accum = primer_cost + pc_fee + hdg_fee
         raw_labor_and_finish = baseline_labor_accum + primer_cost + (addon_labor_surcharges * qty) + pc_fee + hdg_fee
         raw_item_cost = base_material_cost + raw_labor_and_finish
 
@@ -2271,10 +2500,17 @@ class StructuralQuotingSandbox(QWidget):
             "model": new_model_lbl,
             "weight": actual_wgt,
             "billable_weight": billable_wgt,
-            "mat_cost": base_material_cost,
-            "labor_cost": raw_labor_and_finish,
-            "cost": raw_item_cost,
+            "main_mat_cost": round(float(locals().get("main_member_mat_cost", base_material_cost)), 2),
+            "addon_mat_cost": round(max(0.0, base_material_cost - float(locals().get("main_member_mat_cost", base_material_cost))), 2),
+            "mat_cost": round(base_material_cost, 2),
+            "waived_keys": [],
+            "machining_cost": round(machining_accum, 2),
+            "fab_labor_cost": round(fab_labor_accum, 2),
+            "finish_cost": round(finish_accum, 2),
+            "labor_cost": round(raw_labor_and_finish, 2),
+            "cost": round(raw_item_cost, 2),
             "addons": new_addons_lbl,
+            "subline_details": subline_details,
             "form_state": form_state,
         })
         self.sync_local_workbench_view()
@@ -2304,6 +2540,28 @@ class StructuralQuotingSandbox(QWidget):
             self.ledger_tree.topLevelItem(i).setExpanded(target_state)
         self.btn_toggle_expand.setText("Collapse All" if target_state else "Expand All")
         self.ledger_tree.viewport().update()
+
+    def toggle_selected_subline_waive(self):
+        cur = self.ledger_tree.currentItem()
+        if not cur or cur.parent() is None:
+            QMessageBox.information(self, "Select a Sub-Line", "Click any cost sub-line (such as Main Member Steel, Auto Band Saw Cut, or an add-on) to waive or restore its cost while keeping weight for HDG & shipping.")
+            return
+        tag = cur.data(0, Qt.UserRole + 2)
+        if not tag or not isinstance(tag, (tuple, list)) or len(tag) != 2:
+            return
+        item_idx, w_key = int(tag[0]), str(tag[1])
+        if not (0 <= item_idx < len(self.current_project_items)):
+            return
+        it = self.current_project_items[item_idx]
+        w_list = list(it.get("waived_keys") or [])
+        if w_key in w_list:
+            w_list.remove(w_key)
+        else:
+            w_list.append(w_key)
+        it["waived_keys"] = w_list
+        self.sync_local_workbench_view()
+        if item_idx < self.ledger_tree.topLevelItemCount():
+            self.ledger_tree.setCurrentItem(self.ledger_tree.topLevelItem(item_idx))
 
     def remove_workbench_item(self, idx):
         if 0 <= idx < len(self.current_project_items):
@@ -2346,17 +2604,111 @@ class StructuralQuotingSandbox(QWidget):
             btn_del.setStyleSheet("background-color: rgba(220, 38, 38, 0.25); border: 1px solid #f87171; color: #fca5a5; font-weight: 600; border-radius: 4px; padding: 0px;")
             btn_del.clicked.connect(lambda checked=False, i=idx: self.remove_workbench_item(i))
             self.ledger_tree.setItemWidget(parent, 3, btn_del)
+            waived = set(item.get("waived_keys") or [])
+            _raw_main_mat = float(item.get("main_mat_cost", item.get("mat_cost", item["cost"])))
+            _raw_addon_mat = float(item.get("addon_mat_cost", max(0.0, float(item.get("mat_cost", item["cost"])) - _raw_main_mat)))
+            _eff_main_mat = 0.0 if "main_mat" in waived else _raw_main_mat
+            _eff_addon_mat = 0.0 if "addon_mat" in waived else _raw_addon_mat
+            _m_tot = round(_eff_main_mat + _eff_addon_mat, 2)
+
+            sub_list = item.get("subline_details") or []
+            if sub_list:
+                _mach_tot = round(sum(float(sd.get("cost", 0.0)) for si, sd in enumerate(sub_list) if sd.get("category") == "machining" and f"sub_{si}" not in waived), 2)
+                _fab_tot = round(sum(float(sd.get("cost", 0.0)) for si, sd in enumerate(sub_list) if sd.get("category") == "labor" and f"sub_{si}" not in waived), 2)
+                _fin_tot = round(sum(float(sd.get("cost", 0.0)) for si, sd in enumerate(sub_list) if sd.get("category") == "finish" and f"sub_{si}" not in waived), 2)
+            else:
+                _mach_tot = float(item.get("machining_cost", 0.0))
+                _fab_tot = float(item.get("fab_labor_cost", float(item.get("labor_cost", 0.0)) - _mach_tot - float(item.get("finish_cost", 0.0))))
+                _fin_tot = float(item.get("finish_cost", 0.0))
+
+            _eff_item_cost = round(_m_tot + _mach_tot + _fab_tot + _fin_tot, 2)
+            item["mat_cost"] = _m_tot
+            item["machining_cost"] = _mach_tot
+            item["fab_labor_cost"] = _fab_tot
+            item["finish_cost"] = _fin_tot
+            item["labor_cost"] = round(_mach_tot + _fab_tot + _fin_tot, 2)
+            item["cost"] = _eff_item_cost
+            _ea_cost = (_eff_item_cost / _qty) if _qty > 1 else _eff_item_cost
+            _disp_model = f"{_clean_m} [${_ea_cost:,.2f} ea]" if _qty > 1 else _clean_m
+            parent.setText(0, _disp_model)
+            parent.setText(2, f"${_eff_item_cost:,.2f}")
+            if _qty > 1 and parent.childCount() > 0:
+                parent.child(0).setText(0, f"  • Each (x{_qty}): ${_ea_cost:,.2f} | {_ea_wgt:.1f} lbs")
+
+            parent.setData(0, Qt.UserRole + 1, f"{_clean_m}  =  Materials ${_m_tot:,.2f} + Machining ${_mach_tot:,.2f} + Labor ${_fab_tot:,.2f} + Finish ${_fin_tot:,.2f}  ->  ${_eff_item_cost:,.2f} Raw (${_ea_cost:,.2f}/ea)")
+
             c1 = QTreeWidgetItem(parent)
             c1.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             c1.setFirstColumnSpanned(True)
-            c1.setText(0, f"Steel: ${item.get('mat_cost', item['cost']):,.2f} (Mill Stock: {item.get('billable_weight', item['weight']):.1f} lbs)")
-            c1.setForeground(0, QColor("#0369a1"))
+            c1.setData(0, Qt.UserRole + 2, (idx, "main_mat"))
+            if "main_mat" in waived:
+                c1.setText(0, f"Main Member Steel: $0.00 [CUSTOMER SUPPLIED — ${_raw_main_mat:,.2f} Waived | {item.get('billable_weight', item['weight']):.1f} lbs Kept for HDG/Ship]")
+                c1.setData(0, Qt.UserRole + 1, f"Customer Supplied Main Member: ${_raw_main_mat:,.2f} steel waived, {item['weight']:.1f} lbs weight kept for HDG & shipping")
+                c1.setForeground(0, QColor("#b45309"))
+            else:
+                _mm_ea = f" (${_raw_main_mat/_qty:,.2f}/ea)" if _qty > 1 else ""
+                c1.setText(0, f"Main Member Steel: ${_raw_main_mat:,.2f}{_mm_ea}  |  Mill Stock: {item.get('billable_weight', item['weight']):.1f} lbs")
+                c1.setData(0, Qt.UserRole + 1, f"Main Member Steel: ${_raw_main_mat:,.2f} raw (${_raw_main_mat/max(1,_qty):,.2f}/ea) — Click 'Waive / Restore Sub-Line Cost' if Customer Supplied")
+                c1.setForeground(0, QColor("#0369a1"))
+
+            if _raw_addon_mat > 0:
+                c_amat = QTreeWidgetItem(parent)
+                c_amat.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                c_amat.setFirstColumnSpanned(True)
+                c_amat.setData(0, Qt.UserRole + 2, (idx, "addon_mat"))
+                if "addon_mat" in waived:
+                    c_amat.setText(0, f"Plate / Attachment Steel: $0.00 [WAIVED — ${_raw_addon_mat:,.2f}]")
+                    c_amat.setForeground(0, QColor("#b45309"))
+                else:
+                    _am_ea = f" (${_raw_addon_mat/_qty:,.2f}/ea)" if _qty > 1 else ""
+                    c_amat.setText(0, f"Plate / Attachment Steel: ${_raw_addon_mat:,.2f}{_am_ea}")
+                    c_amat.setData(0, Qt.UserRole + 1, f"Plate / Attachment Steel: ${_raw_addon_mat:,.2f} raw (${_raw_addon_mat/max(1,_qty):,.2f}/ea)")
+                    c_amat.setForeground(0, QColor("#0369a1"))
+
+            c_mach = QTreeWidgetItem(parent)
+            c_mach.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            c_mach.setFirstColumnSpanned(True)
+            _ea_mach = f" (${_mach_tot/_qty:,.2f}/ea)" if _qty > 1 else ""
+            c_mach.setText(0, f"Machining (Saw / Drill / Punch / Torch): ${_mach_tot:,.2f}{_ea_mach}")
+            c_mach.setData(0, Qt.UserRole + 1, f"Shop Machining Total: ${_mach_tot:,.2f} raw (${_mach_tot/max(1,_qty):,.2f}/ea)")
+            c_mach.setForeground(0, QColor("#0f172a"))
+
             c2 = QTreeWidgetItem(parent)
             c2.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             c2.setFirstColumnSpanned(True)
-            c2.setText(0, f"Shop Labor & Finish: ${item.get('labor_cost', 0.0):,.2f}")
+            _ea_fab = f" (${_fab_tot/_qty:,.2f}/ea)" if _qty > 1 else ""
+            c2.setText(0, f"Shop Fab & Weld Labor: ${_fab_tot:,.2f}{_ea_fab}")
+            c2.setData(0, Qt.UserRole + 1, f"Shop Fabrication & Weld Labor: ${_fab_tot:,.2f} raw (${_fab_tot/max(1,_qty):,.2f}/ea)")
             c2.setForeground(0, QColor("#0f172a"))
-            if item.get("addons") and item["addons"] != "None":
+
+            if _fin_tot > 0:
+                c_fin = QTreeWidgetItem(parent)
+                c_fin.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                c_fin.setFirstColumnSpanned(True)
+                _ea_fin = f" (${_fin_tot/_qty:,.2f}/ea)" if _qty > 1 else ""
+                c_fin.setText(0, f"Coating / Finish: ${_fin_tot:,.2f}{_ea_fin}")
+                c_fin.setData(0, Qt.UserRole + 1, f"Coating / Finish Total: ${_fin_tot:,.2f} raw (${_fin_tot/max(1,_qty):,.2f}/ea)")
+                c_fin.setForeground(0, QColor("#0369a1"))
+
+            if sub_list:
+                for si, sd in enumerate(sub_list):
+                    ca = QTreeWidgetItem(parent)
+                    ca.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                    ca.setFirstColumnSpanned(True)
+                    s_key = f"sub_{si}"
+                    ca.setData(0, Qt.UserRole + 2, (idx, s_key))
+                    sc_tot = float(sd.get("cost", 0.0))
+                    sc_ea = float(sd.get("ea_cost", sc_tot / max(1, _qty)))
+                    ea_tag = f" (${sc_ea:,.2f}/ea)" if _qty > 1 else ""
+                    if s_key in waived:
+                        ca.setText(0, f"- {sd.get('label', '')}: $0.00 [WAIVED — ${sc_tot:,.2f}]")
+                        ca.setData(0, Qt.UserRole + 1, f"WAIVED: {sd.get('formula', '')}")
+                        ca.setForeground(0, QColor("#b45309"))
+                    else:
+                        ca.setText(0, f"- {sd.get('label', '')}: ${sc_tot:,.2f}{ea_tag}")
+                        ca.setData(0, Qt.UserRole + 1, str(sd.get("formula") or f"{sd.get('label', '')}: ${sc_tot:,.2f}"))
+                        ca.setForeground(0, QColor("#1e3a8a"))
+            elif item.get("addons") and item["addons"] != "None":
                 for tok in item["addons"].split(","):
                     if tok.strip():
                         ca = QTreeWidgetItem(parent)
@@ -2381,14 +2733,18 @@ class StructuralQuotingSandbox(QWidget):
             er.setTextAlignment(2, Qt.AlignRight | Qt.AlignVCenter)
             er.setForeground(0, QColor("#b45309"))
 
-        raw_mat = sum(i.get("mat_cost", i["cost"]) for i in self.current_project_items)
-        raw_lab = sum(i.get("labor_cost", 0.0) for i in self.current_project_items) + eng_cost
-        raw_sub = round(raw_mat + raw_lab, 2)
+        raw_mat = sum(float(i.get("mat_cost", i["cost"])) for i in self.current_project_items)
+        raw_mach = sum(float(i.get("machining_cost", 0.0)) for i in self.current_project_items)
+        raw_fin = sum(float(i.get("finish_cost", 0.0)) for i in self.current_project_items)
+        raw_fab = sum(float(i.get("fab_labor_cost", float(i.get("labor_cost", 0.0)) - float(i.get("machining_cost", 0.0)) - float(i.get("finish_cost", 0.0)))) for i in self.current_project_items) + eng_cost
+        raw_sub = round(raw_mat + raw_mach + raw_fab + raw_fin, 2)
         mkp_dol = round(raw_sub * (markup_mult - 1.0), 2)
         grand = round(raw_sub + mkp_dol, 2)
         self.lbl_tot_wgt.setText(f"{t_wgt:.1f} lbs")
         self.lbl_tot_mat.setText(f"${raw_mat:,.2f}")
-        self.lbl_tot_lab.setText(f"${raw_lab:,.2f}")
+        self.lbl_tot_mach.setText(f"${raw_mach:,.2f}")
+        self.lbl_tot_lab.setText(f"${raw_fab:,.2f}")
+        self.lbl_tot_fin.setText(f"${raw_fin:,.2f}")
         self.lbl_tot_sub.setText(f"${raw_sub:,.2f}")
         self.lbl_tot_mkp.setText(f"+${mkp_dol:,.2f}")
         self.lbl_tot_grand.setText(f"${grand:,.2f}")
@@ -2535,26 +2891,36 @@ class StructuralQuotingSandbox(QWidget):
         for idx, item in enumerate(self.current_project_items):
             mat_c = item.get('mat_cost', item['cost'])
             lab_c = item.get('labor_cost', 0.0)
+            waived_set = set(item.get("waived_keys") or [])
+            is_cust_supplied = ("main_mat" in waived_set)
             manifest_entries.append(
                 f" Item #{idx+1}: {item['model']} (Ship Wgt: {item['weight']:.1f} lbs | Mill Wgt: {item.get('billable_weight', item['weight']):.1f} lbs | Mat: ${mat_c:,.2f} | Labor: ${lab_c:,.2f} | Raw: ${item['cost']:,.2f}) [Addons: {item['addons']}]"
             )
             sub_ov2 = item.get("custom_sublines") or {}
             if sub_ov2:
-                clean_addons = ", ".join(str(v).strip() for _, v in sorted(sub_ov2.items(), key=lambda kv: int(kv[0])) if str(v).strip())
+                clean_addons = " || ".join(str(v).strip() for _, v in sorted(sub_ov2.items(), key=lambda kv: int(kv)) if str(v).strip())
             else:
-                clean_addons = ", ".join([t.strip() for t in item['addons'].split(",") if "OVERRIDES:" not in t]) if item['addons'] != "None" else "Standard Stock"
+                active_toks = [t.strip() for t in item['addons'].split(",") if t.strip() and "OVERRIDES:" not in t]
+                clean_addons = " || ".join(active_toks) if active_toks else "Standard Stock"
             import re as _re2
             _mq2 = _re2.search(r"\(x(\d+)\)", str(item.get("model", "")))
             _qty2 = int(_mq2.group(1)) if _mq2 else int((item.get("form_state") or {}).get("qty", 1) or 1)
             import re as _re_cl
             _base_model_cl = _re_cl.sub(r"\s*\[\$[0-9,]+\.\d{2}\s*ea\]", "", str(item['model'])).strip()
-            _line_marked = item['cost'] * markup_mult
-            _desc_with_ea = f"{_base_model_cl} [${_line_marked / _qty2:,.2f} ea]" if _qty2 > 1 else _base_model_cl
+            _clean_desc_no_qty = _re_cl.sub(r"\s*\(x\d+\)", "", _base_model_cl).strip()
+            _shape_k = str((item.get("form_state") or {}).get("shape_key", "")).lower()
+            _cs_label = "Customer Supplied Pipe" if ("pipe" in _shape_k or "pipe" in _clean_desc_no_qty.lower()) else "Customer Supplied Material"
+            _line_marked = round(float(item['cost']) * markup_mult, 2)
+            _unit_marked = round(_line_marked / max(1, _qty2), 2)
             customer_lines.append({
-                "desc": _desc_with_ea,
+                "qty": _qty2,
+                "desc": _clean_desc_no_qty,
+                "unit_price": _unit_marked,
+                "customer_supplied": is_cust_supplied,
+                "customer_supplied_label": _cs_label if is_cust_supplied else "",
                 "specs": clean_addons if clean_addons else "Standard Stock",
-                "weight": item['weight'],
-                "price": item['cost'] * markup_mult,
+                "weight": round(float(item['weight']), 1),
+                "price": _line_marked,
                 "form_state": item.get("form_state"),
             })
 
@@ -3089,6 +3455,8 @@ class HistoricalArchiveLedgerPage(QWidget):
         file_path, _ = QFileDialog.getSaveFileName(self, "Save Customer PDF Quote", default_path, "PDF Files (*.pdf)")
         if not file_path:
             return
+        if str(file_path).lower().endswith(".pdf") and not _ensure_pdf_writable(self, file_path):
+            return
 
         from ui.quote_template_designer import load_quote_template_config, render_quote_documents
         tpl_cfg, _ = load_quote_template_config(get_workspace_path())
@@ -3468,7 +3836,8 @@ class AdminControlDashboardPage(QWidget):
             ("Labor & Markup", "base_labor_rate", "Base Shop Labor Rate ($/hr)", 86.0, "Hourly shop fabrication rate for welding, sawing, drilling & coping"),
             ("Labor & Markup", "eng_labor_rate", "Programming & Detailing Rate ($/hr)", 175.0, "Hourly rate for CNC programming & shop detailing"),
             ("Labor & Markup", "labor_markup", "End-of-Bid Markup Multiplier (1.40 = 40%)", 1.40, "Applied to combined raw material + shop & engineering labor subtotal"),
-            ("Labor & Markup", "handling_mins_per_pc", "Baseline Shop Handling (mins/pc)", 15.0, "Standard per-piece shop floor handling labor time"),
+            ("Labor & Markup", "handling_mins_per_pc", "Heavy Structural Handling (>=40 lbs) (mins)", 15.0, "Base crane/forklift handling for 1st heavy piece (+50% per repeat pc)"),
+            ("Labor & Markup", "light_handling_mins_per_pc", "Light Part Handling (<40 lbs) (mins/pc)", 0.75, "Per-piece bench handling for light plates/angles under 40 lbs (+3m batch setup)"),
             ("Labor & Markup", "admin_passcode", "Admin Console Passcode", "Barron", "Passcode required to unlock Admin Center & override gates"),
             ("Labor & Markup", "ai_vision_api_key", "AI Vision Planset API Key (Optional)", "", "Optional Gemini or OpenAI API key for cloud multimodal blueprint vision scanning"),
             ("Labor & Markup", "std_scope_clause_t1", "Catalog Standard Scope Clause (Tab 1)", "Furnished FOB Seattle, WA. Standard catalog hardware lead time 3-5 business days.", "Default clause inserted when clicking + Insert Standard Scope Clause on Tab 1"),

@@ -2634,6 +2634,14 @@
             "weight_ss316_lb_ft": 20.378
         },
         {
+            "designation": "HSS5.5X5.5X1/2",
+            "weight_steel_lb_ft": 31.84,
+            "width_in": 5.5,
+            "height_in": 5.5,
+            "weight_ss304_lb_ft": 32.445,
+            "weight_ss316_lb_ft": 32.572
+        },
+        {
             "designation": "HSS6X2X1/4",
             "width_in": 6.0,
             "height_in": 2.0,

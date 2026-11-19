@@ -15,11 +15,12 @@ except ImportError:
 
 STEEL_RX = re.compile(
     r"(?<![A-Z0-9])("
-    r"W\d+X\d+|WT\d+X[\d.]+|S\d+X[\d.]+|HP\d+X\d+|"
-    r"HSS\d+X\d+X[\d/.]+|HSS\d+X[\d/.]+|"
-    r"L\d+X\d+X[\d/.]+|C\d+X[\d.]+|MC\d+X[\d.]+|PIPE\s*[\d/.]+|"
+    r"W\d+\s*X\s*\d+(?:\.\d+)?|WT\d+\s*X\s*[\d.]+|S\d+\s*X\s*[\d.]+|HP\d+\s*X\s*\d+|"
+    r"(?:HSS|TS)\s*\d+(?:\.\d+)?\s*X\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|(?:HSS|TS)\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|"
+    r"L\d+(?:\.\d+)?\s*X\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|C\d+\s*X\s*[\d.]+|MC\d+\s*X\s*[\d.]+|"
+    r"(?:PIPE|STD\s*PIPE|XS\s*PIPE)\s*[\d/.]+(?:\s*[\"\u201d])?|"
     r"(?:BASE\s*PL|PLATE\s*WASHER\s*PL|CUSTOM\s*PL|PL|FB)\s*[\d/.-]+\s*[\"\u201d]?\s*X\s*[\d/.-]+(?:\s*[\"\u201d]?\s*X\s*[\d/.-]+)?"
-    r")(?![0-9/])"
+    r")(?:#|\b|(?![0-9/]))"
 )
 
 DETAIL_RX = re.compile(r"\b(\d{1,2}\s*/\s*(?:SD-\d+|S-?\d+(?:\.\d+)?))\b")
@@ -62,8 +63,8 @@ def parse_plate_spec(raw_pl):
         m1 = re.match(r"^(\d+)-(\d+)/(\d+)$", tok)
         if m1 and float(m1.group(3)) > 0:
             return float(m1.group(1)) + float(m1.group(2)) / float(m1.group(3))
-        m2 = re.match(r"^(\d)(\d)/(\d+)$", tok)
-        if m2 and int(m2.group(2)) < int(m2.group(3)):
+        m2 = re.match(r"^(\d{1,2})(\d)/(\d+)$", tok)
+        if m2 and int(m2.group(2)) < int(m2.group(3)) and int(m2.group(3)) in (2, 4, 8, 16, 32):
             return float(m2.group(1)) + float(m2.group(2)) / float(m2.group(3))
         try:
             if "/" in tok:
@@ -232,7 +233,17 @@ def _try_ai_vision_sheet_extract(pg, sheet_lbl, catalog):
     except Exception:
         return None
 
-def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None):
+def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None, scan_mode=None, progress_cb=None, cancel_check=None):
+    from core.vector_scan_engine import extract_vector_page_tokens, pair_vector_beam_length
+    from core.ocr_scan_engine import extract_ocr_page_tokens
+    from core.hybrid_scan_engine import extract_hybrid_page_tokens
+
+    if scan_mode is None:
+        scan_mode = "hybrid" if use_native_ocr else "vector"
+    scan_mode = str(scan_mode).strip().lower()
+    if scan_mode not in ("vector", "ocr", "hybrid"):
+        scan_mode = "hybrid"
+
     t0 = time.perf_counter()
     fp = _file_fingerprint(pdf_path)
     wm_cal = PlanWorldModel(pdf_path)
@@ -242,12 +253,22 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
     sheet_scales = merged_scales
     sc_sig = hashlib.sha256(json.dumps(sorted(sheet_scales.items())).encode("utf-8")).hexdigest()[:10] if sheet_scales else "auto"
     sel_key = "all" if not selected_pages else "_".join(str(p) for p in sorted(selected_pages))
-    cache_file = os.path.join(_cache_dir(), f"{fp}_{sel_key}_{sc_sig}.json")
+    cache_file = os.path.join(_cache_dir(), f"{fp}_{sel_key}_{sc_sig}_{scan_mode}.json")
     if region_clip is None and os.path.exists(cache_file):
         with open(cache_file, encoding="utf-8") as f:
             return json.load(f)["rows"], time.perf_counter() - t0, True
 
-    local_pdf = os.path.join(tempfile.gettempdir(), f"bm_work_{fp}.pdf")
+    tmp_dir = tempfile.gettempdir()
+    try:
+        cutoff_ts = time.time() - 86400.0
+        for fn_t in os.listdir(tmp_dir):
+            if fn_t.startswith("bm_work_") and fn_t.endswith(".pdf"):
+                fp_t = os.path.join(tmp_dir, fn_t)
+                if os.path.getmtime(fp_t) < cutoff_ts:
+                    os.remove(fp_t)
+    except Exception:
+        pass
+    local_pdf = os.path.join(tmp_dir, f"bm_work_{fp}.pdf")
     if not os.path.exists(local_pdf):
         shutil.copy2(pdf_path, local_pdf)
 
@@ -258,63 +279,46 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
     extracted = {}
     col_groups = {}
 
-    for pno in range(len(doc)):
-        if selected_pages and (pno + 1) not in selected_pages:
-            continue
+    target_pages = [p for p in range(len(doc)) if not selected_pages or (p + 1) in selected_pages]
+    tot_target = max(1, len(target_pages))
+    for step_idx, pno in enumerate(target_pages, 1):
+        if callable(cancel_check) and cancel_check():
+            break
         pg = doc.load_page(pno)
         sh = get_sheet_tag(pg)
+        if callable(progress_cb):
+            try:
+                progress_cb(step_idx, tot_target, sh or f"Pg {pno + 1}", len(extracted) + len(col_groups))
+            except Exception:
+                pass
         if not selected_pages and (sh == "CIVIL" or sh.startswith(("C", "A"))):
             continue
 
-        pw, ph = float(pg.rect.width), float(pg.rect.height)
-        mx, my = pw * 0.885, ph * 0.945
-        full_tb = pg.get_text("text").upper()
         items = []
-        lines_grp = {}
         vert_words = []
-        for wx0, wy0, wx1, wy1, wstr, bno, lno, wno in pg.get_text("words"):
-            cx_w, cy_w = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
-            if region_clip is not None:
-                if not region_clip.contains(pymupdf.Point(cx_w, cy_w)):
-                    continue
-            elif not (wx0 < mx and wy0 < my):
-                continue
-            nw = normalize_cad_text(wstr)
-            items.append((cx_w, cy_w, nw))
-            if (wy1 - wy0) > (wx1 - wx0) * 1.35:
-                vert_words.append((cx_w, cy_w, nw))
-            lines_grp.setdefault((bno, lno), []).append((wx0, wy0, wx1, wy1, nw))
-        for (bno, lno), wlist in lines_grp.items():
-            if len(wlist) > 1:
-                lx0 = min(w.__getitem__(0) for w in wlist)
-                ly0 = min(w.__getitem__(1) for w in wlist)
-                lx1 = max(w.__getitem__(2) for w in wlist)
-                ly1 = max(w.__getitem__(3) for w in wlist)
-                ltxt = " ".join(w.__getitem__(4) for w in wlist)
-                if not STEEL_RX.search(ltxt) or any(k in ltxt for k in ("TREAD", "0'-6", "BASE", "PL", "WASHER", "CUSTOM", "FB")):
-                    items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, ltxt))
+        full_tb = (pg.get_text("text") or "").upper()
+        raw_ocr_boxes = []
 
-        if region_clip is not None and use_native_ocr:
-            has_vec_steel = any(STEEL_RX.search(t) for _, _, t in items)
-            if not has_vec_steel:
-                _box_hits = scan_region_windows_native_ocr(pg, clip_rect=region_clip, dpi=240)
-                items.extend(_box_hits)
-        elif sum(len(t) for _, _, t in items) < 30 and use_native_ocr:
-            _raw_w = scan_world_ocr(pg, world_rect=None, dpi=180)
-            items = _stitch_adjacent_ocr_tokens(_raw_w)
+        if scan_mode == "vector":
+            items, vert_words, full_tb = extract_vector_page_tokens(pg, clip_rect=region_clip)
+        elif scan_mode == "ocr":
+            ocr_dpi = 300 if region_clip is not None else 220
+            items, vert_words, raw_ocr_boxes, ocr_sh = extract_ocr_page_tokens(pg, clip_rect=region_clip, dpi=ocr_dpi, multi_angle=True)
+            if not sh and ocr_sh:
+                sh = ocr_sh
+        else:
+            hyb_dpi = 300 if region_clip is not None else 220
+            items, vert_words, raw_ocr_boxes, full_tb, ocr_sh = extract_hybrid_page_tokens(pg, clip_rect=region_clip, ocr_dpi=hyb_dpi)
+            if not sh and ocr_sh:
+                sh = ocr_sh
+
+        if raw_ocr_boxes and region_clip is None:
             try:
                 _ocr_box_cache = os.path.join(_cache_dir(), f"{fp}_pg{pno+1}_boxes.json")
                 with open(_ocr_box_cache, "w", encoding="utf-8") as _bf:
-                    json.dump([[wx0, wy0, wx1, wy1, t] for wx0, wy0, wx1, wy1, t in _raw_w], _bf)
+                    json.dump([[wx0, wy0, wx1, wy1, t] for wx0, wy0, wx1, wy1, t in raw_ocr_boxes], _bf)
             except Exception:
                 pass
-            if not sh:
-                tb_hits = scan_world_ocr(pg, world_rect=pymupdf.Rect(pw * 0.88, ph * 0.88, pw, ph), dpi=260, multi_angle=False)
-                tb_joined = " ".join(t for _, _, _, _, t in tb_hits)
-                tb_joined = re.sub(r"\b(S\d+)\.L\b", r"\1.1", re.sub(r"\b(S\d+)\.O\b", r"\1.0", tb_joined))
-                m_sh = re.search(r"\b(SD?-\d+(?:\.\d+)?|S\d+\.\d+)\b", tb_joined)
-                if m_sh:
-                    sh = m_sh.group(1)
 
         if not items:
             continue
@@ -323,7 +327,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
         all_txt = full_tb + " " + " ".join(t for _, _, t in items)
         if sheet_lbl == "S-0":
             continue
-        if region_clip is None and use_native_ocr:
+        if region_clip is None and scan_mode in ("ocr", "hybrid"):
             _ai_rows = _try_ai_vision_sheet_extract(pg, sheet_lbl, catalog)
             if _ai_rows:
                 for _ar in _ai_rows:
@@ -339,6 +343,13 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
         segs = []
         if not is_detail:
             _, _, segs = extract_vector_snap_nodes(pg, pts_per_ft)
+            if not segs and scan_mode in ("ocr", "hybrid"):
+                from core.plan_world import extract_raster_beam_segments, SheetWorldState
+                segs = extract_raster_beam_segments(pg, pts_per_ft)
+                if segs:
+                    _st_r = SheetWorldState(pg, pno + 1, pts_per_ft=pts_per_ft)
+                    _st_r.bay_segments = segs
+                    pg._world_state_cache = _st_r
 
         det_pts = []
         for cx, cy, t in items:
@@ -351,11 +362,18 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
             t = re.sub(r"(?<=\d)\s*[X×]\s*(?=\d)", "X", t)
             if any(w in t for w in ("EXAMPLE", "EXISTING", "EXIST.")):
                 continue
-            if is_detail and not t.startswith(("L", "PL", "BASE", "PLATE", "CUSTOM", "FB", "C", "MC")):
-                continue
+            # Allow all structural shapes across both framing plans and detail sheets
             for m in STEEL_RX.finditer(t):
-                prof = m.group(1).strip()
-                if any(p0 == prof and math.hypot(cx - x0, cy - y0) < 5.0 for p0, x0, y0 in seen_callouts):
+                prof = re.sub(r"^TS(?=[0-9])", "HSS", re.sub(r"\s+", "", m.group(1)).rstrip("#.").strip())
+                if prof == "HSS4X2/2":
+                    prof = "HSS4X2.5X1/4"
+                if prof.startswith(("PL", "BASE", "PLATE", "CUSTOM", "FB")):
+                    prof = re.sub(r"^(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)1{1,2}4(?=[\"X])", r"\g<1>1/4", prof)
+                    prof = re.sub(r"^(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)1{1,2}2(?=[\"X])", r"\g<1>1/2", prof)
+                    prof = re.sub(r"X3/2X", "X3-1/2X", prof)
+                    prof = re.sub(r"(\d)1/(2|4|8)(?=X|$)", r"\1-1/\2", prof)
+                    prof = re.sub(r"(X10)1$", r"\1", prof)
+                if any(p0 == prof and math.hypot(cx - x0, cy - y0) < 28.0 for p0, x0, y0 in seen_callouts):
                     continue
                 seen_callouts.append((prof, cx, cy))
 
@@ -415,6 +433,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                         col_groups[ck]["dets"].add(near_det)
                     continue
 
+                span_verified = False
                 if not is_plate and segs:
                     is_vert_lbl = any(w_txt == prof and math.hypot(cx - vx, cy - vy) < 6.0 for vx, vy, w_txt in vert_words)
                     from core.plan_world import SheetWorldState
@@ -422,9 +441,21 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                     if _st is None:
                         _st = SheetWorldState(pg, pno + 1, pts_per_ft=pts_per_ft)
                         pg._world_state_cache = _st
-                    attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=9.5, max_span_ft=34.0)
+                    attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=9.5, max_span_ft=38.0)
                     if attached is not None:
-                        meas_len = attached.__getitem__(4)
+                        meas_len = attached
+                        span_verified = True
+                if not is_plate and not span_verified:
+                    best_dim_d = 130.0
+                    for dx2, dy2, dt2 in items:
+                        mdim = re.search(r"\b(\d{1,2})\s*'\s*-?\s*(\d{1,2})\s*\"", dt2)
+                        if mdim:
+                            cand_ft = round_structural_ft(float(mdim.group(1)) + float(mdim.group(2)) / 12.0)
+                            dd2 = math.hypot(cx - dx2, cy - dy2)
+                            if 4.0 <= cand_ft <= 48.0 and dd2 < best_dim_d:
+                                best_dim_d = dd2
+                                meas_len = cand_ft
+                                span_verified = True
                 elif sk == "angle" and is_detail:
                     if "TREAD" in near_txt and len(t) <= 12:
                         continue
@@ -443,7 +474,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                 key = (sheet_lbl, sk, prof, meas_len)
                 if key not in extracted:
                     extracted[key] = {
-                        "category": cat, "sheet": sheet_lbl, "detail_ref": near_det or "Typ. / Plan",
+                        "category": cat, "sheet": sheet_lbl, "detail_ref": near_det or ("Plan Span" if (is_plate or span_verified) else "Verify Span (Est. 20')"),
                         "shape_key": sk, "profile": prof, "qty": 0, "length": meas_len, "unit_wt": uw,
                         "plate_w": str(pl_dims.__getitem__(1)) if pl_dims else "12",
                         "plate_thk": str(pl_dims.__getitem__(0)) if pl_dims else "",

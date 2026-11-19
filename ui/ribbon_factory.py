@@ -36,6 +36,8 @@ class RibbonFactory:
             prefix, target = action_str.split(":", 1)
             if prefix == "mode":
                 self.rb._vis_mode(target)
+            elif prefix == "tool":
+                self.rb._vis_mode("box" if target == "ocr_box" else target)
             elif prefix == "canvas":
                 self.rb._canvas_call(target)
             elif prefix == "vis":
@@ -71,9 +73,11 @@ class RibbonFactory:
             return
 
         if action_str == "_act_scan_planset_fast":
-            self.rb._act_scan_planset(False)
+            self.rb._act_scan_planset_fast()
         elif action_str == "_act_scan_planset_ocr":
-            self.rb._act_scan_planset(True)
+            self.rb._act_scan_planset_ocr()
+        elif action_str == "_act_scan_planset_hybrid":
+            self.rb._act_scan_planset_hybrid()
         elif action_str == "pen_yellow_hl":
             self.rb._arm_pen("#eab308", "free_highlight")
         elif action_str == "t3_focus_search":

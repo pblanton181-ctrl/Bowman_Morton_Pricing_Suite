@@ -138,8 +138,10 @@
         "drill_spm": "Mechanical Drill Speed (Holes/Min)",
         "light_ppm": "Light Plate Punch/Brake Speed (Parts/Min)",
         "heavy_ppm": "Heavy Plate Handling Speed (Parts/Min)",
-        "heavy_weight_cutoff": "Heavy Part Weight Cutoff (lbs)"
+        "heavy_weight_cutoff": "Heavy Part Weight Cutoff (lbs)",
+        "light_handling_mins_per_pc": "Light Part Handling (<40 lbs) (mins/pc)"
     },
     "std_scope_clause_t1": "Furnished FOB Seattle, WA. Standard catalog hardware lead time 3-5 business days.",
-    "std_scope_clause_t2": "Furnished FOB Seattle, WA. Includes shop fabrication per AISC standards; excludes field erection, field welding, and anchor bolts unless itemized above."
+    "std_scope_clause_t2": "Furnished FOB Seattle, WA. Includes shop fabrication per AISC standards; excludes field erection, field welding, and anchor bolts unless itemized above.",
+    "light_handling_mins_per_pc": 0.75
 }

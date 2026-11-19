@@ -36,6 +36,22 @@ def get_workspace_path(filename=""):
     return os.path.join(base_dir, filename) if filename else base_dir
 
 
+def _ensure_pdf_writable(parent_widget, target_path):
+    if not target_path or not os.path.exists(target_path):
+        return True
+    try:
+        with open(target_path, "ab"):
+            return True
+    except (PermissionError, OSError):
+        QMessageBox.warning(
+            parent_widget,
+            "PDF Currently Open",
+            f"Cannot overwrite this PDF because it is currently open in another program:\n\n"
+            f"  • {os.path.basename(target_path)}\n\n"
+            f"Please close the PDF in your PDF viewer first (or save under a new file name) and try again.",
+        )
+        return False
+
 class PasscodeInputDialog(QInputDialog):
     def __init__(self, parent, title, label):
         super().__init__(parent)
@@ -265,7 +281,15 @@ class DataProcessingCore:
                             else:
                                 cost_str = str(row[config["cost_col"]]).strip()
 
-                            self.clean_database[active_title][model_name] = {
+                            store_key = model_name
+                            if store_key in self.clean_database[active_title]:
+                                ex_tag = str(row[config["extra_col"]]).strip()
+                                alt_key = f"{model_name} ({ex_tag})" if ex_tag and ex_tag != "0" else f"{model_name} [Row {row_idx}]"
+                                if alt_key not in self.clean_database[active_title]:
+                                    store_key = alt_key
+                                else:
+                                    continue
+                            self.clean_database[active_title][store_key] = {
                                 "lbs": str(row[config["lbs_col"]]).strip(),
                                 "cost": cost_str,
                                 "extra": str(row[config["extra_col"]]).strip(),
@@ -1069,7 +1093,7 @@ class AdminDashboardWindow(QDialog):
             schema_id = self.data_core.clean_database[cat][models_list[0]]["schema_id"] if models_list else "CARD_1"
             sheet_target = CARDS_SCHEMA_MATRIX[schema_id]["dropdown_sheet"]
             m_col = CARDS_SCHEMA_MATRIX[schema_id]["model_col"]
-            w_col = CARDS_SCHEMA_MATRIX[schema_id]["weight_col"]
+            w_col = CARDS_SCHEMA_MATRIX[schema_id]["lbs_col"]
             c_col = CARDS_SCHEMA_MATRIX[schema_id]["cost_col"]
 
             if hasattr(self, "push_catalog_snapshot"):
@@ -1358,6 +1382,17 @@ class StandaloneManufacturingApp(QMainWindow):
         self.master_tabs.currentChanged.connect(self.master_ribbon.set_active_tab)
         from PySide6.QtGui import QShortcut, QKeySequence
         QShortcut(QKeySequence('Ctrl+Z'), self, activated=self.undo_active_workspace)
+        def _ctrl_s_save():
+            idx = self.master_tabs.currentIndex() if hasattr(self, "master_tabs") else 0
+            if idx == 0:
+                vw = getattr(getattr(self, "planset_takeoff_tab", None), "vis_workspace", None)
+                if vw and hasattr(vw, "save_edited_pdf"):
+                    vw.save_edited_pdf()
+            elif idx == 1 and hasattr(self, "save_catalog_draft"):
+                self.save_catalog_draft()
+            elif idx == 2 and hasattr(self, "custom_quoting_tab"):
+                self.custom_quoting_tab.save_structural_draft()
+        QShortcut(QKeySequence('Ctrl+S'), self, activated=_ctrl_s_save)
         outer_deck_layout.setContentsMargins(0, 0, 0, 0)
         outer_deck_layout.setSpacing(0)
         outer_deck_layout.addWidget(self.master_ribbon, 0)
@@ -1398,6 +1433,7 @@ class StandaloneManufacturingApp(QMainWindow):
         self.main_layout.addWidget(self.t1_splitter)
         self.handle_card_switch()
         self.update_rfq_ledger_view()
+        QTimer.singleShot(350, self._restore_saved_session)
 
         self.master_tabs.addTab(tab1_standard, "Standard Hangers & Catalog")
 
@@ -1529,7 +1565,104 @@ class StandaloneManufacturingApp(QMainWindow):
             self._upd_worker.no_update.connect(_on_none)
         self._upd_worker.start()
 
+    def _restore_saved_session(self):
+        sess_p = get_workspace_path(os.path.join("config", "session_state.json"))
+        if not os.path.exists(sess_p):
+            return
+        try:
+            with open(sess_p, "r", encoding="utf-8-sig") as f:
+                sess = json.load(f)
+            if not sess.get("restore_pending"):
+                return
+            sess["restore_pending"] = False
+            with open(sess_p, "w", encoding="utf-8") as f:
+                json.dump(sess, f, indent=2)
+
+            t2 = getattr(self, "custom_quoting_tab", None)
+            if t2:
+                d_path = t2._structural_draft_path() if hasattr(t2, "_structural_draft_path") else get_workspace_path(os.path.join("config", "draft_structural.json"))
+                if os.path.exists(d_path):
+                    with open(d_path, "r", encoding="utf-8-sig") as df:
+                        d = json.load(df)
+                    if hasattr(t2, "input_cust_name"):
+                        t2.input_cust_name.setText(str(d.get("customer", "")))
+                    if hasattr(t2, "input_proj_name"):
+                        t2.input_proj_name.setText(str(d.get("project", "")))
+                    if hasattr(t2, "combo_profile") and d.get("profile"):
+                        p_idx = t2.combo_profile.findText(str(d.get("profile")))
+                        if p_idx >= 0:
+                            t2.combo_profile.setCurrentIndex(p_idx)
+                    t2.current_project_items = list(d.get("items") or [])
+                    if hasattr(t2, "input_prog_hrs"):
+                        t2.input_prog_hrs.setText(str(d.get("prog_hrs", "0")))
+                    if hasattr(t2, "input_detail_hrs"):
+                        t2.input_detail_hrs.setText(str(d.get("detail_hrs", "0")))
+                    if hasattr(t2, "input_lb_rate") and d.get("lb_rate"):
+                        t2.input_lb_rate.setText(str(d.get("lb_rate")))
+                    if hasattr(t2, "estimator_notes_edit"):
+                        t2.estimator_notes_edit.setPlainText(str(d.get("notes", d.get("scope_notes", ""))))
+                    t2.sync_local_workbench_view()
+
+            cat_p = get_workspace_path(os.path.join("config", "draft_catalog.json"))
+            if os.path.exists(cat_p):
+                with open(cat_p, "r", encoding="utf-8-sig") as cf:
+                    cd = json.load(cf)
+                if cd.get("items"):
+                    self.data_core.rfq_ledger_items = list(cd["items"])
+                    self.update_rfq_ledger_view()
+
+            tk_p = get_workspace_path(os.path.join("config", "draft_takeoff.json"))
+            pt = getattr(self, "planset_takeoff_tab", None)
+            if pt and os.path.exists(tk_p):
+                with open(tk_p, "r", encoding="utf-8-sig") as tf:
+                    td = json.load(tf)
+                saved_pdf = str(td.get("pdf_path", "") or "").strip()
+                if saved_pdf and os.path.exists(saved_pdf):
+                    import pymupdf, bom_pdf_engine as _eng_res
+                    from core.plan_world import PlanWorldModel as _PwmRes
+                    pt.pdf_path = saved_pdf
+                    pt._doc = pymupdf.open(saved_pdf)
+                    if hasattr(pt, "vis_workspace"):
+                        pt.vis_workspace.pdf_path = saved_pdf
+                        pt.vis_workspace._doc = pt._doc
+                        pt.vis_workspace.world_model = _PwmRes(saved_pdf)
+                        pt.vis_workspace.sheet_scales = pt.vis_workspace.world_model.sheet_scales
+                        ser_m = td.get("page_markups") or {}
+                        restored_m = {}
+                        for pk, mlist in ser_m.items():
+                            restored_m[int(pk)] = [
+                                {k: (QColor(v) if k == "color" and isinstance(v, str) else v) for k, v in m.items()}
+                                for m in (mlist or [])
+                            ]
+                        pt.vis_workspace.page_markups = restored_m
+                    if hasattr(pt, "sheet_combo"):
+                        pt.sheet_combo.blockSignals(True)
+                        pt.sheet_combo.clear()
+                        for s_info in _eng_res.inspect_pdf_sheets(saved_pdf):
+                            pt.sheet_combo.addItem(f"Pg {s_info['page']} ({s_info['sheet']} - {s_info['mode']})", s_info["page"])
+                        pt.sheet_combo.blockSignals(False)
+                    if hasattr(self, "master_ribbon") and hasattr(self.master_ribbon, "sync_sheet_list"):
+                        self.master_ribbon.sync_sheet_list([(pt.sheet_combo.itemText(i), pt.sheet_combo.itemData(i)) for i in range(pt.sheet_combo.count())], 0)
+                    pt._render_current_sheet()
+                if td.get("bom_rows") and hasattr(pt, "_load_rows_into_tree"):
+                    pt._load_rows_into_tree(td["bom_rows"])
+
+            act_tab = int(sess.get("active_tab", 0))
+            if hasattr(self, "master_tabs") and 0 <= act_tab < self.master_tabs.count():
+                self.master_tabs.setCurrentIndex(act_tab)
+                if hasattr(self, "master_ribbon") and hasattr(self.master_ribbon, "set_active_tab"):
+                    self.master_ribbon.set_active_tab(act_tab)
+        except Exception as _ex_res:
+            print("[SESSION RESTORE WARN]", _ex_res)
+
     def closeEvent(self, event):
+        pt_stop = getattr(self, "planset_takeoff_tab", None)
+        if pt_stop and hasattr(pt_stop, "stop_active_scan"):
+            pt_stop.stop_active_scan()
+            w_bg = getattr(pt_stop, "_bg_scan_worker", None)
+            if w_bg and w_bg.isRunning():
+                w_bg.terminate()
+                w_bg.wait(400)
         unsaved_areas = []
         t2 = getattr(self, "custom_quoting_tab", None)
         if t2 and getattr(t2, "current_project_items", None):
@@ -1575,8 +1708,21 @@ class StandaloneManufacturingApp(QMainWindow):
                             meta["qty"] = int(float(p_it.child(ci).text(4) or 1))
                             meta["length"] = float(p_it.child(ci).text(5) or 0.0)
                             bom_dump.append(meta)
+                    ser_marks = {}
+                    if isinstance(pm_dict, dict):
+                        for pg_k, m_list in pm_dict.items():
+                            ser_marks[str(pg_k)] = [
+                                {k: (v.name() if hasattr(v, "name") else v) for k, v in m.items()}
+                                for m in (m_list or [])
+                            ]
                     with open(get_workspace_path(os.path.join("config", "draft_takeoff.json")), "w", encoding="utf-8") as _tf:
-                        json.dump({"pdf_path": loaded_pdf, "bom_rows": bom_dump}, _tf, indent=2)
+                        json.dump({"pdf_path": loaded_pdf, "bom_rows": bom_dump, "page_markups": ser_marks}, _tf, indent=2)
+                os.makedirs(get_workspace_path("config"), exist_ok=True)
+                with open(get_workspace_path(os.path.join("config", "session_state.json")), "w", encoding="utf-8") as _sf:
+                    json.dump({
+                        "active_tab": int(self.master_tabs.currentIndex()) if hasattr(self, "master_tabs") else 0,
+                        "restore_pending": True,
+                    }, _sf, indent=2)
                 event.accept()
                 return
             if box.clickedButton() != b_exit:
@@ -1588,7 +1734,11 @@ class StandaloneManufacturingApp(QMainWindow):
         idx = self.master_tabs.currentIndex() if hasattr(self, "master_tabs") else 0
         if idx == 0:
             pt = getattr(self, "planset_takeoff_tab", None)
-            cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
+            vw = getattr(pt, "vis_workspace", None) if pt else None
+            cv = getattr(vw, "canvas", None) if vw else None
+            if cv and getattr(cv, "mode", "") == "edit_pdf" and vw and getattr(vw, "_pdf_undo_stack", None):
+                vw.undo_pdf_page_edit()
+                return
             if cv and hasattr(cv, "undo_last_markup"):
                 cv.undo_last_markup()
         elif idx == 1:
@@ -2417,6 +2567,14 @@ QComboBox, QLineEdit {
             def scrub(v):
                 cl = "".join(c for c in str(v) if c in (".", "-") or c.isdigit())
                 return float(cl) if cl else 0.0
+            raw_cost_txt = str(c_data.get("cost", "")).strip()
+            if not any(ch.isdigit() for ch in raw_cost_txt):
+                self.spec_label.setText(
+                    f"<b style='color:#b45309;'>SPECIAL ORDER / QUOTE REQUIRED:</b><br>"
+                    f"Model <b>{model}</b> is marked <i>'{raw_cost_txt or 'Request Quote'}'</i> in the price book.<br>"
+                    f"Enter a custom price or build this assembly in Tab 2 (Structural Quoting)."
+                )
+                return
             wgt = scrub(c_data["lbs"])
             checks = {cb.text(): cb.isChecked() for cb in self.check_boxes if cb.isVisible()}
             v1 = scrub(self.entry_manual_1.text())
@@ -2471,8 +2629,7 @@ QComboBox, QLineEdit {
                 f_price = raw_f_price * float(self.custom_safeguards.get("cat_base_margin", 1.05))
                 wgt = calculated_wgt # Updates the display token variables perfectly
 
-            # === START OF CODE REPLACEMENT AT THE BOTTOM OF THE FUNCTION ===
-                cat_margin = float(self.custom_safeguards.get("cat_base_margin", 1.05))
+            cat_margin = float(self.custom_safeguards.get("cat_base_margin", 1.05))
             for cb in self.check_boxes:
                 if getattr(cb, "_is_custom_admin_cb", False) and cb.isVisible() and cb.isChecked():
                     f_price += (float(getattr(cb, "_custom_fee_val", 0.0)) * mult * cat_margin)
@@ -2612,7 +2769,7 @@ QComboBox, QLineEdit {
             # Find matching category card & model on the left builder panel
             found_cat = None
             for cat_name, cat_obj in self.data_core.clean_database.items():
-                if base_model in cat_obj.get("models", {}):
+                if isinstance(cat_obj, dict) and base_model in cat_obj:
                     found_cat = cat_name
                     break
             if found_cat and hasattr(self, "category_box"):
@@ -2915,7 +3072,7 @@ QComboBox, QLineEdit {
     def _load_custom_safeguards(self):
         defaults = {
             "admin_passcode": "Barron", "base_labor_rate": 86.0, "eng_labor_rate": 175.0,
-            "std_stud_rate": 5.00, "labor_markup": 1.40, "handling_mins_per_pc": 15.0, "primer_rate_per_lb": 0.12, "max_saw_beam_size": "W16",
+            "std_stud_rate": 5.00, "labor_markup": 1.40, "handling_mins_per_pc": 15.0, "light_handling_mins_per_pc": 0.75, "primer_rate_per_lb": 0.12, "max_saw_beam_size": "W16",
             "max_drill_diameter": 1.125, "max_manual_punch_weight": 45.0,
             "turret_max_length": 48.0, "turret_max_width": 48.0,
             "carbon_shear_max_thickness": 0.50, "ss_shear_max_thickness": 0.375,
@@ -3045,11 +3202,38 @@ QComboBox, QLineEdit {
                 self.custom_quoting_tab.input_prog_hrs.setText(p_restored)
             if hasattr(self.custom_quoting_tab, "input_detail_hrs"):
                 self.custom_quoting_tab.input_detail_hrs.setText(d_restored)
+            t2_tab = self.custom_quoting_tab
             for cl in record.get("customer_lines", []):
                 if "Programming & Shop Detailing" in cl.get("desc", "") or "CNC Programming" in cl.get("desc", ""):
                     continue
+                fs = cl.get("form_state")
+                if isinstance(fs, dict) and fs.get("model"):
+                    try:
+                        t2_tab.input_run_qty.setText(str(fs.get("qty", 1)))
+                        t2_tab.input_lb_rate.setText(str(fs.get("steel_rate", "1.30")))
+                        t2_tab.combo_alloy.setCurrentText(str(fs.get("alloy", "Carbon Steel")))
+                        if hasattr(t2_tab, "active_member_card") and hasattr(t2_tab.active_member_card, "chk_primer"):
+                            t2_tab.active_member_card.chk_primer.setChecked(bool(fs.get("primer", True)))
+                        cm_v = str(fs.get("custom_mill", "")).strip()
+                        c_mill = float(cm_v) if cm_v else None
+                        t2_tab.execute_fabrication_math_routine(
+                            fs.get("shape_key", "beam"),
+                            fs.get("model", ""),
+                            float(fs.get("length", 10.0) or 10.0),
+                            float(fs.get("plate_w", 12.0) or 12.0),
+                            float(fs.get("plate_thk", 0.25) or 0.25),
+                            bool(fs.get("pc", False)),
+                            bool(fs.get("hdg", False)),
+                            list(fs.get("addons_list", [])),
+                            custom_mill=c_mill,
+                        )
+                        if cl.get("customer_supplied") and t2_tab.current_project_items:
+                            t2_tab.current_project_items[-1]["waived_keys"] = ["main_mat"]
+                        continue
+                    except Exception:
+                        pass
                 raw_c = round(float(cl.get("price", 0.0)) / markup_mult, 2)
-                self.custom_quoting_tab.current_project_items.append({
+                t2_tab.current_project_items.append({
                     "model": re.sub(r"\s*\[\$[0-9,]+\.\d{2}\s*ea\]", "", str(cl.get("desc", "Custom Member"))).strip(),
                     "weight": float(cl.get("weight", 0.0)),
                     "billable_weight": float(cl.get("weight", 0.0)),
@@ -3057,7 +3241,7 @@ QComboBox, QLineEdit {
                     "labor_cost": 0.0,
                     "cost": raw_c,
                     "addons": cl.get("specs", "Standard Stock"),
-                    "form_state": cl.get("form_state"),
+                    "form_state": fs,
                 })
             self.custom_quoting_tab.sync_local_workbench_view()
             self.master_tabs.setCurrentIndex(2)
@@ -3147,6 +3331,10 @@ if __name__ == "__main__":
     import qdarktheme
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.RoundPreferFloor)
     app = QApplication(sys.argv)
+    from core.shop_guardrails import install_global_error_catcher, UniversalSummaryTooltipFilter
+    install_global_error_catcher()
+    _universal_tip_filter = UniversalSummaryTooltipFilter(app)
+    app.installEventFilter(_universal_tip_filter)
     app.setEffectEnabled(Qt.UI_FadeTooltip, False)
     app.setEffectEnabled(Qt.UI_AnimateTooltip, False)
     from PySide6.QtGui import QPalette

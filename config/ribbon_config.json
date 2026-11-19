@@ -54,14 +54,24 @@
                       "action": "_act_scan_pdf"
                     },
                     {
-                      "text": "Vector Scan Full Planset (Fast)",
+                      "text": "Vector Scan Full Planset (CAD Engine)",
                       "icon": "file-spreadsheet",
                       "action": "_act_scan_planset_fast"
                     },
                     {
-                      "text": "Full OCR Scan Planset (SHX)",
+                      "text": "OCR Scan Full Planset (High-DPI Engine)",
                       "icon": "file-text",
                       "action": "_act_scan_planset_ocr"
+                    },
+                    {
+                      "text": "Vector + OCR Hybrid Scan Full Planset",
+                      "icon": "layers",
+                      "action": "_act_scan_planset_hybrid"
+                    },
+                    {
+                      "text": "Drag & Scan Section (300 DPI Box)",
+                      "icon": "scan",
+                      "action": "mode:box"
                     }
                   ]
                 },
@@ -203,7 +213,7 @@
                 {
                   "type": "large_btn",
                   "label": "Edit PDF",
-                  "icon": "text",
+                  "icon": "file-edit",
                   "action": "mode:edit_pdf",
                   "mode": "edit_pdf",
                   "tip": "Edit Native PDF Text & Erase: Click any text on the PDF to edit it in place, or drag a box to whiteout/erase."
@@ -221,7 +231,7 @@
                 {
                   "type": "tile",
                   "text": "Edit\nPDF",
-                  "icon": "file-pen",
+                  "icon": "file-edit",
                   "action": "mode:edit_pdf",
                   "mode": "edit_pdf",
                   "tip": "Edit PDF Text & Objects: Click any text block to edit in place, or drag a box over any SHX/vector text to whiteout and replace."
@@ -304,7 +314,7 @@
                 {
                   "type": "tile",
                   "text": "Hanger\nSkew",
-                  "icon": "angle",
+                  "icon": "triangle-right",
                   "action": "mode:hanger_skew",
                   "tip": "T-Square Hanger Skew Gauge: Click 2 points along carrying beam/wall, then swing left or right to read true Simpson hanger skew from 90\u00b0."
                 }
@@ -390,13 +400,13 @@
               "items": [
                 {
                   "type": "tile",
-                  "text": "Right\nTriangle",
+                  "text": "Stair\nStringer",
                   "icon": "triangle-right",
                   "action": "trig:0"
                 },
                 {
                   "type": "tile",
-                  "text": "Gusset\nPlate",
+                  "text": "Brace &\nGusset",
                   "icon": "shapes",
                   "action": "trig:1"
                 },
@@ -448,6 +458,12 @@
                       "action": "_act_dev"
                     }
                   ]
+                },
+                {
+                  "type": "tile",
+                  "text": "Export Full\nPlanset PDF",
+                  "icon": "file-output",
+                  "action": "vis:export_full_planset_pdf"
                 }
               ]
             }
@@ -679,7 +695,7 @@
                 },
                 {
                   "type": "tile",
-                  "text": "Trig\nStudio",
+                  "text": "Fab & Layout\nStudio",
                   "icon": "compass",
                   "action": "trig:0"
                 },

@@ -1,19 +1,19 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import math
 from PySide6.QtCore import Qt, QPointF, QRectF
 from PySide6.QtGui import QPainter, QPen, QColor, QFont, QPolygonF
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QWidget, QFormLayout,
-    QDoubleSpinBox, QSpinBox, QLabel, QPushButton, QMessageBox
+    QDoubleSpinBox, QComboBox, QLabel, QPushButton, QMessageBox,
+    QFrame, QGridLayout
 )
 
 
-class _CadGeometryDiagram(QWidget):
-    """Live dynamic CAD vector diagram for Right Triangles, Gussets, and Bolt Circles."""
+class _ShopCadViewport(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(270, 230)
-        self.mode = "right"
+        self.setMinimumSize(320, 270)
+        self.mode = "stair"
         self.data = {}
 
     def set_scene(self, mode, data):
@@ -25,71 +25,106 @@ class _CadGeometryDiagram(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
-        p.fillRect(0, 0, w, h, QColor("#f8fafc"))
-        p.setPen(QPen(QColor("#cbd5e1"), 1.2))
-        p.drawRoundedRect(1, 1, w - 2, h - 2, 6, 6)
+        p.fillRect(0, 0, w, h, QColor("#0f172a"))
+        p.setPen(QPen(QColor("#334155"), 1.5))
+        p.drawRoundedRect(1, 1, w - 2, h - 2, 7, 7)
 
-        # Subtle engineering blueprint grid
-        p.setPen(QPen(QColor("#e2e8f0"), 1))
-        for gx in range(20, w, 24): p.drawLine(gx, 4, gx, h - 4)
-        for gy in range(20, h, 24): p.drawLine(4, gy, w - 4, gy)
+        p.setPen(QPen(QColor(30, 41, 59, 180), 1))
+        for gx in range(18, w, 22):
+            p.drawLine(gx, 4, gx, h - 4)
+        for gy in range(18, h, 22):
+            p.drawLine(4, gy, w - 4, gy)
 
-        p.setFont(QFont("Segoe UI", 9, QFont.Bold))
-        if self.mode == "right":
-            run = max(0.01, float(self.data.get("run", 12.0)))
-            rise = max(0.0, float(self.data.get("rise", 5.0)))
-            sc = min((w - 90) / run, (h - 80) / max(rise, run * 0.25))
+        p.setFont(QFont("Consolas", 9, QFont.Bold))
+        if self.mode == "stair":
+            run = max(1.0, float(self.data.get("run_in", 120.0)))
+            rise = max(1.0, float(self.data.get("rise_in", 96.0)))
+            n_r = max(2, int(self.data.get("risers", 14)))
+            sc = min((w - 84) / run, (h - 74) / rise)
             bw, bh = run * sc, rise * sc
-            x0, y0 = (w - bw) * 0.5, (h + bh) * 0.5 + 10
-            p1, p2, p3 = QPointF(x0, y0), QPointF(x0 + bw, y0), QPointF(x0 + bw, y0 - bh)
-            p.setBrush(QColor(2, 132, 199, 32))
-            p.setPen(QPen(QColor("#1e3a8a"), 2.2))
-            p.drawPolygon(QPolygonF([p1, p2, p3]))
-            if bh > 14 and bw > 14:
-                p.drawRect(QRectF(p2.x() - 12, p2.y() - 12, 12, 12))
-            p.setPen(QPen(QColor("#0f172a"), 1))
-            p.drawText(int((p1.x() + p2.x()) * 0.5 - 28), int(y0 + 16), f"Run: {self.data.get('run_s', '')}")
-            p.drawText(min(w - 76, int(p2.x() + 6)), int((p2.y() + p3.y()) * 0.5), f"Rise: {self.data.get('rise_s', '')}")
-            p.setPen(QPen(QColor("#dc2626"), 1))
-            p.drawText(int((p1.x() + p3.x()) * 0.5 - 45), int((p1.y() + p3.y()) * 0.5 - 8), f"Hyp: {self.data.get('hyp_s', '')}")
+            x0, y0 = (w - bw) * 0.5, (h + bh) * 0.5 + 8
+            p.setPen(QPen(QColor("#64748b"), 1.5, Qt.DashLine))
+            p.drawLine(int(x0 - 16), int(y0), int(x0 + bw + 16), int(y0))
+            p.drawLine(int(x0 + bw - 10), int(y0 - bh), int(x0 + bw + 26), int(y0 - bh))
+            p.setPen(QPen(QColor("#38bdf8"), 3.0))
+            p.drawLine(QPointF(x0, y0), QPointF(x0 + bw, y0 - bh))
+            p.setPen(QPen(QColor("#34d399"), 1.5))
+            dx_s, dy_s = bw / max(1, n_r - 1), bh / n_r
+            cx, cy = x0, y0
+            for i in range(n_r):
+                p.drawLine(QPointF(cx, cy), QPointF(cx, cy - dy_s))
+                cy -= dy_s
+                if i < n_r - 1:
+                    p.drawLine(QPointF(cx, cy), QPointF(cx + dx_s, cy))
+                    cx += dx_s
+            p.setPen(QColor("#f8fafc"))
+            p.drawText(int(x0 + bw * 0.25), int(y0 + 18), f"Run: {self.data.get('run_s', '')}")
+            p.drawText(int(x0 + bw + 8), int(y0 - bh * 0.5), f"Rise: {self.data.get('rise_s', '')}")
+            p.setPen(QColor("#fbbf24"))
+            p.drawText(int(x0 + 8), int(y0 - bh * 0.62), f"Cut: {self.data.get('cut_s', '')} @ {self.data.get('ang', 0):.1f}°")
 
-        elif self.mode == "oblique":
-            a = max(0.01, float(self.data.get("a", 10.0)))
-            b = max(0.01, float(self.data.get("b", 14.0)))
-            C = math.radians(float(self.data.get("C", 60.0)))
-            bx, by = b, 0.0
-            ax, ay = a * math.cos(C), a * math.sin(C)
-            min_x, max_x = min(0.0, bx, ax), max(0.0, bx, ax)
-            max_y = max(0.01, ay)
-            sc = min((w - 80) / max(0.01, max_x - min_x), (h - 70) / max_y)
-            ox = (w - (max_x - min_x) * sc) * 0.5 - min_x * sc
-            oy = (h + max_y * sc) * 0.5 + 8
-            q0, q1, q2 = QPointF(ox, oy), QPointF(ox + bx * sc, oy), QPointF(ox + ax * sc, oy - ay * sc)
-            p.setBrush(QColor(16, 124, 65, 32))
-            p.setPen(QPen(QColor("#107c41"), 2.2))
-            p.drawPolygon(QPolygonF([q0, q1, q2]))
-            p.setPen(QPen(QColor("#0f172a"), 1))
-            p.drawText(int((q0.x() + q1.x()) * 0.5 - 20), int(oy + 16), f"B = {b:.2f} ft")
-            p.drawText(int((q0.x() + q2.x()) * 0.5 - 45), int((q0.y() + q2.y()) * 0.5), f"A = {a:.2f} ft")
-            p.setPen(QPen(QColor("#dc2626"), 1))
-            p.drawText(int((q1.x() + q2.x()) * 0.5 + 6), int((q1.y() + q2.y()) * 0.5), f"C = {self.data.get('c', 0):.2f} ft")
+        elif self.mode == "brace":
+            bw_ft = max(1.0, float(self.data.get("bay_ft", 14.0)))
+            bh_ft = max(1.0, float(self.data.get("ht_ft", 12.0)))
+            sc = min((w - 86) / bw_ft, (h - 76) / bh_ft)
+            gw, gh = bw_ft * sc, bh_ft * sc
+            x0, y0 = (w - gw) * 0.5, (h + gh) * 0.5 + 8
+            p.setPen(QPen(QColor("#94a3b8"), 3.0))
+            p.drawLine(int(x0), int(y0 + 10), int(x0), int(y0 - gh - 12))
+            p.drawLine(int(x0 - 12), int(y0 - gh), int(x0 + gw + 14), int(y0 - gh))
+            p.setBrush(QColor(251, 191, 36, 70))
+            p.setPen(QPen(QColor("#fbbf24"), 1.6))
+            p.drawPolygon(QPolygonF([QPointF(x0, y0 - gh), QPointF(x0 + 36, y0 - gh), QPointF(x0, y0 - gh + 36)]))
+            p.setPen(QPen(QColor("#38bdf8"), 3.2))
+            p.drawLine(QPointF(x0 + 18, y0 - gh + 18), QPointF(x0 + gw - 14, y0 - 14))
+            p.setPen(QColor("#38bdf8"))
+            p.drawText(int(x0 + gw * 0.22), int(y0 - gh * 0.35), f"Net Cut: {self.data.get('net_s', '')}")
+            p.setPen(QColor("#fbbf24"))
+            p.drawText(int(x0 + 42), int(y0 - gh + 16), f"Gusset: {self.data.get('gus_s', '')}")
 
-        elif self.mode == "circle":
-            n = max(2, int(self.data.get("n", 8)))
-            r_px = min(w, h) * 0.34
-            cx, cy = w * 0.5, h * 0.5
-            p.setPen(QPen(QColor("#64748b"), 1, Qt.DashLine))
-            p.drawLine(int(cx - r_px - 14), int(cy), int(cx + r_px + 14), int(cy))
-            p.drawLine(int(cx), int(cy - r_px - 14), int(cx), int(cy + r_px + 14))
-            p.setBrush(Qt.NoBrush)
-            p.setPen(QPen(QColor("#0284c7"), 2.0))
+        elif self.mode == "roll":
+            od = max(4.0, float(self.data.get("od_in", 24.0)))
+            ht = max(2.0, float(self.data.get("ht_in", 18.0)))
+            r_px = min(w * 0.16, h * 0.26, 46.0)
+            cx, cy = w * 0.25, h * 0.5
+            p.setBrush(QColor(56, 189, 248, 35))
+            p.setPen(QPen(QColor("#38bdf8"), 2.2))
             p.drawEllipse(QPointF(cx, cy), r_px, r_px)
-            p.setBrush(QColor("#1e3a8a"))
-            p.setPen(QPen(QColor("#ffffff"), 1.2))
-            for i in range(n):
-                ang = (2.0 * math.pi * i) / n - math.pi * 0.5
-                hx, hy = cx + r_px * math.cos(ang), cy + r_px * math.sin(ang)
-                p.drawEllipse(QPointF(hx, hy), 5.0, 5.0)
+            p.setBrush(QColor("#0f172a"))
+            p.drawEllipse(QPointF(cx, cy), max(4.0, r_px * 0.78), max(4.0, r_px * 0.78))
+            p.setPen(QColor("#f8fafc"))
+            p.drawText(int(cx - 32), int(cy + r_px + 18), f'OD {od:g}"')
+            rx, ry = w * 0.48, h * 0.26
+            rw, rh = w * 0.44, h * 0.46
+            p.setBrush(QColor(52, 211, 153, 35))
+            p.setPen(QPen(QColor("#34d399"), 2.0))
+            p.drawRect(QRectF(rx, ry, rw, rh))
+            p.setPen(QColor("#34d399"))
+            p.drawText(int(rx + 6), int(ry - 6), f"Flat Blank: {self.data.get('blank_s', '')}")
+            p.setPen(QColor("#cbd5e1"))
+            p.drawText(int(rx + 6), int(ry + rh + 16), f'Seam Weld: {ht:g}"')
+
+        elif self.mode == "baseplate":
+            pw_in = max(4.0, float(self.data.get("pw", 14.0)))
+            pl_in = max(4.0, float(self.data.get("pl", 14.0)))
+            cw_in = max(1.0, float(self.data.get("cw", 6.0)))
+            sc = min((w - 90) / pw_in, (h - 75) / pl_in)
+            bw, bh = pw_in * sc, pl_in * sc
+            x0, y0 = (w - bw) * 0.5, (h - bh) * 0.5
+            p.setBrush(QColor(56, 189, 248, 28))
+            p.setPen(QPen(QColor("#38bdf8"), 2.0))
+            p.drawRect(QRectF(x0, y0, bw, bh))
+            cw_px = cw_in * sc
+            p.setBrush(QColor(148, 163, 184, 55))
+            p.setPen(QPen(QColor("#e2e8f0"), 2.0))
+            p.drawRect(QRectF(x0 + (bw - cw_px) * 0.5, y0 + (bh - cw_px) * 0.5, cw_px, cw_px))
+            p.setBrush(QColor("#fbbf24"))
+            p.setPen(QPen(QColor("#0f172a"), 1.0))
+            for hx, hy in self.data.get("holes", []):
+                qx, qy = x0 + hx * sc, y0 + hy * sc
+                p.drawEllipse(QPointF(qx, qy), 4.5, 4.5)
+            p.setPen(QColor("#f8fafc"))
+            p.drawText(int(x0), int(y0 - 6), f'Plate: {pw_in:g}" x {pl_in:g}"')
 
 
 class EngineeringTrigGeometryDialog(QDialog):
@@ -99,43 +134,40 @@ class EngineeringTrigGeometryDialog(QDialog):
         self._last_summary = ""
         self._tab_summaries = {}
         self._tab_shapes = {}
-        self.setWindowTitle("Engineering Trig, Geometry & Structural Math Studio")
-        self.resize(840, 500)
-        self.setMinimumSize(780, 460)
-        self.setStyleSheet("""
-            QDialog { background-color: #f3f2f1; color: #111827; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; }
-            QTabWidget::pane { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 5px; padding: 12px; }
-            QTabBar::tab { background-color: #e5e7eb; color: #374151; padding: 7px 16px; border: 1px solid #cbd5e1; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; margin-right: 3px; font-size: 12px; }
-            QTabBar::tab:selected { background-color: #ffffff; color: #1e3a8a; font-weight: 700; border-top: 3px solid #1e3a8a; }
-            QDoubleSpinBox, QSpinBox { background-color: #ffffff; color: #111827; border: 1px solid #94a3b8; border-radius: 4px; padding: 4px 8px; font-size: 13px; min-width: 120px; }
-            QLabel#ResultBox { background-color: #eff6ff; color: #1e3a8a; border: 1px solid #93c5fd; border-radius: 5px; padding: 10px; font-size: 13px; font-weight: 600; }
-            QPushButton { background-color: #ffffff; border: 1px solid #94a3b8; color: #0f172a; font-weight: 600; border-radius: 5px; padding: 7px 16px; }
-            QPushButton:hover { background-color: #e2e8f0; }
-            QPushButton#StampBtn { background-color: #1e3a8a; border: 1px solid #1e40af; color: #ffffff; }
-            QPushButton#StampBtn:hover { background-color: #1d4ed8; }
-        """)
-        lay = QVBoxLayout(self); lay.setContentsMargins(14, 12, 14, 12); lay.setSpacing(10)
+        self._tab_quote_items = {}
+        self.setWindowTitle("Structural Steel Fab & Layout Studio")
+        self.resize(940, 560)
+        self.setStyleSheet('''
+            QDialog { background-color: #f1f5f9; color: #0f172a; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; }
+            QTabWidget::pane { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; }
+            QTabBar::tab { background-color: #e2e8f0; color: #334155; padding: 8px 16px; border: 1px solid #cbd5e1; border-bottom: none; border-top-left-radius: 5px; border-top-right-radius: 5px; margin-right: 3px; font-weight: 600; }
+            QTabBar::tab:selected { background-color: #ffffff; color: #0369a1; font-weight: 700; border-top: 3px solid #0284c7; }
+            QDoubleSpinBox, QComboBox { background-color: #f8fafc; color: #0f172a; border: 1px solid #94a3b8; border-radius: 4px; padding: 4px 8px; font-weight: 600; min-width: 135px; }
+            QPushButton { background-color: #ffffff; border: 1px solid #94a3b8; color: #0f172a; font-weight: 600; border-radius: 5px; padding: 7px 14px; }
+            QPushButton#QuoteSendBtn { background-color: #059669; border: 1px solid #047857; color: #ffffff; font-weight: 700; }
+            QPushButton#StampBtn { background-color: #0284c7; border: 1px solid #0369a1; color: #ffffff; font-weight: 700; }
+        ''')
+        lay = QVBoxLayout(self)
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._build_right_triangle_tab(), "1. Right Triangle & Pitch")
-        self.tabs.addTab(self._build_oblique_tab(), "2. Gusset Triangle")
-        self.tabs.addTab(self._build_circle_bolt_tab(), "3. Circle & Bolt Layout")
-        self.tabs.addTab(self._build_trig_eval_tab(), "4. Trig & Slope")
+        self.tabs.addTab(self._build_stair_tab(), "1. Stair Stringer & IBC Layout")
+        self.tabs.addTab(self._build_brace_tab(), "2. Brace & Gusset Setbacks")
+        self.tabs.addTab(self._build_roll_tab(), "3. Rolled Plate Stretch-Out")
+        self.tabs.addTab(self._build_baseplate_tab(), "4. Base Plate & Bolt Pattern")
         lay.addWidget(self.tabs, 1)
 
         bot = QHBoxLayout()
-        self.btn_stamp = QPushButton("Stamp Result onto Active Blueprint"); self.btn_stamp.setObjectName("StampBtn")
+        self.btn_send_quote = QPushButton("Send Calculated Steel & Plates to Tab 2 Quote"); self.btn_send_quote.setObjectName("QuoteSendBtn")
+        self.btn_send_quote.clicked.connect(self._send_to_tab2_quote); bot.addWidget(self.btn_send_quote)
+        self.btn_stamp = QPushButton("Stamp Shop Detail onto Blueprint"); self.btn_stamp.setObjectName("StampBtn")
         self.btn_stamp.clicked.connect(self._stamp_to_sheet); bot.addWidget(self.btn_stamp); bot.addStretch()
         btn_close = QPushButton("Close"); btn_close.clicked.connect(self.accept); bot.addWidget(btn_close); lay.addLayout(bot)
 
     def _make_kv_card(self, keys):
-        from PySide6.QtWidgets import QFrame, QGridLayout
-        card = QFrame()
-        card.setStyleSheet("QFrame { background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; } QLabel { border: none; background: transparent; }")
-        gl = QGridLayout(card); gl.setContentsMargins(10, 8, 10, 8); gl.setHorizontalSpacing(14); gl.setVerticalSpacing(6)
-        val_lbls = {}
+        card = QFrame(); card.setStyleSheet("QFrame { background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; } QLabel { border: none; background: transparent; }")
+        gl = QGridLayout(card); val_lbls = {}
         for r, k_txt in enumerate(keys):
-            kl = QLabel(k_txt); kl.setStyleSheet("color: #475569; font-size: 12px; font-weight: 500;")
-            vl = QLabel("-"); vl.setStyleSheet("color: #0f172a; font-size: 13.5px; font-weight: 700;"); vl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            kl = QLabel(k_txt); kl.setStyleSheet("color: #475569; font-size: 12px; font-weight: 600;")
+            vl = QLabel("-"); vl.setStyleSheet("color: #0f172a; font-size: 13px; font-weight: 700;"); vl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             gl.addWidget(kl, r, 0); gl.addWidget(vl, r, 1); val_lbls[k_txt] = vl
         return card, val_lbls
 
@@ -143,116 +175,156 @@ class EngineeringTrigGeometryDialog(QDialog):
         tot16 = int(round(abs(ft_val) * 192.0))
         whole_in, rem16 = divmod(tot16, 16)
         feet, inches = divmod(whole_in, 12)
-        if rem16 == 0: frac = ""
+        frac = "" if rem16 == 0 else f" {rem16 // math.gcd(rem16, 16)}/{16 // math.gcd(rem16, 16)}"
+        return f'{feet}\'-{inches}{frac}"'
+
+
+    def _build_stair_tab(self):
+        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
+        self.st_rise = QDoubleSpinBox(); self.st_rise.setRange(1.0, 60.0); self.st_rise.setDecimals(3); self.st_rise.setValue(10.0); self.st_rise.setSuffix(" ft")
+        self.st_run = QDoubleSpinBox(); self.st_run.setRange(1.0, 80.0); self.st_run.setDecimals(3); self.st_run.setValue(14.667); self.st_run.setSuffix(" ft")
+        self.st_width = QDoubleSpinBox(); self.st_width.setRange(24.0, 120.0); self.st_width.setDecimals(1); self.st_width.setValue(44.0); self.st_width.setSuffix(" in")
+        self.st_prof = QComboBox(); self.st_prof.addItems(["MC12X10.6", "C12X20.7", "C10X15.3", 'PL 1/2" x 12"', 'PL 3/8" x 12"'])
+        fl.addRow("Floor-to-Floor Rise:", self.st_rise); fl.addRow("Total Horizontal Run:", self.st_run); fl.addRow("Stair Clear Width:", self.st_width); fl.addRow("Stringer Section:", self.st_prof); left_col.addLayout(fl)
+        card, kv = self._make_kv_card(["Risers & Treads Count", "Actual Riser / Tread Step", "IBC / OSHA Code Check", "Stringer Cut Length & Miter", "Est. Steel Weight (2 Stringers + Angles)"])
+        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _ShopCadViewport(); hl.addWidget(diag, 2)
+
+        def _calc_stair():
+            rise_in, run_in, wid_in, prof = self.st_rise.value() * 12.0, self.st_run.value() * 12.0, self.st_width.value(), self.st_prof.currentText()
+            n_risers = max(2, int(round(rise_in / 7.0))); n_treads = n_risers - 1
+            act_r, act_t = rise_in / n_risers, run_in / max(1, n_treads)
+            slope_ft = round((math.hypot(rise_in, run_in) + 14.0) / 12.0, 2); deg = math.degrees(math.atan2(rise_in, run_in))
+            code_ok = (act_r <= 7.05 and act_t >= 10.95)
+            uw = {"MC12X10.6": 10.6, "C12X20.7": 20.7, "C10X15.3": 15.3, 'PL 1/2" x 12"': 20.42, 'PL 3/8" x 12"': 15.32}.get(prof, 15.0)
+            angle_ft = round(wid_in / 12.0, 2); tot_wgt = (2 * slope_ft * uw) + (2 * n_treads * angle_ft * 3.19)
+            kv["Risers & Treads Count"].setText(f"{n_risers} Risers  /  {n_treads} Treads")
+            kv["Actual Riser / Tread Step"].setText(f'{act_r:.3f}" R  x  {act_t:.3f}" T')
+            kv["IBC / OSHA Code Check"].setText('PASS (IBC <=7" R / >=11" T)' if code_ok else f'CHECK: {act_r:.2f}" R x {act_t:.2f}" T')
+            kv["Stringer Cut Length & Miter"].setText(f"{self._fmt_ft_in(slope_ft)} ({slope_ft:.2f}') @ {deg:.1f}°")
+            kv["Est. Steel Weight (2 Stringers + Angles)"].setText(f"{tot_wgt:,.1f} lbs")
+            self._tab_summaries[0] = f'STAIR {n_risers}R/{n_treads}T ({act_r:.2f}"x{act_t:.2f}") | (2) {prof} @ {self._fmt_ft_in(slope_ft)} ({deg:.1f} deg)'
+            self._tab_shapes[0] = {"kind": "right", "run": self.st_run.value(), "rise": self.st_rise.value(), "hyp": slope_ft, "deg": deg, "pitch": (rise_in / run_in) * 12.0, "run_s": self._fmt_ft_in(self.st_run.value()), "rise_s": self._fmt_ft_in(self.st_rise.value()), "hyp_s": self._fmt_ft_in(slope_ft)}
+            is_pl = prof.startswith("PL")
+            self._tab_quote_items[0] = [{"category": "Plates & Base Plates" if is_pl else "Channels", "sheet": "Layout Studio", "detail_ref": f"Stair {deg:.1f}°", "shape_key": "plate" if is_pl else "channel", "profile": "PL 1/2X12" if "1/2" in prof else ("PL 3/8X12" if "3/8" in prof else prof), "qty": 2, "length": slope_ft, "unit_wt": uw, "plate_w": "12", "plate_thk": "0.5" if "1/2" in prof else ("0.375" if "3/8" in prof else "")}, {"category": "Angles", "sheet": "Layout Studio", "detail_ref": "Tread Carriers", "shape_key": "angle", "profile": "L2X2X1/4", "qty": 2 * n_treads, "length": angle_ft, "unit_wt": 3.19, "plate_w": "12", "plate_thk": ""}]
+            diag.set_scene("stair", {"run_in": run_in, "rise_in": rise_in, "risers": n_risers, "run_s": self._fmt_ft_in(self.st_run.value()), "rise_s": self._fmt_ft_in(self.st_rise.value()), "cut_s": self._fmt_ft_in(slope_ft), "ang": deg})
+
+        for w_in in (self.st_rise, self.st_run, self.st_width): w_in.valueChanged.connect(_calc_stair)
+        self.st_prof.currentIndexChanged.connect(_calc_stair); _calc_stair(); return w
+
+
+    def _build_brace_tab(self):
+        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
+        self.br_bay = QDoubleSpinBox(); self.br_bay.setRange(1.0, 60.0); self.br_bay.setDecimals(3); self.br_bay.setValue(14.0); self.br_bay.setSuffix(" ft")
+        self.br_ht = QDoubleSpinBox(); self.br_ht.setRange(1.0, 60.0); self.br_ht.setDecimals(3); self.br_ht.setValue(12.0); self.br_ht.setSuffix(" ft")
+        self.br_prof = QComboBox(); self.br_prof.addItems(["HSS4X4X1/4", "HSS5X5X1/4", "HSS6X6X3/8", "HSS4X2.5X1/4", "L4X4X3/8"])
+        self.br_setback = QDoubleSpinBox(); self.br_setback.setRange(0.0, 36.0); self.br_setback.setDecimals(2); self.br_setback.setValue(8.5); self.br_setback.setSuffix(" in (each end)")
+        self.br_gus_thk = QComboBox(); self.br_gus_thk.addItems(['3/8"', '1/2"', '5/8"', '3/4"'])
+        fl.addRow("Bay Width (Work-Point):", self.br_bay); fl.addRow("Story Height (Work-Point):", self.br_ht); fl.addRow("Diagonal Brace Size:", self.br_prof); fl.addRow("Gusset Setback:", self.br_setback); fl.addRow("Gusset Plate Thickness:", self.br_gus_thk); left_col.addLayout(fl)
+        card, kv = self._make_kv_card(["Work-Point Diagonal (C-to-C)", "Net Brace Cut Length", "Brace Slope & Bevel Angle", "Gusset Plate Blank (2x)", "Total Brace + Gussets Weight"])
+        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _ShopCadViewport(); hl.addWidget(diag, 2)
+
+        def _calc_brace():
+            bay_ft, ht_ft = self.br_bay.value(), self.br_ht.value()
+            wp_ft = math.hypot(bay_ft, ht_ft); net_ft = max(0.5, wp_ft - (2.0 * self.br_setback.value() / 12.0)); deg = math.degrees(math.atan2(ht_ft, bay_ft))
+            prof = self.br_prof.currentText(); uw = {"HSS4X4X1/4": 12.75, "HSS5X5X1/4": 16.15, "HSS6X6X3/8": 28.69, "HSS4X2.5X1/4": 10.20, "L4X4X3/8": 9.72}.get(prof, 14.0)
+            g_thk = {'3/8"': 0.375, '1/2"': 0.50, '5/8"': 0.625, '3/4"': 0.75}.get(self.br_gus_thk.currentText(), 0.375)
+            g_w, g_l = 14.0, 16.0; gus_uw = round((g_thk * (g_w / 12.0)) * 40.8, 2); tot_wgt = (net_ft * uw) + (2 * (g_l / 12.0) * gus_uw)
+            kv["Work-Point Diagonal (C-to-C)"].setText(f"{self._fmt_ft_in(wp_ft)} ({wp_ft:.3f}')")
+            kv["Net Brace Cut Length"].setText(f"{self._fmt_ft_in(net_ft)} ({net_ft:.2f}')")
+            kv["Brace Slope & Bevel Angle"].setText(f"{deg:.2f}°  (Bevel {90.0 - deg:.2f}°)")
+            kv["Gusset Plate Blank (2x)"].setText(f'PL {self.br_gus_thk.currentText()} x {g_w:g}" x {g_l:g}"')
+            kv["Total Brace + Gussets Weight"].setText(f"{tot_wgt:,.1f} lbs")
+            self._tab_summaries[1] = f'BRACE {prof} NET CUT {self._fmt_ft_in(net_ft)} @ {deg:.1f}° + (2) GUSSET PL {self.br_gus_thk.currentText()}x{g_w:g}"x{g_l:g}"'
+            self._tab_shapes[1] = {"kind": "right", "run": bay_ft, "rise": ht_ft, "hyp": net_ft, "deg": deg, "pitch": (ht_ft / bay_ft) * 12.0, "run_s": self._fmt_ft_in(bay_ft), "rise_s": self._fmt_ft_in(ht_ft), "hyp_s": self._fmt_ft_in(net_ft)}
+            self._tab_quote_items[1] = [{"category": "Angles" if prof.startswith("L") else "HSS & Pipe", "sheet": "Layout Studio", "detail_ref": f"Brace {deg:.1f}°", "shape_key": "angle" if prof.startswith("L") else "hss_tube", "profile": prof, "qty": 1, "length": round(net_ft, 2), "unit_wt": uw, "plate_w": "12", "plate_thk": ""}, {"category": "Plates & Base Plates", "sheet": "Layout Studio", "detail_ref": "Gusset Plates", "shape_key": "plate", "profile": f"PL {self.br_gus_thk.currentText()}X{g_w:g}X{g_l:g}", "qty": 2, "length": round(g_l / 12.0, 2), "unit_wt": gus_uw, "plate_w": str(g_w), "plate_thk": str(g_thk)}]
+            diag.set_scene("brace", {"bay_ft": bay_ft, "ht_ft": ht_ft, "net_s": self._fmt_ft_in(net_ft), "gus_s": f"{self.br_gus_thk.currentText()}x{g_w:g}x{g_l:g}"})
+
+        for w_in in (self.br_bay, self.br_ht, self.br_setback): w_in.valueChanged.connect(_calc_brace)
+        for cb_in in (self.br_prof, self.br_gus_thk): cb_in.currentIndexChanged.connect(_calc_brace)
+        _calc_brace(); return w
+
+
+    def _build_roll_tab(self):
+        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
+        self.rl_id = QDoubleSpinBox(); self.rl_id.setRange(2.0, 240.0); self.rl_id.setDecimals(3); self.rl_id.setValue(24.0); self.rl_id.setSuffix(" in (ID)")
+        self.rl_ht = QDoubleSpinBox(); self.rl_ht.setRange(1.0, 240.0); self.rl_ht.setDecimals(3); self.rl_ht.setValue(18.0); self.rl_ht.setSuffix(" in (Height)")
+        self.rl_thk = QComboBox(); self.rl_thk.addItems(['3/16"', '1/4"', '5/16"', '3/8"', '1/2"', '3/4"']); self.rl_thk.setCurrentText('1/4"')
+        fl.addRow("Cylinder Inside Dia (ID):", self.rl_id); fl.addRow("Cylinder Height / Width:", self.rl_ht); fl.addRow("Shell Plate Thickness:", self.rl_thk); left_col.addLayout(fl)
+        card, kv = self._make_kv_card(["Mean Neutral-Axis Diameter", "Finished Outside Diameter", "Flat Plate Stretch-Out Blank", "Longitudinal Seam Weld", "Rolled Shell Weight"])
+        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _ShopCadViewport(); hl.addWidget(diag, 2)
+
+        def _calc_roll():
+            id_in, ht_in = self.rl_id.value(), self.rl_ht.value()
+            thk = {'3/16"': 0.1875, '1/4"': 0.25, '5/16"': 0.3125, '3/8"': 0.375, '1/2"': 0.50, '3/4"': 0.75}.get(self.rl_thk.currentText(), 0.25)
+            mean_d, od_in = id_in + thk, id_in + (2.0 * thk)
+            stretch_in = round(math.pi * mean_d, 3); uw = round((thk * (ht_in / 12.0)) * 40.8, 2); tot_wgt = round(uw * (stretch_in / 12.0), 1)
+            kv["Mean Neutral-Axis Diameter"].setText(f"{mean_d:.3f} in")
+            kv["Finished Outside Diameter"].setText(f"{od_in:.3f} in")
+            kv["Flat Plate Stretch-Out Blank"].setText(f'{self.rl_thk.currentText()} x {ht_in:g}" x {stretch_in:.2f}"')
+            kv["Longitudinal Seam Weld"].setText(f'{ht_in:g} in (100% CJP/Fillet)')
+            kv["Rolled Shell Weight"].setText(f"{tot_wgt:,.1f} lbs")
+            self._tab_summaries[2] = f'ROLLED SHELL ID {id_in:g}" x {ht_in:g}" -> FLAT BLANK PL {self.rl_thk.currentText()} x {ht_in:g}" x {stretch_in:.2f}"'
+            self._tab_shapes[2] = {"kind": "circle", "dia_in": od_in, "n": 4, "bolt_deg": 90.0, "bolt_chord": od_in * 0.7071}
+            self._tab_quote_items[2] = [{"category": "Plates & Base Plates", "sheet": "Layout Studio", "detail_ref": f'Rolled ID {id_in:g}"', "shape_key": "plate", "profile": f"PL {self.rl_thk.currentText()}X{ht_in:g}X{stretch_in:.1f}", "qty": 1, "length": round(stretch_in / 12.0, 2), "unit_wt": uw, "plate_w": str(ht_in), "plate_thk": str(thk)}]
+            diag.set_scene("roll", {"od_in": od_in, "ht_in": ht_in, "blank_s": f'{self.rl_thk.currentText()} x {ht_in:g}" x {stretch_in:.1f}"'})
+
+        self.rl_id.valueChanged.connect(_calc_roll); self.rl_ht.valueChanged.connect(_calc_roll); self.rl_thk.currentIndexChanged.connect(_calc_roll); _calc_roll(); return w
+
+
+    def _build_baseplate_tab(self):
+        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
+        self.bp_col = QDoubleSpinBox(); self.bp_col.setRange(2.0, 24.0); self.bp_col.setDecimals(2); self.bp_col.setValue(6.0); self.bp_col.setSuffix(" in (Col)")
+        self.bp_w = QDoubleSpinBox(); self.bp_w.setRange(4.0, 48.0); self.bp_w.setDecimals(2); self.bp_w.setValue(14.0); self.bp_w.setSuffix(" in (W)")
+        self.bp_l = QDoubleSpinBox(); self.bp_l.setRange(4.0, 48.0); self.bp_l.setDecimals(2); self.bp_l.setValue(14.0); self.bp_l.setSuffix(" in (L)")
+        self.bp_thk = QComboBox(); self.bp_thk.addItems(['3/8"', '1/2"', '5/8"', '3/4"', '1"', '1-1/4"']); self.bp_thk.setCurrentText('1/2"')
+        self.bp_edge = QDoubleSpinBox(); self.bp_edge.setRange(0.75, 6.0); self.bp_edge.setDecimals(2); self.bp_edge.setValue(1.75); self.bp_edge.setSuffix(" in (Edge)")
+        self.bp_bolts = QComboBox(); self.bp_bolts.addItems(["4-Bolt (Corners)", "6-Bolt (3 per side)", "8-Bolt (Perimeter)"])
+        fl.addRow("Column Width / Depth:", self.bp_col); fl.addRow("Base Plate Width:", self.bp_w); fl.addRow("Base Plate Length:", self.bp_l); fl.addRow("Base Plate Thickness:", self.bp_thk); fl.addRow("Bolt Edge Distance:", self.bp_edge); fl.addRow("Anchor Bolt Pattern:", self.bp_bolts); left_col.addLayout(fl)
+        card, kv = self._make_kv_card(["Bolt Gage Spacing (C-to-C)", "Socket / Wrench Clearance", "Hole Coordinates (0,0 Corner)", "Base Plate Weight (Each)"])
+        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _ShopCadViewport(); hl.addWidget(diag, 2)
+
+        def _calc_bp():
+            cw, pw, pl, ed = self.bp_col.value(), self.bp_w.value(), self.bp_l.value(), self.bp_edge.value()
+            thk = {'3/8"': 0.375, '1/2"': 0.50, '5/8"': 0.625, '3/4"': 0.75, '1"': 1.0, '1-1/4"': 1.25}.get(self.bp_thk.currentText(), 0.50)
+            gx, gy = max(1.0, pw - 2.0 * ed), max(1.0, pl - 2.0 * ed)
+            clear_in = ((pw - cw) * 0.5) - ed; pat = self.bp_bolts.currentText()
+            holes = [(ed, ed), (pw - ed, ed), (ed, pl - ed), (pw - ed, pl - ed)]
+            if "6-Bolt" in pat: holes.extend([(ed, pl * 0.5), (pw - ed, pl * 0.5)])
+            elif "8-Bolt" in pat: holes.extend([(ed, pl * 0.5), (pw - ed, pl * 0.5), (pw * 0.5, ed), (pw * 0.5, pl - ed)])
+            uw = round((thk * (pw / 12.0)) * 40.8, 2); pc_wgt = round(uw * (pl / 12.0), 1); clr_ok = clear_in >= 1.25
+            kv["Bolt Gage Spacing (C-to-C)"].setText(f'{gx:g}" X  x  {gy:g}" Y  ({len(holes)} Holes)')
+            kv["Socket / Wrench Clearance"].setText(f'{clear_in:.2f}" ({"PASS" if clr_ok else "TIGHT TO COLUMN"})')
+            kv["Hole Coordinates (0,0 Corner)"].setText(f'({ed:g}", {ed:g}") -> ({pw - ed:g}", {pl - ed:g}")')
+            kv["Base Plate Weight (Each)"].setText(f"{pc_wgt:,.1f} lbs")
+            self._tab_summaries[3] = f'BASE PL {self.bp_thk.currentText()}x{pw:g}"x{pl:g}" | {len(holes)} HOLES @ {gx:g}"x{gy:g}" GAGE'
+            self._tab_shapes[3] = {"kind": "baseplate", "pw": pw, "pl": pl, "cw": cw, "holes": holes, "n": len(holes), "gx": gx, "gy": gy}
+            self._tab_quote_items[3] = [{"category": "Plates & Base Plates", "sheet": "Layout Studio", "detail_ref": f"{len(holes)}-Bolt Base", "shape_key": "plate", "profile": f"BASE PL {self.bp_thk.currentText()}X{pw:g}X{pl:g}", "qty": 1, "length": round(pl / 12.0, 2), "unit_wt": uw, "plate_w": str(pw), "plate_thk": str(thk)}]
+            diag.set_scene("baseplate", {"pw": pw, "pl": pl, "cw": cw, "holes": holes})
+
+        for w_in in (self.bp_col, self.bp_w, self.bp_l, self.bp_edge): w_in.valueChanged.connect(_calc_bp)
+        for cb_in in (self.bp_thk, self.bp_bolts): cb_in.currentIndexChanged.connect(_calc_bp)
+        _calc_bp(); return w
+
+    def _send_to_tab2_quote(self):
+        idx = self.tabs.currentIndex()
+        items = self._tab_quote_items.get(idx, [])
+        p_win = self.parent()
+        t2 = getattr(p_win, "custom_quoting_tab", None)
+        if t2 and hasattr(t2, "ingest_pdf_bom_items") and items:
+            t2.ingest_pdf_bom_items(items)
+            if hasattr(p_win, "master_tabs"): p_win.master_tabs.setCurrentWidget(t2)
+            if hasattr(p_win, "master_ribbon"): p_win.master_ribbon.set_active_tab(2)
+            self.accept()
         else:
-            g = math.gcd(rem16, 16)
-            frac = f" {rem16 // g}/{16 // g}"
-        return f"{feet}'-{inches}{frac}\""
-
-    def _build_right_triangle_tab(self):
-        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
-        self.rt_run = QDoubleSpinBox(); self.rt_run.setRange(0.01, 10000.0); self.rt_run.setDecimals(4); self.rt_run.setValue(12.0); self.rt_run.setSuffix(" ft")
-        self.rt_rise = QDoubleSpinBox(); self.rt_rise.setRange(0.0, 10000.0); self.rt_rise.setDecimals(4); self.rt_rise.setValue(5.0); self.rt_rise.setSuffix(" ft")
-        self.rt_pitch = QDoubleSpinBox(); self.rt_pitch.setRange(0.0, 48.0); self.rt_pitch.setDecimals(2); self.rt_pitch.setValue(5.0); self.rt_pitch.setSuffix(" : 12")
-        fl.addRow("Horizontal Run (Base):", self.rt_run); fl.addRow("Vertical Rise (Height):", self.rt_rise); fl.addRow("Or Enter Roof Pitch:", self.rt_pitch)
-        left_col.addLayout(fl)
-        card, kv = self._make_kv_card(["Rafter / Slope Length", "45 deg Hip / Valley Length", "Roof Pitch & Slope Angle", "Triangle Surface Area"])
-        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _CadGeometryDiagram(); hl.addWidget(diag, 2)
-
-        def _from_rise():
-            run, rise = self.rt_run.value(), self.rt_rise.value()
-            self.rt_pitch.blockSignals(True); self.rt_pitch.setValue((rise / run) * 12.0); self.rt_pitch.blockSignals(False); _render(run, rise)
-
-        def _from_pitch():
-            run = self.rt_run.value(); rise = run * (self.rt_pitch.value() / 12.0)
-            self.rt_rise.blockSignals(True); self.rt_rise.setValue(rise); self.rt_rise.blockSignals(False); _render(run, rise)
-
-        def _render(run, rise):
-            hyp = math.hypot(run, rise); hip_val = math.hypot(math.hypot(run, run), rise)
-            deg = math.degrees(math.atan2(rise, run)); pitch = (rise / run) * 12.0
-            kv["Rafter / Slope Length"].setText(f"{self._fmt_ft_in(hyp)}   ({hyp:.3f} ft)")
-            kv["45 deg Hip / Valley Length"].setText(f"{self._fmt_ft_in(hip_val)}   ({hip_val:.3f} ft)")
-            kv["Roof Pitch & Slope Angle"].setText(f"{pitch:.2f} : 12   ({deg:.2f} deg)")
-            kv["Triangle Surface Area"].setText(f"{0.5 * run * rise:,.2f} sq ft")
-            self._tab_summaries[0] = f"RUN {self._fmt_ft_in(run)} x RISE {self._fmt_ft_in(rise)} -> HYP {self._fmt_ft_in(hyp)} ({deg:.2f} deg | {pitch:.1f}:12)"; self._tab_shapes[0] = {"kind": "right", "run": run, "rise": rise, "hyp": hyp, "deg": deg, "pitch": pitch, "run_s": self._fmt_ft_in(run), "rise_s": self._fmt_ft_in(rise), "hyp_s": self._fmt_ft_in(hyp)}
-            self._last_summary = self._tab_summaries[self.tabs.currentIndex()] if isinstance(self._tab_summaries, dict) and self.tabs.currentIndex() in self._tab_summaries else self._last_summary
-            diag.set_scene("right", {"run": run, "rise": rise, "run_s": self._fmt_ft_in(run), "rise_s": self._fmt_ft_in(rise), "hyp_s": self._fmt_ft_in(hyp)})
-
-        self.rt_run.valueChanged.connect(_from_rise); self.rt_rise.valueChanged.connect(_from_rise); self.rt_pitch.valueChanged.connect(_from_pitch)
-        _from_rise(); return w
-
-    def _build_oblique_tab(self):
-        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
-        self.ob_a = QDoubleSpinBox(); self.ob_a.setRange(0.01, 10000.0); self.ob_a.setDecimals(4); self.ob_a.setValue(10.0); self.ob_a.setSuffix(" ft")
-        self.ob_b = QDoubleSpinBox(); self.ob_b.setRange(0.01, 10000.0); self.ob_b.setDecimals(4); self.ob_b.setValue(14.0); self.ob_b.setSuffix(" ft")
-        self.ob_ang = QDoubleSpinBox(); self.ob_ang.setRange(0.1, 179.9); self.ob_ang.setDecimals(2); self.ob_ang.setValue(60.0); self.ob_ang.setSuffix(" deg")
-        fl.addRow("Side A Length:", self.ob_a); fl.addRow("Side B Length:", self.ob_b); fl.addRow("Corner Angle C:", self.ob_ang); left_col.addLayout(fl)
-        card, kv = self._make_kv_card(["Opposite Side C Length", "Corner Angle A", "Corner Angle B", "Gusset Plate Area & Perimeter"])
-        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _CadGeometryDiagram(); hl.addWidget(diag, 2)
-
-        def _calc_ob():
-            a, b, C_rad = self.ob_a.value(), self.ob_b.value(), math.radians(self.ob_ang.value())
-            c = math.sqrt(max(0.0, a * a + b * b - 2.0 * a * b * math.cos(C_rad)))
-            A_deg = math.degrees(math.acos(max(-1.0, min(1.0, (b * b + c * c - a * a) / max(1e-9, 2.0 * b * c)))))
-            B_deg = 180.0 - self.ob_ang.value() - A_deg; area = 0.5 * a * b * math.sin(C_rad)
-            kv["Opposite Side C Length"].setText(f"{self._fmt_ft_in(c)}   ({c:.3f} ft)")
-            kv["Corner Angle A"].setText(f"{A_deg:.2f} deg"); kv["Corner Angle B"].setText(f"{B_deg:.2f} deg")
-            kv["Gusset Plate Area & Perimeter"].setText(f"{area:,.2f} sq ft   |   {a + b + c:.2f} ft perim")
-            self._tab_summaries[1] = f"TRIANGLE {a:.2f}ft x {b:.2f}ft @ {self.ob_ang.value():.1f} deg -> SIDE C {self._fmt_ft_in(c)}"; self._tab_shapes[1] = {"kind": "oblique", "a": a, "b": b, "c": c, "C": self.ob_ang.value(), "c_s": self._fmt_ft_in(c)}
-            self._last_summary = self._tab_summaries[self.tabs.currentIndex()] if isinstance(self._tab_summaries, dict) and self.tabs.currentIndex() in self._tab_summaries else self._last_summary; diag.set_scene("oblique", {"a": a, "b": b, "c": c, "C": self.ob_ang.value()})
-        for s in (self.ob_a, self.ob_b, self.ob_ang): s.valueChanged.connect(_calc_ob)
-        _calc_ob(); return w
-
-    def _build_circle_bolt_tab(self):
-        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
-        self.cb_dia = QDoubleSpinBox(); self.cb_dia.setRange(0.01, 10000.0); self.cb_dia.setDecimals(4); self.cb_dia.setValue(24.0); self.cb_dia.setSuffix(" in")
-        self.cb_ang = QDoubleSpinBox(); self.cb_ang.setRange(0.1, 360.0); self.cb_ang.setDecimals(2); self.cb_ang.setValue(90.0); self.cb_ang.setSuffix(" deg")
-        self.cb_bolts = QSpinBox(); self.cb_bolts.setRange(2, 128); self.cb_bolts.setValue(8); self.cb_bolts.setSuffix(" holes")
-        fl.addRow("Bolt Circle Diameter:", self.cb_dia); fl.addRow("Sector / Bend Angle:", self.cb_ang); fl.addRow("Number of Bolt Holes:", self.cb_bolts); left_col.addLayout(fl)
-        card, kv = self._make_kv_card(["Bolt-to-Bolt Straight Distance", "Angle Between Bolt Holes", "Curved Arc Length (at Angle)", "Full Circumference & Area"])
-        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _CadGeometryDiagram(); hl.addWidget(diag, 2)
-
-        def _calc_cb():
-            d, r, ang, n = self.cb_dia.value(), self.cb_dia.value() * 0.5, math.radians(self.cb_ang.value()), self.cb_bolts.value()
-            arc_len, chord_len = r * ang, 2.0 * r * math.sin(ang * 0.5); bolt_deg, bolt_chord = 360.0 / n, d * math.sin(math.pi / n)
-            kv["Bolt-to-Bolt Straight Distance"].setText(f"{bolt_chord:.3f} in   (Chord: {chord_len:.3f} in)")
-            kv["Angle Between Bolt Holes"].setText(f"{bolt_deg:.2f} deg   ({n} equal holes)")
-            kv["Curved Arc Length (at Angle)"].setText(f"{arc_len:.3f} in   (@ {self.cb_ang.value():.1f} deg)")
-            kv["Full Circumference & Area"].setText(f"{math.pi * d:.2f} in   |   {math.pi * r * r:,.2f} sq in")
-            self._tab_summaries[2] = f"DIA {d:.2f} in | {n} BOLTS @ {bolt_deg:.1f} deg ({bolt_chord:.3f} in chord)"; self._tab_shapes[2] = {"kind": "circle", "dia_in": d, "n": n, "bolt_deg": bolt_deg, "bolt_chord": bolt_chord}
-            self._last_summary = self._tab_summaries[self.tabs.currentIndex()] if isinstance(self._tab_summaries, dict) and self.tabs.currentIndex() in self._tab_summaries else self._last_summary; diag.set_scene("circle", {"n": n, "d": d})
-        for s in (self.cb_dia, self.cb_ang, self.cb_bolts): s.valueChanged.connect(_calc_cb)
-        _calc_cb(); return w
-
-    def _build_trig_eval_tab(self):
-        w = QWidget(); hl = QHBoxLayout(w); fl = QFormLayout(); left_col = QVBoxLayout()
-        self.tr_deg = QDoubleSpinBox(); self.tr_deg.setRange(0.1, 89.9); self.tr_deg.setDecimals(4); self.tr_deg.setValue(30.0); self.tr_deg.setSuffix(" deg")
-        self.tr_len = QDoubleSpinBox(); self.tr_len.setRange(0.01, 10000.0); self.tr_len.setDecimals(4); self.tr_len.setValue(10.0); self.tr_len.setSuffix(" ft")
-        fl.addRow("Brace Angle (Degrees):", self.tr_deg); fl.addRow("Brace / Diagonal Length:", self.tr_len); left_col.addLayout(fl)
-        card, kv = self._make_kv_card(["Horizontal Reach (Run)", "Vertical Height (Rise)", "Equivalent Roof Pitch", "Sine / Cosine / Tangent"])
-        left_col.addWidget(card, 1); hl.addLayout(left_col, 3); diag = _CadGeometryDiagram(); hl.addWidget(diag, 2)
-
-        def _calc_tr():
-            deg, rad, L = self.tr_deg.value(), math.radians(self.tr_deg.value()), self.tr_len.value()
-            s, c, t = math.sin(rad), math.cos(rad), math.tan(rad); dx, dy = L * c, L * s
-            kv["Horizontal Reach (Run)"].setText(f"{self._fmt_ft_in(dx)}   ({dx:.3f} ft)")
-            kv["Vertical Height (Rise)"].setText(f"{self._fmt_ft_in(dy)}   ({dy:.3f} ft)")
-            kv["Equivalent Roof Pitch"].setText(f"{t * 12.0:.2f} : 12")
-            kv["Sine / Cosine / Tangent"].setText(f"sin {s:.4f}  |  cos {c:.4f}  |  tan {t:.4f}")
-            self._tab_summaries[3] = f"BRACE {L:.2f}ft @ {deg:.2f} deg -> dX={self._fmt_ft_in(dx)}, dY={self._fmt_ft_in(dy)}"; self._tab_shapes[3] = {"kind": "right", "run": dx, "rise": dy, "hyp": L, "deg": deg, "pitch": t * 12.0, "run_s": self._fmt_ft_in(dx), "rise_s": self._fmt_ft_in(dy), "hyp_s": self._fmt_ft_in(L)}
-            self._last_summary = self._tab_summaries[self.tabs.currentIndex()] if isinstance(self._tab_summaries, dict) and self.tabs.currentIndex() in self._tab_summaries else self._last_summary
-            diag.set_scene("right", {"run": max(0.01, dx), "rise": max(0.01, dy), "run_s": self._fmt_ft_in(dx), "rise_s": self._fmt_ft_in(dy), "hyp_s": f"{L:.2f} ft"})
-        self.tr_deg.valueChanged.connect(_calc_tr); self.tr_len.valueChanged.connect(_calc_tr); _calc_tr(); return w
+            QMessageBox.information(self, "Ready", "Calculated steel items staged.")
 
     def _stamp_to_sheet(self):
         idx = self.tabs.currentIndex()
         msg = self._tab_summaries.get(idx, self._last_summary)
         shape_data = self._tab_shapes.get(idx)
         if callable(self.on_stamp_note) and msg:
-            try:
-                self.on_stamp_note(msg, shape_data)
-            except TypeError:
-                self.on_stamp_note(msg)
+            try: self.on_stamp_note(msg, shape_data)
+            except TypeError: self.on_stamp_note(msg)
             self.accept()
         else:
-            QMessageBox.information(self, "Result", self._last_summary)
+            QMessageBox.information(self, "Result", msg)

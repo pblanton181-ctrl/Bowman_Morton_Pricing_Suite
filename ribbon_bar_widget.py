@@ -304,8 +304,6 @@ class BowmanMortonRibbonBar(QFrame):
         self.grp_selected_ctx.setVisible(True)
         self._show_floating_mini_toolbar()
 
-        self._show_floating_mini_toolbar()
-
     def _show_floating_mini_toolbar(self):
         pt = getattr(self.app, "planset_takeoff_tab", None)
         cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
@@ -420,6 +418,8 @@ class BowmanMortonRibbonBar(QFrame):
         pt = getattr(self.app, "planset_takeoff_tab", None)
         cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
         if cv: cv.ortho_lock = bool(checked)
+        vw = getattr(pt, 'vis_workspace', None) if pt else None
+        if vw and hasattr(vw, 'btn_osnap_ortho'): vw.btn_osnap_ortho.setChecked(bool(checked))
         bg = "#dbeafe" if checked else "#ffffff"; brd = "#0284c7" if checked else "#cbd5e1"
         self.btn_ortho_lock.setStyleSheet(f"QPushButton {{ background-color: {bg} !important; border: 1px solid {brd} !important; color: #0f172a !important; font-size: 10.5px !important; font-weight: {'700' if checked else '500'} !important; border-radius: 3px; padding: 0px 5px; }}")
 
@@ -427,6 +427,8 @@ class BowmanMortonRibbonBar(QFrame):
         pt = getattr(self.app, "planset_takeoff_tab", None)
         cv = getattr(getattr(pt, "vis_workspace", None), "canvas", None) if pt else None
         if cv: cv.endpoint_snap = bool(checked)
+        vw = getattr(pt, 'vis_workspace', None) if pt else None
+        if vw and hasattr(vw, 'btn_osnap_master'): vw.btn_osnap_master.setChecked(bool(checked))
         bg = "#dbeafe" if checked else "#ffffff"; brd = "#0284c7" if checked else "#cbd5e1"
         self.btn_ep_snap.setStyleSheet(f"QPushButton {{ background-color: {bg} !important; border: 1px solid {brd} !important; color: #0f172a !important; font-size: 10.5px !important; font-weight: {'700' if checked else '500'} !important; border-radius: 3px; padding: 0px 5px; }}")
 
@@ -631,9 +633,19 @@ class BowmanMortonRibbonBar(QFrame):
         pt = getattr(self.app, "planset_takeoff_tab", None)
         if pt and hasattr(pt, "btn_scan_pg"): pt.btn_scan_pg.click()
 
-    def _act_scan_planset(self, use_ocr=False):
+    def _act_scan_planset(self, use_ocr=False, scan_mode=None):
         pt = getattr(self.app, "planset_takeoff_tab", None)
-        if pt and hasattr(pt, "scan_whole_planset"): pt.scan_whole_planset(use_ocr=use_ocr, prompt_if_empty=False)
+        sm = scan_mode or ("hybrid" if use_ocr else "vector")
+        if pt and hasattr(pt, "scan_whole_planset"): pt.scan_whole_planset(use_ocr=(sm != "vector"), prompt_if_empty=False, scan_mode=sm)
+
+    def _act_scan_planset_fast(self):
+        self._act_scan_planset(scan_mode="vector")
+
+    def _act_scan_planset_ocr(self):
+        self._act_scan_planset(scan_mode="ocr")
+
+    def _act_scan_planset_hybrid(self):
+        self._act_scan_planset(scan_mode="hybrid")
 
     def _act_send_bom(self):
         pt = getattr(self.app, "planset_takeoff_tab", None)
@@ -669,7 +681,10 @@ class BowmanMortonRibbonBar(QFrame):
                 ppf = max(1.0, float(getattr(cv, "pts_per_ft", 18.0)))
                 if isinstance(shape_data, dict):
                     kind = shape_data.get("kind", "right")
-                    if kind == "right":
+                    if kind == "baseplate":
+                        w_pts = max(4.0, (float(shape_data.get("pw", 14.0)) / 12.0) * ppf)
+                        h_pts = max(4.0, (float(shape_data.get("pl", 14.0)) / 12.0) * ppf)
+                    elif kind == "right":
                         w_pts = max(4.0, float(shape_data.get("run", 12.0)) * ppf)
                         h_pts = max(4.0, float(shape_data.get("rise", 5.0)) * ppf)
                     elif kind == "oblique":

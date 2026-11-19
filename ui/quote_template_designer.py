@@ -26,7 +26,7 @@ def default_blocks():
         {"id": "logo", "kind": "logo", "title": "Company Logo", "x": 36, "y": 24, "w": 120, "h": 68, "text": "", "font_family": "Arial", "font_size": 10, "bold": False, "italic": False, "underline": False, "text_color": "#0f172a", "align": "left", "visible": False},
         {"id": "header", "kind": "header", "title": "Company Header", "x": 36, "y": 24, "w": 540, "h": 68,
          "text": nl.join(["Bowman-Morton Mfg & Machine", "Bowman Connect LLC  |  Structural Steel & Custom Metal Fabrication", "7447 2nd Ave S., Seattle, WA 98108  |  (206) 524-8890  |  info@bowman-morton.com"]),
-         "font_family": "Arial", "font_size": 15, "bold": True, "italic": False, "underline": False, "text_color": "#0f172a", "align": "center", "visible": True},
+         "font_family": "Arial", "font_size": 17, "bold": True, "italic": False, "underline": False, "text_color": "#0f172a", "align": "center", "visible": True},
         {"id": "cust_box", "kind": "box", "title": "Customer & Project Box", "x": 36, "y": 106, "w": 290, "h": 64,
          "text": nl.join(["CUSTOMER: {{CUSTOMER}}", "PROJECT: {{PROJECT}}"]), "font_family": "Arial", "font_size": 10, "bold": False, "italic": False, "underline": False, "text_color": "#0f172a", "align": "left", "visible": True},
         {"id": "quote_box", "kind": "box", "title": "Quote # & Date Box", "x": 336, "y": 106, "w": 240, "h": 64,
@@ -73,19 +73,32 @@ def _sanitize_customer_specs(raw_specs):
     if not txt or txt == "Standard Stock":
         return ["Standard Mill Finish"], "Standard Mill Finish", "Cut to Length"
     finishes, fab_ops = [], []
-    for tok in [t.strip() for t in txt.split(",") if t.strip()]:
+    raw_tokens = [t.strip() for t in (txt.split(" || ") if " || " in txt else txt.split(",")) if t.strip()]
+    for tok in raw_tokens:
         low = tok.lower()
         if "shop handling" in low or "overrides" in low or "sheet " in low:
             continue
-        if "shop primer" in low: finishes.append("Shop Primed")
-        elif "powder coat" in low: finishes.append("Powder Coated")
-        elif "galv" in low or "hdg" in low: finishes.append("Hot-Dip Galvanized")
-        elif "auto band saw" in low or "band saw" in low: fab_ops.append("Cut to Length")
+        if "shop primer" in low:
+            if "Shop Primed" not in finishes:
+                finishes.append("Shop Primed")
+        elif "powder coat" in low:
+            if "Powder Coated" not in finishes:
+                finishes.append("Powder Coated")
+        elif "galv" in low or "hdg" in low:
+            if "Hot-Dip Galvanized" not in finishes:
+                finishes.append("Hot-Dip Galvanized")
+        elif "auto band saw" in low or "band saw" in low:
+            if "Cut to Length" not in fab_ops:
+                fab_ops.append("Cut to Length")
         else:
-            fab_ops.append(re.sub(r"\s*\(\$[0-9.,/a-zA-Z]+\)", "", tok).strip())
-    if not finishes: finishes.append("Bare Steel")
-    if not fab_ops: fab_ops.append("Cut to Length")
-    return list(dict.fromkeys(fab_ops + finishes)), ", ".join(dict.fromkeys(finishes)), ", ".join(dict.fromkeys(fab_ops))
+            cleaned = re.sub(r"\s*\(\$[0-9.,/a-zA-Z]+\)", "", tok).strip()
+            cleaned = re.sub(r"\s*\(x1\)", "", cleaned).strip()
+            fab_ops.append(cleaned)
+    if not finishes:
+        finishes.append("Bare Steel")
+    if not fab_ops:
+        fab_ops.append("Cut to Length")
+    return (fab_ops + finishes), ", ".join(finishes), ", ".join(fab_ops)
 
 
 def _expand_tokens(text, tok_map):
@@ -142,50 +155,64 @@ def render_quote_documents(record, cfg):
     tbl_tc = tbl_blk.get("text_color", "#0f172a")
 
     rows_html = ""
-    for idx, line in enumerate(c_lines or [{"desc": "Custom Structural Steel Package", "specs": "Standard Stock", "weight": tot_wgt_num, "price": tot_cost_num}], 1):
+    body_pt = 8.5
+    hdr_pt = 8.0
+    for idx, line in enumerate(c_lines or [{"qty": 1, "desc": "Custom Structural Steel Package", "specs": "Standard Stock", "weight": tot_wgt_num, "price": tot_cost_num}], 1):
         raw_desc = str(line.get("desc", ""))
         me = re.search(r"\s*\[\$([0-9,]+\.\d{2})\s*ea\]", raw_desc)
         base_desc = re.sub(r"\s*\[\$[0-9,]+\.\d{2}\s*ea\]", "", raw_desc).strip()
-        if show_unit and me:
-            desc_cell_html = f"<b>{base_desc}</b><br><span style='font-size:8.5pt; color:#475569; font-weight:normal;'>Unit Price: ${me.group(1)} ea</span>"
-        else:
-            desc_cell_html = f"<b>{base_desc}</b>"
-
-        mq = re.search(r"\(x(\d+)\)", base_desc)
-        q_str = mq.group(1) if mq else "1"
-        ea_str = f"${me.group(1)}" if me else f"${float(line.get('price', 0.0)):,.2f}"
-        wgt_val = float(line.get("weight", 0.0) or 0.0)
-        wgt_str = f"{wgt_val:,.1f} lbs" if wgt_val > 0 else "—"
+        mq = re.search(r"\s*\(x(\d+)\)", base_desc)
+        q_val = max(1, int(line.get("qty") or (mq.group(1) if mq else 1)))
+        base_desc = re.sub(r"\s*\(x\d+\)", "", base_desc).strip()
+        cs_lbl = str(line.get("customer_supplied_label") or ("Customer Supplied Pipe" if line.get("customer_supplied") else "")).strip()
+        cs_html = f"<br><span style='font-size:7.5pt; color:#b45309; font-weight:bold;'>({cs_lbl})</span>" if cs_lbl else ""
+        line_tot_p = float(line.get("price", 0.0) or 0.0)
+        unit_p = float(line.get("unit_price") or (float(me.group(1).replace(",", "")) if me else (line_tot_p / q_val)))
+        desc_cell_html = f"<b>{base_desc}</b>{cs_html}"
+        line_tot_w = float(line.get("weight", 0.0) or 0.0)
+        unit_w = line_tot_w / q_val if line_tot_w > 0 else 0.0
+        wgt_ea_str = f"{unit_w:,.1f} lbs" if unit_w > 0 else "—"
         clean_bullets, clean_fin, clean_fab = _sanitize_customer_specs(line.get("specs", ""))
         if specs_mode == "Custom Row Smart Fields":
             sp_tpl = str(cfg.get("custom_specs_tpl", "{{FABRICATION}} | {{FINISH}}"))
-            specs_html = sp_tpl.replace("{{FINISH}}", clean_fin).replace("{{FABRICATION}}", clean_fab).replace("{{QTY}}", q_str).replace("{{UNIT_PRICE}}", ea_str).replace("\n", "<br>")
+            specs_html = sp_tpl.replace("{{FINISH}}", clean_fin).replace("{{FABRICATION}}", clean_fab).replace("{{QTY}}", str(q_val)).replace("{{UNIT_PRICE}}", f"${unit_p:,.2f}").replace("\n", "<br>")
         else:
-            specs_html = ", ".join(clean_bullets)
-
+            specs_html = "<ul style='margin:0; padding-left:11pt;'>" + "".join(f"<li style='margin-bottom:1.5pt;'>{b_it}</li>" for b_it in clean_bullets) + "</ul>"
         row_bg = tbl_stripe if idx % 2 == 0 else "#ffffff"
-        cell_css = f"padding:{r_pad+1}pt 8pt; border-bottom:1pt solid {tbl_brd}; font-family:'{tbl_ff}', Arial, sans-serif; font-size:{tbl_fsz}pt; color:{tbl_tc};"
-        ln_td = f"<td valign='top' style='{cell_css} text-align:center;'>{idx}</td>" if show_line else ""
-        sp_td = f"<td valign='top' style='{cell_css}'>{specs_html}</td>" if show_specs else ""
-        wgt_td = f"<td valign='top' style='{cell_css} text-align:right; white-space:nowrap;'>{wgt_str}</td>" if show_wgt else ""
-        rows_html += f"<tr bgcolor='{row_bg}' style='page-break-inside: avoid;'>{ln_td}<td valign='top' style='{cell_css}'>{desc_cell_html}</td>{sp_td}{wgt_td}<td valign='top' style='{cell_css} text-align:right; white-space:nowrap; font-weight:bold;'>${float(line.get('price', 0.0)):,.2f}</td></tr>"
-
-    hdr_css = f"padding:{r_pad+2}pt 8pt; font-family:'{tbl_ff}', Arial, sans-serif; font-size:{max(9, tbl_fsz-1)}pt; font-weight:bold; color:{tbl_hdr_txt};"
-    ln_th = f"<th width='7%' style='{hdr_css} text-align:center;'>LINE</th>" if show_line else ""
-    desc_w = "35%" if show_specs else "58%"
-    sp_th = f"<th width='28%' style='{hdr_css} text-align:left;'>FABRICATION &amp; FINISH</th>" if show_specs else ""
-    wgt_th = f"<th width='14%' style='{hdr_css} text-align:right;'>WEIGHT</th>" if show_wgt else ""
-    wgt_tot_td = f"<td style='padding:{r_pad+3}pt 8pt; text-align:right; font-family:{tbl_ff}, Arial, sans-serif; font-size:{tbl_fsz}pt; font-weight:bold; color:{tbl_tc}; border-top:2pt solid {tbl_hdr}; white-space:nowrap;'>{tot_wgt_num:,.1f} lbs</td>" if show_wgt else ""
-    span_n = 1 + (1 if show_line else 0) + (1 if show_specs else 0)
+        cell_css = f"padding:6.5pt 8pt; border-bottom:1pt solid {tbl_brd}; font-family:'{tbl_ff}', Arial, sans-serif; font-size:{body_pt}pt; color:{tbl_tc}; line-height:1.38;"
+        rows_html += (
+            f"<tr bgcolor='{row_bg}' style='page-break-inside: avoid;'>"
+            f"<td valign='top' align='center' style='{cell_css} text-align:center;'>{idx}</td>"
+            f"<td valign='top' align='center' style='{cell_css} text-align:center; font-weight:bold;'>{q_val}</td>"
+            f"<td valign='top' align='left' style='{cell_css} text-align:left;'>{desc_cell_html}</td>"
+            f"<td valign='top' align='left' style='{cell_css} text-align:left;'>{specs_html}</td>"
+            f"<td valign='top' align='right' style='{cell_css} text-align:right; white-space:nowrap;'>{wgt_ea_str}</td>"
+            f"<td valign='top' align='right' style='{cell_css} text-align:right; white-space:nowrap; font-weight:bold;'>${unit_p:,.2f}</td>"
+            f"</tr>"
+        )
+    hdr_css = f"padding:7pt 8pt; background-color:{tbl_hdr}; font-family:'{tbl_ff}', Arial, sans-serif; font-size:{hdr_pt}pt; font-weight:bold; color:{tbl_hdr_txt}; white-space:nowrap;"
+    h_wrap = lambda t: f"<font color='{tbl_hdr_txt}'><b>{t}</b></font>"
+    spacer_rows = "<tr><td colspan='6' style='height:54pt; border:none; background:#ffffff;'>&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;</td></tr>"
     table_html = (
         f"<table width='100%' cellspacing='0' cellpadding='0' style='border-collapse:collapse; border:1pt solid {tbl_brd}; margin-bottom:14pt;'>"
         f"<tbody>"
-        f"<tr bgcolor='{tbl_hdr}'>{ln_th}<th width='{desc_w}' style='{hdr_css} text-align:left;'>ITEM / DESCRIPTION</th>{sp_th}{wgt_th}<th width='16%' style='{hdr_css} text-align:right;'>LINE TOTAL</th></tr>"
+        f"<tr bgcolor='{tbl_hdr}'>"
+        f"<td width='7%' align='center' style='{hdr_css} text-align:center;'>{h_wrap('LINE #')}</td>"
+        f"<td width='6%' align='center' style='{hdr_css} text-align:center;'>{h_wrap('QTY')}</td>"
+        f"<td width='23%' align='left' style='{hdr_css} text-align:left;'>{h_wrap('DESCRIPTION')}</td>"
+        f"<td width='38%' align='left' style='{hdr_css} text-align:left;'>{h_wrap('DETAILS')}</td>"
+        f"<td width='13%' align='right' style='{hdr_css} text-align:right;'>{h_wrap('WEIGHT / EA')}</td>"
+        f"<td width='13%' align='right' style='{hdr_css} text-align:right;'>{h_wrap('COST / EA')}</td>"
+        f"</tr>"
         f"{rows_html}"
-        f"<tr bgcolor='{tbl_stripe}'><td colspan='{span_n}' style='padding:{r_pad+3}pt 8pt; text-align:right; font-family:{tbl_ff}, Arial, sans-serif; font-size:{tbl_fsz}pt; font-weight:bold; color:{tbl_tc}; border-top:2pt solid {tbl_hdr};'>PROJECT TOTALS:</td>{wgt_tot_td}<td style='padding:{r_pad+3}pt 8pt; text-align:right; font-family:{tbl_ff}, Arial, sans-serif; font-size:{tbl_fsz+1}pt; font-weight:bold; color:{accent}; border-top:2pt solid {tbl_hdr}; white-space:nowrap;'>${tot_cost_num:,.2f}</td></tr>"
+        f"{spacer_rows}"
+        f"<tr bgcolor='{tbl_stripe}'>"
+        f"<td colspan='4' align='right' style='padding:7pt 12pt; text-align:right; font-family:{tbl_ff}, Arial, sans-serif; font-size:{body_pt}pt; font-weight:bold; color:{tbl_tc}; border-top:2pt solid {tbl_hdr};'>ORDER TOTALS:</td>"
+        f"<td align='right' style='padding:7pt 10pt; text-align:right; font-family:{tbl_ff}, Arial, sans-serif; font-size:{body_pt}pt; font-weight:bold; color:{tbl_tc}; border-top:2pt solid {tbl_hdr}; white-space:nowrap;'>TOTAL WEIGHT:<br>{tot_wgt_num:,.1f} lbs</td>"
+        f"<td align='right' style='padding:7pt 6pt; text-align:right; font-family:{tbl_ff}, Arial, sans-serif; font-size:{body_pt+1}pt; font-weight:bold; color:{accent}; border-top:2pt solid {tbl_hdr}; white-space:nowrap;'>TOTAL PRICE:<br>${tot_cost_num:,.2f}</td>"
+        f"</tr>"
         f"</tbody></table>"
     )
-
     logo_path = str(cfg.get("logo_path", "")).strip()
     logo_b64 = ""
     if logo_path and os.path.exists(logo_path):
@@ -218,7 +245,7 @@ def render_quote_documents(record, cfg):
             continue
 
         cur_y = float(b.get("y", prev_bottom))
-        gap_pt = max(6, min(90, int(round(cur_y - prev_bottom))))
+        gap_pt = max(24, min(110, int(round(cur_y - prev_bottom)) + 18)) if kind == 'table' else max(6, min(90, int(round(cur_y - prev_bottom))))
         prev_bottom = cur_y + float(b.get("h", 50))
 
         if kind == "table":
@@ -248,13 +275,16 @@ def render_quote_documents(record, cfg):
                 tds.append(f"<td width='{w_pct}%' valign='middle' style='text-align:{aln};'><img src='{logo_b64}' height='{lh}' /></td>")
             elif it.get("kind") == "header":
                 lns = [x.strip() for x in str(it.get("text", "")).splitlines() if x.strip()]
-                h0 = f"<span style='{istyle}'>{lns[0]}</span>" if lns else ""
-                sub_sz = max(9, min(14, int(round(ifsz * 0.68))))
+                h_main_sz = max(16, ifsz + 1)
+                h0 = f"<span style='font-family:{iff}, Arial, sans-serif; font-size:{h_main_sz}pt; color:{itc}; font-weight:bold;'>{lns[0]}</span>" if lns else ""
+                sub_sz = 10.5
                 rest = "<br>".join(lns[1:])
-                tds.append(f"<td width='{w_pct}%' valign='middle' style='text-align:{aln}; border-bottom:2pt solid {accent}; padding-bottom:8pt;'>{h0}{'<br><span style="font-family:' + iff + ', Arial, sans-serif; font-size:' + str(sub_sz) + 'pt; color:#334155; font-weight:normal;">' + rest + '</span>' if rest else ''}</td>")
+                tds.append(f"<td width='{w_pct}%' valign='middle' style='text-align:{aln}; border-bottom:2pt solid {accent}; padding-bottom:10pt;'>{h0}{'<br><span style="font-family:' + iff + ', Arial, sans-serif; font-size:' + str(sub_sz) + 'pt; color:#334155; font-weight:normal; line-height:1.4;">' + rest + '</span>' if rest else ''}</td>")
             else:
-                bg = f"background-color:{tbl_stripe}; border:1pt solid {tbl_brd}; padding:8pt;" if it.get("kind") == "box" else "padding:4pt;"
-                tds.append(f"<td width='{w_pct}%' valign='top' style='text-align:{aln}; line-height:1.45; {istyle} {bg}'>{_expand_tokens(it.get('text', ''), tok_map)}</td>")
+                box_sz = max(10.5, float(ifsz) + 0.5)
+                bstyle = f"font-family:'{iff}', Arial, sans-serif; font-size:{box_sz}pt; color:{itc}; font-weight:{ifw}; font-style:{ifs}; text-decoration:{itd};"
+                bg = f"background-color:{tbl_stripe}; border:1pt solid {tbl_brd}; padding:10pt 11pt;" if it.get("kind") == "box" else "padding:5pt;"
+                tds.append(f"<td width='{w_pct}%' valign='top' style='text-align:{aln}; line-height:1.55; {bstyle} {bg}'>{_expand_tokens(it.get('text', ''), tok_map)}</td>")
         top_bands.append(f"<table width='100%' cellspacing='6' cellpadding='0' style='margin-top:{gap_pt}pt; margin-bottom:6pt;'><tr>{''.join(tds)}</tr></table>")
         i += 1
 
