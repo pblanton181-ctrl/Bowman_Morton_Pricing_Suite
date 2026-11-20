@@ -1,0 +1,14 @@
+
+====================================================================
+[2026-11-20 10:35:29] TICKET: BM-ERR-1001 | CONTEXT: Bowman-Morton Standalone Pricing Tool & RFQ Ledger
+AttributeError: 'list' object has no attribute 'replace'
+--------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Bowman_Morton_Pricing_Suite\live_test.py", line 3527, in eventFilter
+    self._show_clean_card_tip(ev.globalPos(), tip_txt)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Bowman_Morton_Pricing_Suite\live_test.py", line 3506, in _show_clean_card_tip
+    body_html = lines.replace("\n", "<br>")
+                ^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'replace'
+

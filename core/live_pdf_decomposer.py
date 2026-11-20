@@ -1,4 +1,4 @@
-﻿import os, re, math
+import os, re, math
 import numpy as np
 
 try:

@@ -16,8 +16,8 @@ except ImportError:
 STEEL_RX = re.compile(
     r"(?<![A-Z0-9])("
     r"W\d+\s*X\s*\d+(?:\.\d+)?|WT\d+\s*X\s*[\d.]+|S\d+\s*X\s*[\d.]+|HP\d+\s*X\s*\d+|"
-    r"(?:HSS|TS)\s*\d+(?:\.\d+)?\s*X\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|(?:HSS|TS)\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|"
-    r"L\d+(?:\.\d+)?\s*X\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|C\d+\s*X\s*[\d.]+|MC\d+\s*X\s*[\d.]+|"
+    r"(?:HSS|TS)\s*\d+(?:-\d+/\d{1,2}|\.\d+)?\s*X\s*\d+(?:-\d+/\d{1,2}|\.\d+)?\s*X\s*\d+(?:/\d{1,2}|\.\d+)?(?![0-9/])|(?:HSS|TS)\s*\d+(?:-\d+/\d{1,2}|\.\d+)?\s*X\s*\d+(?:/\d{1,2}|\.\d+)?(?![0-9/])|"
+    r"L\d+(?:\.\d+)?\s*X\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|C\d+\s*X\s*\d+\.\d+|MC\d+\s*X\s*\d+\.\d+|"
     r"(?:PIPE|STD\s*PIPE|XS\s*PIPE)\s*[\d/.]+(?:\s*[\"\u201d])?|"
     r"(?:BASE\s*PL|PLATE\s*WASHER\s*PL|CUSTOM\s*PL|PL|FB)\s*[\d/.-]+\s*[\"\u201d]?\s*X\s*[\d/.-]+(?:\s*[\"\u201d]?\s*X\s*[\d/.-]+)?"
     r")(?:#|\b|(?![0-9/]))"
@@ -274,7 +274,20 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
 
     catalog = load_catalog_lookup(matrix_path)
     doc = pymupdf.open(local_pdf)
-    story_deltas = extract_story_heights(doc)
+    _st_cache = os.path.join(_cache_dir(), f"{fp}_stories.json")
+    if os.path.exists(_st_cache):
+        try:
+            with open(_st_cache, "r", encoding="utf-8") as _sf:
+                story_deltas = json.load(_sf)
+        except Exception:
+            story_deltas = extract_story_heights(doc)
+    else:
+        story_deltas = extract_story_heights(doc)
+        try:
+            with open(_st_cache, "w", encoding="utf-8") as _sf:
+                json.dump(story_deltas, _sf)
+        except Exception:
+            pass
 
     extracted = {}
     col_groups = {}
@@ -302,12 +315,12 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
         if scan_mode == "vector":
             items, vert_words, full_tb = extract_vector_page_tokens(pg, clip_rect=region_clip)
         elif scan_mode == "ocr":
-            ocr_dpi = 300 if region_clip is not None else 220
+            ocr_dpi = 300 if region_clip is not None else 180
             items, vert_words, raw_ocr_boxes, ocr_sh = extract_ocr_page_tokens(pg, clip_rect=region_clip, dpi=ocr_dpi, multi_angle=True)
             if not sh and ocr_sh:
                 sh = ocr_sh
         else:
-            hyb_dpi = 300 if region_clip is not None else 220
+            hyb_dpi = 300 if region_clip is not None else 180
             items, vert_words, raw_ocr_boxes, full_tb, ocr_sh = extract_hybrid_page_tokens(pg, clip_rect=region_clip, ocr_dpi=hyb_dpi)
             if not sh and ocr_sh:
                 sh = ocr_sh
@@ -337,7 +350,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                     else:
                         extracted[_k]["qty"] += _ar["qty"]
                 continue
-        is_detail = sheet_lbl.startswith(("SD", "S3")) or ("DETAILS" in all_txt)
+        is_detail = sheet_lbl.startswith(("SD-", "SD", "S3."))
         pts_per_ft = get_sheet_calibration(pg, sheet_scales=sheet_scales)
 
         segs = []
@@ -357,14 +370,21 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                 det_pts.append((cx, cy, dm.group(1).replace(" ", "")))
 
         seen_callouts = []
+        _pw_lim = float(pg.rect.width) * 0.72
         for cx, cy, t in items:
+            if not is_detail and region_clip is None and cx > _pw_lim:
+                continue
+            t = re.sub(r"BENT\s*(HSS|PL|L|C|MC)", r"BENT \1", t)
             t = re.sub(r"\b(W|WT|S|HP|HSS|L|C|MC)\s+(\d)", r"\1\2", t)
             t = re.sub(r"(?<=\d)\s*[X×]\s*(?=\d)", "X", t)
-            if any(w in t for w in ("EXAMPLE", "EXISTING", "EXIST.")):
+            if any(w in t for w in ("EXAMPLE", "EXISTING", "EXIST.", "FRAMINGLEGEND", "STEELBEAM(")):
                 continue
             # Allow all structural shapes across both framing plans and detail sheets
             for m in STEEL_RX.finditer(t):
                 prof = re.sub(r"^TS(?=[0-9])", "HSS", re.sub(r"\s+", "", m.group(1)).rstrip("#.").strip())
+                prof = re.sub(r"(\d+)-1/2(?=X)", r"\1.5", prof)
+                prof = re.sub(r"(\d+)-1/4(?=X)", r"\1.25", prof)
+                prof = re.sub(r"(\d+)-3/4(?=X)", r"\1.75", prof)
                 if prof == "HSS4X2/2":
                     prof = "HSS4X2.5X1/4"
                 if prof.startswith(("PL", "BASE", "PLATE", "CUSTOM", "FB")):
@@ -373,11 +393,13 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                     prof = re.sub(r"X3/2X", "X3-1/2X", prof)
                     prof = re.sub(r"(\d)1/(2|4|8)(?=X|$)", r"\1-1/\2", prof)
                     prof = re.sub(r"(X10)1$", r"\1", prof)
-                if any(p0 == prof and math.hypot(cx - x0, cy - y0) < 28.0 for p0, x0, y0 in seen_callouts):
+                if any(p0 == prof and math.hypot(cx - x0, cy - y0) < 68.0 for p0, x0, y0 in seen_callouts):
                     continue
                 seen_callouts.append((prof, cx, cy))
 
-                near_txt = " ".join(t2 for x2, y2, t2 in items if abs(x2 - cx) <= 85.0 and abs(y2 - cy) <= 35.0)
+                near_txt = " ".join(t2 for x2, y2, t2 in items if abs(x2 - cx) <= 95.0 and abs(y2 - cy) <= 45.0)
+                if any(k in near_txt for k in ("EXAMPLE", "FRAMINGLEGEND", "STEELBEAM(")):
+                    continue
                 is_bent = "BENT" in near_txt
                 is_plate = prof.startswith(("PL", "BASE", "PLATE", "CUSTOM", "FB"))
                 pl_dims = None
@@ -416,7 +438,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                         best_dd, near_det = dd, dlbl
 
                 col_tag_txt = " ".join(t2 for x2, y2, t2 in items if abs(x2 - cx) <= 38.0 and abs(y2 - cy) <= 20.0)
-                is_col = (not is_detail and not is_bent and (sk == "hss_tube" or "SMF" in col_tag_txt or "WF COL" in col_tag_txt))
+                is_col = (not is_detail and not is_bent and (sk == "hss_tube" or "SMFCOL" in col_tag_txt.replace(" ", "") or "WFCOL" in col_tag_txt.replace(" ", "") or "COLUMN" in col_tag_txt))
                 if is_col:
                     st_i = 0
                     if "ROOF FRAMING" in all_txt:
@@ -435,15 +457,25 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
 
                 span_verified = False
                 if not is_plate and segs:
-                    is_vert_lbl = any(w_txt == prof and math.hypot(cx - vx, cy - vy) < 6.0 for vx, vy, w_txt in vert_words)
+                    is_vert_lbl = any(
+                        (prof in re.sub(r"^TS(?=[0-9])", "HSS", normalize_cad_text(w_txt))
+                         or re.sub(r"^TS(?=[0-9])", "HSS", normalize_cad_text(w_txt)) in prof)
+                        and math.hypot(cx - vx, cy - vy) < 18.0
+                        for vx, vy, w_txt in vert_words
+                    )
                     from core.plan_world import SheetWorldState
                     _st = getattr(pg, "_world_state_cache", None)
-                    if _st is None:
+                    if _st is None or abs(float(getattr(_st, "pts_per_ft", 0.0)) - float(pts_per_ft)) > 0.1:
                         _st = SheetWorldState(pg, pno + 1, pts_per_ft=pts_per_ft)
                         pg._world_state_cache = _st
-                    attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=9.5, max_span_ft=38.0)
+                    peer_pts = [(ix, iy) for ix, iy, itxt in items if STEEL_RX.search(itxt)]
+                    attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=30.0, max_span_ft=36.0, peer_callouts=peer_pts)
+                    if attached is None:
+                        attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=45.0, max_span_ft=36.0, peer_callouts=peer_pts)
+                    if attached is None:
+                        attached = _st.attach_beam_to_callout(cx, cy, is_horiz=bool(is_vert_lbl), max_perp_pts=16.0, max_span_ft=36.0, peer_callouts=peer_pts)
                     if attached is not None:
-                        meas_len = attached
+                        meas_len = float(attached.__getitem__(4)) if isinstance(attached, (tuple, list)) else float(attached)
                         span_verified = True
                 if not is_plate and not span_verified:
                     best_dim_d = 130.0

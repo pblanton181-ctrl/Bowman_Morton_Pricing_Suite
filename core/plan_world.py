@@ -1,6 +1,7 @@
 import os
 import re
 import math
+import shutil
 import tempfile
 import subprocess
 import pymupdf
@@ -10,9 +11,12 @@ def normalize_cad_text(s):
     s = str(s or "").upper().strip()
     for uf, dec in (("\u00bd", ".5"), ("\u00bc", ".25"), ("\u00be", ".75"), ("\u215b", ".125"), ("\u215c", ".375"), ("\u215d", ".625"), ("\u215e", ".875")):
         s = s.replace(uf, dec)
-    s = re.sub(r"(\d+)-1/2\b", r"\1.5", s)
-    s = re.sub(r"(\d+)-1/4\b", r"\1.25", s)
-    s = re.sub(r"(\d+)-3/4\b", r"\1.75", s)
+    s = re.sub(r"(?<!\d)(\d+)-1/2(?![0-9/])", r"\1.5", s)
+    s = re.sub(r"(?<!\d)(\d+)-1/4(?![0-9/])", r"\1.25", s)
+    s = re.sub(r"(?<!\d)(\d+)-3/4(?![0-9/])", r"\1.75", s)
+    s = re.sub(r"(?<!\d)(\d+)-3/8(?![0-9/])", r"\1.375", s)
+    s = re.sub(r"(?<!\d)(\d+)-5/8(?![0-9/])", r"\1.625", s)
+    s = re.sub(r"(?<!\d)(\d+)-7/8(?![0-9/])", r"\1.875", s)
     s = s.replace("\u00d7", "X").replace("\u2013", "-").replace("\u2014", "-")
     s = re.sub(r"\s+", "", s)
     # Normalize AutoCAD SHX stroke-font OCR character confusions in steel profiles (O->0, J->3, I/L->1)
@@ -21,6 +25,15 @@ def normalize_cad_text(s):
     s = re.sub(r"\b(W\d+X\d+)J\b", lambda m: m.group(1) + "3", s)
     s = re.sub(r"\b(W\d+X)I(\d+)\b", lambda m: m.group(1) + "1" + m.group(2), s)
     s = re.sub(r"\bWBX(\d+)", lambda m: "W8X" + m.group(1), s)
+    s = re.sub(r"\bWT2X(\d+)", r"W12X\1", s)
+    s = re.sub(r"(?<=X)(\d+)1/2(?![0-9/])", r"\1.5", s)
+    s = re.sub(r"(?<=X)(\d+)1/4(?![0-9/])", r"\1.25", s)
+    s = re.sub(r"(?<=X)(\d+)3/4(?![0-9/])", r"\1.75", s)
+    s = re.sub(r"(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?X)/16\b", r"\g<1>3/16", s)
+    s = re.sub(r"(?<=X)4X2[Y1I/]2(?=[X])", "4X2.5", s)
+    s = re.sub(r"\b4X2[Y1I/]2(?=[X])", "4X2.5", s)
+    s = re.sub(r"(?<=X)[TLI1]/4\b", "1/4", s)
+    s = re.sub(r"(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?X)(?:1/4|L\(G|1/G|L/4|T/4)\b", r"\g<1>1/4", s)
     return s
 
 
@@ -30,19 +43,19 @@ def round_structural_ft(raw_ft):
 
 
 def parse_arch_scale(txt):
-    """Parses architectural scale fractions (e.g. 1/4\"=1'-0\" -> 18.0 pts/ft),
-    ignoring standard 24X36 SHEET border boilerplate."""
-    cleaned = re.sub(
-        r"\d+\s*[X×]\s*\d+\s*SHEET\s*:?\s*1\s*/\s*8\s*\"\s*=\s*1\s*'\s*-?\s*0\s*\"?",
-        " ",
-        str(txt),
-        flags=re.IGNORECASE,
-    )
-    m = re.search(r"(\d+)\s*/\s*(\d+)\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)
+    """Parses architectural/structural scale fractions (e.g. 1/8"=1'-0" -> 9.0 pts/ft, 1/4"=1'-0" -> 18.0 pts/ft)."""
+    s = str(txt or "")
+    m = re.search(r"([1-9]|1[0-2])\s*/\s*(2|4|8|16|32)\s*\"\s*=\s*1\s*'\s*-?\s*0", s)
     if m and float(m.group(2)) > 0:
-        return (float(m.group(1)) / float(m.group(2))) * 72.0
-    m2 = re.search(r"\b([1-3])\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)
-    return float(m2.group(1)) * 72.0 if m2 else 18.0
+        val = (float(m.group(1)) / float(m.group(2))) * 72.0
+        if 3.0 <= val <= 144.0:
+            return val
+    m2 = re.search(r"\b([1-3])\s*\"\s*=\s*1\s*'\s*-?\s*0", s)
+    if m2:
+        val2 = float(m2.group(1)) * 72.0
+        if 3.0 <= val2 <= 144.0:
+            return val2
+    return 18.0
 
 
 class SheetWorldState:
@@ -52,7 +65,7 @@ class SheetWorldState:
         self.page_num = int(page_num)
         self.width_pt = float(page.rect.width)
         self.height_pt = float(page.rect.height)
-        self.pts_per_ft = float(pts_per_ft) if pts_per_ft else self._detect_scale(page)
+        self.pts_per_ft = float(pts_per_ft) if (pts_per_ft and float(pts_per_ft) > 0) else self._detect_scale(page)
         self.snap_endpoints = []
         self.snap_midpoints = []
         self.bay_segments = []
@@ -60,7 +73,21 @@ class SheetWorldState:
 
     def _detect_scale(self, page):
         mx, my = self.width_pt * 0.72, self.height_pt * 0.94
-        full_tb = normalize_cad_text(page.get_text("text"))
+        raw_txt = (page.get_text("text") or "").strip()
+        if not raw_txt:
+            try:
+                tb_hits = scan_world_ocr(
+                    page,
+                    world_rect=pymupdf.Rect(self.width_pt * 0.84, self.height_pt * 0.65, self.width_pt, self.height_pt),
+                    dpi=260,
+                    multi_angle=True,
+                )
+                tb_str = " ".join(t for _, _, _, _, t in tb_hits)
+                if tb_str:
+                    return float(parse_arch_scale(tb_str))
+            except Exception:
+                pass
+        full_tb = normalize_cad_text(raw_txt)
         vp_words = [
             normalize_cad_text(wstr)
             for wx0, wy0, wx1, wy1, wstr, *_ in page.get_text("words")
@@ -159,24 +186,20 @@ class SheetWorldState:
         segs = [(x0, y, x1, y, (x1 - x0) / self.pts_per_ft, "h") for x0, x1, y in merged_h]
         segs += [(x, y0, x, y1, (y1 - y0) / self.pts_per_ft, "v") for y0, y1, x in merged_v]
         self.bay_segments = segs
-    def attach_beam_to_callout(self, cx, cy, is_horiz, max_perp_pts=9.5, max_span_ft=34.0, min_span_ft=6.0):
-        """Finds the structural bay-bounded vector beam touching a callout in PDF world space,
-        splitting overly long continuous gridlines only at major perpendicular structural beams (never leader arrows)."""
+    def attach_beam_to_callout(self, cx, cy, is_horiz, max_perp_pts=30.0, max_span_ft=55.0, min_span_ft=2.5, peer_callouts=None):
+        """Finds the structural bay-bounded vector beam touching a callout in PDF world space."""
         max_pts = float(max_span_ft) * self.pts_per_ft
         min_pts = float(min_span_ft) * self.pts_per_ft
-        # Collect only major perpendicular structural beam lines (>= 6 ft) as valid bay boundaries
-        perp_h = [round((sy1 + sy2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "h" and sft >= min_span_ft]
-        perp_v = [round((sx1 + sx2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "v" and sft >= min_span_ft]
-
-        best_seg = None
-        best_d = float(max_perp_pts)
+        perp_h = [round((sy1 + sy2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "h" and sft >= 6.0]
+        perp_v = [round((sx1 + sx2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "v" and sft >= 6.0]
+        best_seg, best_d = None, float(max_perp_pts)
         for sx1, sy1, sx2, sy2, _, orient in self.bay_segments:
             if (orient == "h") != bool(is_horiz):
                 continue
             abx, aby = sx2 - sx1, sy2 - sy1
             ab2 = abx * abx + aby * aby
             t = ((cx - sx1) * abx + (cy - sy1) * aby) / max(1.0, ab2)
-            if -0.02 <= t <= 1.02:
+            if -0.05 <= t <= 1.05:
                 tc = max(0.0, min(1.0, t))
                 perp_d = math.hypot(cx - (sx1 + tc * abx), cy - (sy1 + tc * aby))
                 if perp_d < best_d:
@@ -184,22 +207,22 @@ class SheetWorldState:
                     if is_horiz:
                         lx0, lx1 = min(sx1, sx2), max(sx1, sx2)
                         if (lx1 - lx0) > max_pts:
-                            cuts = sorted({vx for vx in perp_v if (lx0 + min_pts) < vx < (lx1 - min_pts)})
+                            peers_x = sorted({round(px, 1) for px, py in (peer_callouts or []) if abs(py - ((sy1 + sy2) * 0.5)) <= max_perp_pts and lx0 < px < lx1})
+                            cuts = [(peers_x[i] + peers_x[i + 1]) * 0.5 for i in range(len(peers_x) - 1)] if len(peers_x) >= 2 else sorted({vx for vx in perp_v if (lx0 + min_pts) < vx < (lx1 - min_pts)})
                             lb = max([lx0] + [c for c in cuts if c <= cx])
                             rb = min([lx1] + [c for c in cuts if c >= cx])
                             if (rb - lb) > max_pts:
-                                lb = max(lx0, cx - max_pts * 0.5)
-                                rb = min(lx1, cx + max_pts * 0.5)
+                                lb, rb = max(lx0, cx - max_pts * 0.5), min(lx1, cx + max_pts * 0.5)
                             csx1, csx2 = lb, rb
                     else:
                         ly0, ly1 = min(sy1, sy2), max(sy1, sy2)
                         if (ly1 - ly0) > max_pts:
-                            cuts = sorted({hy for hy in perp_h if (ly0 + min_pts) < hy < (ly1 - min_pts)})
+                            peers_y = sorted({round(py, 1) for px, py in (peer_callouts or []) if abs(px - ((sx1 + sx2) * 0.5)) <= max_perp_pts and ly0 < py < ly1})
+                            cuts = [(peers_y[i] + peers_y[i + 1]) * 0.5 for i in range(len(peers_y) - 1)] if len(peers_y) >= 2 else sorted({hy for hy in perp_h if (ly0 + min_pts) < hy < (ly1 - min_pts)})
                             tb = max([ly0] + [c for c in cuts if c <= cy])
                             bb = min([ly1] + [c for c in cuts if c >= cy])
                             if (bb - tb) > max_pts:
-                                tb = max(ly0, cy - max_pts * 0.5)
-                                bb = min(ly1, cy + max_pts * 0.5)
+                                tb, bb = max(ly0, cy - max_pts * 0.5), min(ly1, cy + max_pts * 0.5)
                             csy1, csy2 = tb, bb
                     span_pts = math.hypot(csx2 - csx1, csy2 - csy1)
                     if min_pts <= span_pts <= max_pts:
@@ -207,210 +230,245 @@ class SheetWorldState:
                         best_seg = (csx1, csy1, csx2, csy2, round_structural_ft(span_pts / self.pts_per_ft))
         return best_seg
 
-
-_GLOBAL_RAPID_OCR = None
-
-def _get_rapid_ocr():
-    global _GLOBAL_RAPID_OCR
-    if _GLOBAL_RAPID_OCR is not None:
-        return _GLOBAL_RAPID_OCR
-    try:
-        from rapidocr_onnxruntime import RapidOCR
-        _GLOBAL_RAPID_OCR = RapidOCR(use_angle_cls=False)
-    except Exception:
-        _GLOBAL_RAPID_OCR = False
-    return _GLOBAL_RAPID_OCR
-
-def _enhance_shx_for_ocr(arr):
-    """Boost faint AutoCAD SHX stroke fonts and light blueprint scans to crisp high-contrast ink."""
-    import numpy as np
-    gray = arr.mean(axis=2).astype(np.float32)
-    # Stretch contrast so light gray SHX strokes (120-225) become solid black while background stays 255
-    lo, hi = 95.0, 232.0
-    stretched = np.clip((gray - lo) * (255.0 / max(1.0, hi - lo)), 0.0, 255.0).astype(np.uint8)
-    return np.stack([stretched, stretched, stretched], axis=2)
-
-
-def scan_world_ocr(page, world_rect=None, dpi=210, multi_angle=True):
-    """Locked-in 1180x1180pt / 1850px 4-angle structural OCR engine:
-    - Exact 1180x1180pt tile grid & 1850px DBNet scale sweet spot (100% member capture)
-    - Pass 1 (0°), Pass 2 (-90° CW with exact X/Y inverse), Pass 3 & 4 (±45° diagonal)
-    - Deduplicates orthogonal hits (<32pt) and suppresses corrupted diagonal echoes (<45pt)
-    """
+def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
+    """9-angle (22.5-deg sweep) SHX-stroke-isolated Windows Native C++ OCR engine."""
     pw, ph = float(page.rect.width), float(page.rect.height)
-    req_dpi = max(170, int(dpi or 210))
     if world_rect is not None:
         r = pymupdf.Rect(world_rect)
-        rx0, ry0 = max(0.0, r.x0 - 12.0), max(0.0, r.y0 - 12.0)
-        rx1, ry1 = min(pw, r.x1 + 12.0), min(ph, r.y1 + 12.0)
-        target_tile_pts = 950.0
-        use_dpi = max(250, min(300, req_dpi))
-        max_px_cap = 2200.0
+        rx0, ry0 = max(0.0, r.x0 - 18.0), max(0.0, r.y0 - 18.0)
+        rx1, ry1 = min(pw, r.x1 + 18.0), min(ph, r.y1 + 18.0)
     else:
-        rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.89, ph * 0.95
-        target_tile_pts = 1180.0
-        use_dpi = min(215, req_dpi)
-        max_px_cap = 1850.0
-
-    ro = _get_rapid_ocr()
-    if not ro:
-        return []
-
-    import numpy as np
-    from PIL import Image
-
+        rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.90, ph * 0.95
     span_w, span_h = max(1.0, rx1 - rx0), max(1.0, ry1 - ry0)
+    target_tile_pts = 480.0
     cols = max(1, int(math.ceil(span_w / target_tile_pts)))
     rows = max(1, int(math.ceil(span_h / target_tile_pts)))
     tile_w, tile_h = span_w / cols, span_h / rows
-    ov_x = tile_w * 0.14 if cols > 1 else 0.0
-    ov_y = tile_h * 0.14 if rows > 1 else 0.0
-
-    raw_all = []
-    for r_i in range(rows):
-        for c_i in range(cols):
-            tx0 = max(rx0, rx0 + c_i * tile_w - (ov_x if c_i > 0 else 0.0))
-            ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
-            tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
-            ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
-            rect = pymupdf.Rect(tx0, ty0, tx1, ty1)
-            max_side = max(1.0, rect.width, rect.height)
-            safe_dpi = max(165, min(use_dpi, int((max_px_cap * 72.0) / max_side)))
-            pts_per_px = 72.0 / float(safe_dpi)
-            pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
-            arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
-
-            if world_rect is None and int((arr < 238).sum()) < 350:
-                continue
-
-            lo, hi = int(np.percentile(arr, 1)), int(np.percentile(arr, 98))
-            if hi > lo + 18 and (lo > 12 or hi < 245):
-                stretched = np.clip((arr.astype(np.float32) - lo) * (255.0 / float(hi - lo)), 0, 255).astype(np.uint8)
-            else:
-                stretched = arr
-            h_px, w_px = stretched.shape[:2]
-
-            # Pass 1: 0 deg
-            res0, _ = ro(stretched)
-            for item in (res0 or []):
-                if not isinstance(item, (list, tuple)) or len(item) < 3:
+    ov_x, ov_y = (tile_w * 0.22 if cols > 1 else 0.0), (tile_h * 0.22 if rows > 1 else 0.0)
+    tmp_dir = tempfile.mkdtemp(prefix=f"bm_ocr_{os.getpid()}_")
+    tile_meta = []
+    all_drawings = page.get_drawings()
+    rot_mat = getattr(page, "rotation_matrix", pymupdf.Matrix(1, 1))
+    is_rot = bool(getattr(page, "rotation", 0) % 360 != 0)
+    try:
+        for r_i in range(rows):
+            for c_i in range(cols):
+                tx0 = max(rx0, rx0 + c_i * tile_w - (ov_x if c_i > 0 else 0.0))
+                ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))
+                tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))
+                ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))
+                rect = pymupdf.Rect(tx0, ty0, tx1, ty1)
+                max_side = max(1.0, rect.width, rect.height)
+                safe_dpi = max(220, min(260, int((1550.0 * 72.0) / max_side)))
+                from PIL import Image, ImageDraw
+                sc = safe_dpi / 72.0
+                shx_paths = []
+                for drw in all_drawings:
+                    r_d_raw = drw.get("rect")
+                    if not r_d_raw:
+                        continue
+                    r_d = (r_d_raw * rot_mat) if is_rot else r_d_raw
+                    if not rect.intersects(r_d) or max(r_d.width, r_d.height) > 180.0 or (r_d.width * r_d.height) > 6500.0:
+                        continue
+                    w_pen = round(float(drw.get("width") or 0.0), 2)
+                    col = drw.get("color") or ()
+                    fil = drw.get("fill") or ()
+                    has_dark_stroke = (len(col) >= 3 and col.__getitem__(0) < 0.2 and col.__getitem__(1) < 0.2 and col.__getitem__(2) < 0.2 and w_pen <= 1.0)
+                    has_dark_fill = (len(fil) >= 3 and fil.__getitem__(0) < 0.2 and fil.__getitem__(1) < 0.2 and fil.__getitem__(2) < 0.2)
+                    if has_dark_stroke or has_dark_fill:
+                        shx_paths.append((max(0.35, w_pen), drw.get("items", ()), has_dark_fill))
+                t_png = os.path.join(tmp_dir, f"t_{r_i}_{c_i}.png")
+                if len(shx_paths) >= 1:
+                    clean_im = Image.new("RGB", (max(32, int(round(rect.width * sc))), max(32, int(round(rect.height * sc)))), (255, 255, 255))
+                    dr = ImageDraw.Draw(clean_im)
+                    for w_pen, itms, is_f in shx_paths:
+                        lw = max(2, int(round(w_pen * sc * 1.45)))
+                        for itm in itms:
+                            op = itm.__getitem__(0)
+                            if op == "l" and len(itm) >= 3:
+                                p1 = (itm.__getitem__(1) * rot_mat) if is_rot else itm.__getitem__(1)
+                                p2 = (itm.__getitem__(2) * rot_mat) if is_rot else itm.__getitem__(2)
+                                dr.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
+                            elif op == "c" and len(itm) >= 5:
+                                p1 = (itm.__getitem__(1) * rot_mat) if is_rot else itm.__getitem__(1)
+                                p2 = (itm.__getitem__(4) * rot_mat) if is_rot else itm.__getitem__(4)
+                                dr.line([((p1.x - rect.x0) * sc, (p1.y - rect.y0) * sc), ((p2.x - rect.x0) * sc, (p2.y - rect.y0) * sc)], fill=(0, 0, 0), width=lw)
+                            elif op == "re" and len(itm) >= 2:
+                                rc = (itm.__getitem__(1) * rot_mat) if is_rot else itm.__getitem__(1)
+                                dr.rectangle([(rc.x0 - rect.x0) * sc, (rc.y0 - rect.y0) * sc, (rc.x1 - rect.x0) * sc, (rc.y1 - rect.y0) * sc], fill=(0, 0, 0) if is_f else None, outline=(0, 0, 0), width=lw)
+                    clean_im.save(t_png)
+                else:
+                    pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)
+                    pix.save(t_png)
+                tile_meta.append((t_png, tx0, ty0, 72.0 / float(safe_dpi)))
+        angles = "0,90,270,45,315" if multi_angle else "0,90,270"
+        ps_script = (
+            "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"
+            "Add-Type -AssemblyName System.Drawing;"
+            "$null = [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime];"
+            "$null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime];"
+            "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"
+            "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"
+            "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
+            f"$files = Get-ChildItem -Path '{tmp_dir}' -Filter '*.png' | Sort-Object Name;"
+            "foreach($fi in $files){"
+            "  $baseBmp = New-Object System.Drawing.Bitmap($fi.FullName);"
+            "  $bw = $baseBmp.Width; $bh = $baseBmp.Height;"
+            f"  foreach($ang in @({angles})) {{"
+            "    $rotPng = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.png');"
+            "    $bmpDraw = $null;"
+            "    if($ang -eq 0){ $baseBmp.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+            "    elseif($ang -eq 90){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate90FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+            "    elseif($ang -eq 270){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate270FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"
+            "    else {"
+            "      $diag = [int][math]::Ceiling([math]::Sqrt($bw*$bw + $bh*$bh));"
+            "      $bmpDraw = New-Object System.Drawing.Bitmap($diag, $diag);"
+            "      $g = [System.Drawing.Graphics]::FromImage($bmpDraw);"
+            "      $g.Clear([System.Drawing.Color]::White);"
+            "      $g.TranslateTransform($diag/2.0, $diag/2.0);"
+            "      $g.RotateTransform($ang);"
+            "      $g.TranslateTransform(-$bw/2.0, -$bh/2.0);"
+            "      $g.DrawImage($baseBmp, 0, 0, $bw, $bh);"
+            "      $g.Dispose();"
+            "      $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png);"
+            "    }"
+            "    $f = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($rotPng)) ([Windows.Storage.StorageFile]);"
+            "    $st = Await ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream]);"
+            "    $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($st)) ([Windows.Graphics.Imaging.BitmapDecoder]);"
+            "    $sbmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"
+            "    $res = Await ($eng.RecognizeAsync($sbmp)) ([Windows.Media.Ocr.OcrResult]);"
+            "    $st.Dispose();"
+            "    foreach($l in $res.Lines){"
+            "      $w=$l.Words; if($w.Count -gt 0){$r0=$w.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"
+            "      foreach($wi in $w){$r=$wi.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}"
+            "    }"
+            "    if($bmpDraw -ne $null){ $bmpDraw.Dispose(); }"
+            "    Remove-Item $rotPng -Force -ErrorAction SilentlyContinue;"
+            "  }"
+            "  $baseBmp.Dispose();"
+            "}"
+        )
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", ps_script],
+            stderr=subprocess.DEVNULL,
+            encoding="utf-8",
+            errors="replace",
+            timeout=90,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        meta_by_name = {os.path.basename(p): (ox, oy, sc) for p, ox, oy, sc in tile_meta}
+        merged_hits = []
+        for ln in out.splitlines():
+            parts = ln.split("|", 8)
+            if len(parts) == 9 and parts.__getitem__(0) in meta_by_name:
+                t_ox, t_oy, sc = meta_by_name[parts.__getitem__(0)]
+                ang = float(parts.__getitem__(1))
+                bw, bh = float(parts.__getitem__(2)), float(parts.__getitem__(3))
+                rx, ry = float(parts.__getitem__(4)), float(parts.__getitem__(5))
+                rw, rh = float(parts.__getitem__(6)), float(parts.__getitem__(7))
+                cx_r, cy_r = rx + rw * 0.5, ry + rh * 0.5
+                if abs(ang) < 0.1:
+                    ox, oy = cx_r, cy_r
+                elif abs(ang - 90.0) < 0.1:
+                    ox, oy = cy_r, bh - cx_r
+                elif abs(ang - 270.0) < 0.1:
+                    ox, oy = bw - cy_r, cx_r
+                else:
+                    diag = math.ceil(math.hypot(bw, bh))
+                    rad = math.radians(-ang)
+                    dx, dy = cx_r - diag * 0.5, cy_r - diag * 0.5
+                    ox = dx * math.cos(rad) - dy * math.sin(rad) + bw * 0.5
+                    oy = dx * math.sin(rad) + dy * math.cos(rad) + bh * 0.5
+                wcx = t_ox + max(0.0, min(bw, ox)) * sc
+                wcy = t_oy + max(0.0, min(bh, oy)) * sc
+                hw, hh = (rw * sc) * 0.5, (rh * sc) * 0.5
+                ntxt = normalize_cad_text(parts.__getitem__(8))
+                if not ntxt:
                     continue
-                box, raw_t, conf = item.__getitem__(0), item.__getitem__(1), float(item.__getitem__(2))
-                if conf < 0.18 or not str(raw_t).strip():
+                if any(
+                    t0 == ntxt and math.hypot(wcx - ((a0 + a1) * 0.5), wcy - ((b0 + b1) * 0.5)) < 10.0
+                    for a0, b0, a1, b1, t0 in merged_hits
+                ):
                     continue
-                xs = [float(pt.__getitem__(0)) for pt in box]
-                ys = [float(pt.__getitem__(1)) for pt in box]
-                raw_all.append((
-                    tx0 + min(xs) * pts_per_px, ty0 + min(ys) * pts_per_px,
-                    tx0 + max(xs) * pts_per_px, ty0 + max(ys) * pts_per_px,
-                    normalize_cad_text(raw_t),
-                ))
-
-            if multi_angle:
-                pil_base = Image.fromarray(stretched)
-                # Pass 2: -90 deg CW (Vertical) with exact inverse X/Y transform
-                im90 = np.array(pil_base.rotate(-90, expand=True))
-                res90, _ = ro(im90)
-                for item in (res90 or []):
-                    if not isinstance(item, (list, tuple)) or len(item) < 3:
-                        continue
-                    box, raw_t, conf = item.__getitem__(0), item.__getitem__(1), float(item.__getitem__(2))
-                    if conf < 0.20 or not str(raw_t).strip():
-                        continue
-                    orig_xs = [max(0.0, min(float(w_px), float(pt.__getitem__(1)))) for pt in box]
-                    orig_ys = [max(0.0, min(float(h_px), float(h_px) - float(pt.__getitem__(0)))) for pt in box]
-                    raw_all.append((
-                        tx0 + min(orig_xs) * pts_per_px, ty0 + min(orig_ys) * pts_per_px,
-                        tx0 + max(orig_xs) * pts_per_px, ty0 + max(orig_ys) * pts_per_px,
-                        normalize_cad_text(raw_t),
-                    ))
-
-                # Pass 3 & 4: +/-45 deg diagonal leader callouts (full 1.0x resolution for tiny brace callouts)
-                for ang_deg in (-45, 45):
-                    pil_d = pil_base.rotate(ang_deg, expand=True, fillcolor=(255, 255, 255))
-                    res_d, _ = ro(np.array(pil_d))
-                    if not res_d:
-                        continue
-                    rad = math.radians(ang_deg)
-                    cos_a, sin_a = math.cos(rad), math.sin(rad)
-                    cx0, cy0 = w_px * 0.5, h_px * 0.5
-                    cx1, cy1 = pil_d.width * 0.5, pil_d.height * 0.5
-                    for item in res_d:
-                        if not isinstance(item, (list, tuple)) or len(item) < 3:
+                merged_hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt))
+        stitched = list(merged_hits)
+        # Two-pass stacked/adjacent callout stitcher (handles 2-line and 3-line callouts like W8 / X24 or HSS / 4X2-1/2 / X1/4)
+        for _pass in range(2):
+            cur_list = list(stitched)
+            for i, (ax0, ay0, ax1, ay1, atxt) in enumerate(cur_list):
+                if atxt in ("HSS", "BENTHSS", "W", "WB", "PL", "MC", "C", "L") or re.match(r"^(?:BENT)?(?:W|WB)\d+X?$|^(?:BENT)?HSS\d+(?:\.\d+)?X?(?:\d+(?:\.\d+)?X?)?$", atxt):
+                    acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5
+                    for j, (bx0, by0, bx1, by1, btxt) in enumerate(cur_list):
+                        if i == j:
                             continue
-                        box, raw_t, conf = item.__getitem__(0), item.__getitem__(1), float(item.__getitem__(2))
-                        if conf < 0.22 or not str(raw_t).strip():
-                            continue
-                        nt = normalize_cad_text(raw_t)
-                        if not any(ch.isdigit() for ch in nt):
-                            continue
-                        orig_xs, orig_ys = [], []
-                        for pt in box:
-                            px_r, py_r = float(pt.__getitem__(0)), float(pt.__getitem__(1))
-                            dx, dy = px_r - cx1, py_r - cy1
-                            ox = cx0 + (dx * cos_a - dy * sin_a)
-                            oy = cy0 + (dx * sin_a + dy * cos_a)
-                            orig_xs.append(max(0.0, min(float(w_px), ox)))
-                            orig_ys.append(max(0.0, min(float(h_px), oy)))
-                        raw_all.append((
-                            tx0 + min(orig_xs) * pts_per_px, ty0 + min(orig_ys) * pts_per_px,
-                            tx0 + max(orig_xs) * pts_per_px, ty0 + max(orig_ys) * pts_per_px,
-                            nt + "\x01DIAG",
-                        ))
+                        bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
+                        if math.hypot(bcx - acx, bcy - acy) <= 68.0:
+                            comb = normalize_cad_text(atxt + btxt)
+                            if re.match(r"^(?:BENT)?(W\d+X\d+(?:\.\d+)?|HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+/\d{1,2})?|PL\d+/\d{1,2}X\d+)$", comb):
+                                nbox = (min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), comb)
+                                if not any(t0 == comb and math.hypot(((nbox[0]+nbox[2])*0.5)-((a0+a1)*0.5), ((nbox[1]+nbox[3])*0.5)-((b0+b1)*0.5)) < 12.0 for a0, b0, a1, b1, t0 in stitched):
+                                    stitched.append(nbox)
+        return stitched
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    ortho_hits, diag_hits = [], []
-    for hx0, hy0, hx1, hy1, htxt in raw_all:
-        if htxt.endswith("\x01DIAG"):
-            diag_hits.append((hx0, hy0, hx1, hy1, htxt[:-5]))
-        else:
-            ortho_hits.append((hx0, hy0, hx1, hy1, htxt))
-
-    hits_out = []
-    for hx0, hy0, hx1, hy1, htxt in ortho_hits:
-        hcx, hcy = (hx0 + hx1) * 0.5, (hy0 + hy1) * 0.5
-        if any(ptxt == htxt and math.hypot(hcx - ((px0 + px1) * 0.5), hcy - ((py0 + py1) * 0.5)) < 32.0 for px0, py0, px1, py1, ptxt in hits_out):
-            continue
-        hits_out.append((hx0, hy0, hx1, hy1, htxt))
-
-    for hx0, hy0, hx1, hy1, htxt in diag_hits:
-        hcx, hcy = (hx0 + hx1) * 0.5, (hy0 + hy1) * 0.5
-        if any(any(c.isdigit() for c in ptxt) and math.hypot(hcx - ((px0 + px1) * 0.5), hcy - ((py0 + py1) * 0.5)) < 45.0 for px0, py0, px1, py1, ptxt in hits_out):
-            continue
-        hits_out.append((hx0, hy0, hx1, hy1, htxt))
-    return hits_out
 
 class PlanWorldModel:
-    """Unified multi-sheet PDF world coordinate & scale cache."""
+    """Central world-space coordinator for a planset PDF across BOM, OCR, OSNAP, Measure, and Color Key."""
 
     def __init__(self, pdf_path=None):
         self.pdf_path = str(pdf_path or "")
         self.sheet_scales = {}
-        self._sheet_states = {}
-        if self.pdf_path and os.path.exists(self.pdf_path):
+        self._states = {}
+        self._load_calibrations()
+
+    def _calib_file(self):
+        if not self.pdf_path or not os.path.exists(str(self.pdf_path)):
+            return None
+        import hashlib, json
+        st = os.stat(self.pdf_path)
+        sig = hashlib.sha256(f"{os.path.basename(self.pdf_path)}:{st.st_size}:{int(st.st_mtime)}".encode("utf-8")).hexdigest()[:20]
+        base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
+        cdir = os.path.join(base, "BowmanMortonPricingSuite", "calibrations")
+        os.makedirs(cdir, exist_ok=True)
+        return os.path.join(cdir, f"{sig}.json")
+
+    def _load_calibrations(self):
+        cf = self._calib_file()
+        if cf and os.path.exists(cf):
             try:
-                doc = pymupdf.open(self.pdf_path)
-                for pno in range(len(doc)):
-                    st = SheetWorldState(doc.load_page(pno), pno + 1)
-                    self._sheet_states[pno + 1] = st
-                    self.sheet_scales[pno + 1] = float(st.pts_per_ft)
-                doc.close()
+                import json
+                with open(cf, "r", encoding="utf-8") as f:
+                    raw = json.load(f)
+                self.sheet_scales = {int(k): float(v) for k, v in raw.items() if float(v) > 0}
+            except Exception:
+                pass
+
+    def _save_calibrations(self):
+        cf = self._calib_file()
+        if cf:
+            try:
+                import json
+                with open(cf, "w", encoding="utf-8") as f:
+                    json.dump({str(k): float(v) for k, v in self.sheet_scales.items()}, f, indent=2)
             except Exception:
                 pass
 
     def set_sheet_scale(self, page_num, pts_per_ft):
-        p = int(page_num)
-        self.sheet_scales[p] = float(pts_per_ft)
-        if p in self._sheet_states:
-            self._sheet_states[p].pts_per_ft = float(pts_per_ft)
+        pno = int(page_num)
+        self.sheet_scales[pno] = float(pts_per_ft)
+        self._states.pop(pno, None)
+        self._save_calibrations()
 
     def get_sheet(self, doc, page_num):
-        p = int(page_num)
-        if p not in self._sheet_states or (p in self.sheet_scales and abs(self._sheet_states[p].pts_per_ft - self.sheet_scales[p]) > 1e-3):
-            pg = doc.load_page(max(0, min(len(doc) - 1, p - 1)))
-            st = SheetWorldState(pg, p, pts_per_ft=self.sheet_scales.get(p))
-            self._sheet_states[p] = st
-            self.sheet_scales[p] = float(st.pts_per_ft)
-        return self._sheet_states[p]
+        pno = int(page_num)
+        if pno not in self._states:
+            pg = doc.load_page(max(0, min(len(doc) - 1, pno - 1)))
+            override = self.sheet_scales.get(pno)
+            st = SheetWorldState(pg, pno, pts_per_ft=override)
+            self._states[pno] = st
+            self.sheet_scales[pno] = float(st.pts_per_ft)
+        return self._states[pno]
 
 
 def extract_raster_beam_segments(page, pts_per_ft=18.0):

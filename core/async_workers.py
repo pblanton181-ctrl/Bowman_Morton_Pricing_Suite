@@ -1,4 +1,4 @@
-﻿import traceback
+import traceback
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
 class WorkerSignals(QObject):

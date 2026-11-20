@@ -1,0 +1,814 @@
+[1mdiff --git a/bom_pdf_engine.py b/bom_pdf_engine.py[m
+[1mindex e7515b5..40249f0 100644[m
+[1m--- a/bom_pdf_engine.py[m
+[1m+++ b/bom_pdf_engine.py[m
+[36m@@ -15,11 +15,12 @@[m [mexcept ImportError:[m
+ [m
+ STEEL_RX = re.compile([m
+     r"(?<![A-Z0-9])("[m
+[31m-    r"W\d+X\d+|WT\d+X[\d.]+|S\d+X[\d.]+|HP\d+X\d+|"[m
+[31m-    r"HSS\d+X\d+X[\d/.]+|HSS\d+X[\d/.]+|"[m
+[31m-    r"L\d+X\d+X[\d/.]+|C\d+X[\d.]+|MC\d+X[\d.]+|PIPE\s*[\d/.]+|"[m
+[32m+[m[32m    r"W\d+\s*X\s*\d+(?:\.\d+)?|WT\d+\s*X\s*[\d.]+|S\d+\s*X\s*[\d.]+|HP\d+\s*X\s*\d+|"[m
+[32m+[m[32m    r"(?:HSS|TS)\s*\d+(?:\.\d+)?\s*X\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|(?:HSS|TS)\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|"[m
+[32m+[m[32m    r"L\d+(?:\.\d+)?\s*X\s*\d+(?:\.\d+)?\s*X\s*[\d/.]+|C\d+\s*X\s*[\d.]+|MC\d+\s*X\s*[\d.]+|"[m
+[32m+[m[32m    r"(?:PIPE|STD\s*PIPE|XS\s*PIPE)\s*[\d/.]+(?:\s*[\"\u201d])?|"[m
+     r"(?:BASE\s*PL|PLATE\s*WASHER\s*PL|CUSTOM\s*PL|PL|FB)\s*[\d/.-]+\s*[\"\u201d]?\s*X\s*[\d/.-]+(?:\s*[\"\u201d]?\s*X\s*[\d/.-]+)?"[m
+[31m-    r")(?![0-9/])"[m
+[32m+[m[32m    r")(?:#|\b|(?![0-9/]))"[m
+ )[m
+ [m
+ DETAIL_RX = re.compile(r"\b(\d{1,2}\s*/\s*(?:SD-\d+|S-?\d+(?:\.\d+)?))\b")[m
+[36m@@ -62,8 +63,8 @@[m [mdef parse_plate_spec(raw_pl):[m
+         m1 = re.match(r"^(\d+)-(\d+)/(\d+)$", tok)[m
+         if m1 and float(m1.group(3)) > 0:[m
+             return float(m1.group(1)) + float(m1.group(2)) / float(m1.group(3))[m
+[31m-        m2 = re.match(r"^(\d)(\d)/(\d+)$", tok)[m
+[31m-        if m2 and int(m2.group(2)) < int(m2.group(3)):[m
+[32m+[m[32m        m2 = re.match(r"^(\d{1,2})(\d)/(\d+)$", tok)[m
+[32m+[m[32m        if m2 and int(m2.group(2)) < int(m2.group(3)) and int(m2.group(3)) in (2, 4, 8, 16, 32):[m
+             return float(m2.group(1)) + float(m2.group(2)) / float(m2.group(3))[m
+         try:[m
+             if "/" in tok:[m
+[36m@@ -232,7 +233,17 @@[m [mdef _try_ai_vision_sheet_extract(pg, sheet_lbl, catalog):[m
+     except Exception:[m
+         return None[m
+ [m
+[31m-def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None):[m
+[32m+[m[32mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=None, region_clip=None, use_native_ocr=True, sheet_scales=None, scan_mode=None, progress_cb=None, cancel_check=None):[m
+[32m+[m[32m    from core.vector_scan_engine import extract_vector_page_tokens, pair_vector_beam_length[m
+[32m+[m[32m    from core.ocr_scan_engine import extract_ocr_page_tokens[m
+[32m+[m[32m    from core.hybrid_scan_engine import extract_hybrid_page_tokens[m
+[32m+[m
+[32m+[m[32m    if scan_mode is None:[m
+[32m+[m[32m        scan_mode = "hybrid" if use_native_ocr else "vector"[m
+[32m+[m[32m    scan_mode = str(scan_mode).strip().lower()[m
+[32m+[m[32m    if scan_mode not in ("vector", "ocr", "hybrid"):[m
+[32m+[m[32m        scan_mode = "hybrid"[m
+[32m+[m
+     t0 = time.perf_counter()[m
+     fp = _file_fingerprint(pdf_path)[m
+     wm_cal = PlanWorldModel(pdf_path)[m
+[36m@@ -242,12 +253,22 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+     sheet_scales = merged_scales[m
+     sc_sig = hashlib.sha256(json.dumps(sorted(sheet_scales.items())).encode("utf-8")).hexdigest()[:10] if sheet_scales else "auto"[m
+     sel_key = "all" if not selected_pages else "_".join(str(p) for p in sorted(selected_pages))[m
+[31m-    cache_file = os.path.join(_cache_dir(), f"{fp}_{sel_key}_{sc_sig}.json")[m
+[32m+[m[32m    cache_file = os.path.join(_cache_dir(), f"{fp}_{sel_key}_{sc_sig}_{scan_mode}.json")[m
+     if region_clip is None and os.path.exists(cache_file):[m
+         with open(cache_file, encoding="utf-8") as f:[m
+             return json.load(f)["rows"], time.perf_counter() - t0, True[m
+ [m
+[31m-    local_pdf = os.path.join(tempfile.gettempdir(), f"bm_work_{fp}.pdf")[m
+[32m+[m[32m    tmp_dir = tempfile.gettempdir()[m
+[32m+[m[32m    try:[m
+[32m+[m[32m        cutoff_ts = time.time() - 86400.0[m
+[32m+[m[32m        for fn_t in os.listdir(tmp_dir):[m
+[32m+[m[32m            if fn_t.startswith("bm_work_") and fn_t.endswith(".pdf"):[m
+[32m+[m[32m                fp_t = os.path.join(tmp_dir, fn_t)[m
+[32m+[m[32m                if os.path.getmtime(fp_t) < cutoff_ts:[m
+[32m+[m[32m                    os.remove(fp_t)[m
+[32m+[m[32m    except Exception:[m
+[32m+[m[32m        pass[m
+[32m+[m[32m    local_pdf = os.path.join(tmp_dir, f"bm_work_{fp}.pdf")[m
+     if not os.path.exists(local_pdf):[m
+         shutil.copy2(pdf_path, local_pdf)[m
+ [m
+[36m@@ -258,63 +279,46 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+     extracted = {}[m
+     col_groups = {}[m
+ [m
+[31m-    for pno in range(len(doc)):[m
+[31m-        if selected_pages and (pno + 1) not in selected_pages:[m
+[31m-            continue[m
+[32m+[m[32m    target_pages = [p for p in range(len(doc)) if not selected_pages or (p + 1) in selected_pages][m
+[32m+[m[32m    tot_target = max(1, len(target_pages))[m
+[32m+[m[32m    for step_idx, pno in enumerate(target_pages, 1):[m
+[32m+[m[32m        if callable(cancel_check) and cancel_check():[m
+[32m+[m[32m            break[m
+         pg = doc.load_page(pno)[m
+         sh = get_sheet_tag(pg)[m
+[32m+[m[32m        if callable(progress_cb):[m
+[32m+[m[32m            try:[m
+[32m+[m[32m                progress_cb(step_idx, tot_target, sh or f"Pg {pno + 1}", len(extracted) + len(col_groups))[m
+[32m+[m[32m            except Exception:[m
+[32m+[m[32m                pass[m
+         if not selected_pages and (sh == "CIVIL" or sh.startswith(("C", "A"))):[m
+             continue[m
+ [m
+[31m-        pw, ph = float(pg.rect.width), float(pg.rect.height)[m
+[31m-        mx, my = pw * 0.885, ph * 0.945[m
+[31m-        full_tb = pg.get_text("text").upper()[m
+         items = [][m
+[31m-        lines_grp = {}[m
+         vert_words = [][m
+[31m-        for wx0, wy0, wx1, wy1, wstr, bno, lno, wno in pg.get_text("words"):[m
+[31m-            cx_w, cy_w = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5[m
+[31m-            if region_clip is not None:[m
+[31m-                if not region_clip.contains(pymupdf.Point(cx_w, cy_w)):[m
+[31m-                    continue[m
+[31m-            elif not (wx0 < mx and wy0 < my):[m
+[31m-                continue[m
+[31m-            nw = normalize_cad_text(wstr)[m
+[31m-            items.append((cx_w, cy_w, nw))[m
+[31m-            if (wy1 - wy0) > (wx1 - wx0) * 1.35:[m
+[31m-                vert_words.append((cx_w, cy_w, nw))[m
+[31m-            lines_grp.setdefault((bno, lno), []).append((wx0, wy0, wx1, wy1, nw))[m
+[31m-        for (bno, lno), wlist in lines_grp.items():[m
+[31m-            if len(wlist) > 1:[m
+[31m-                lx0 = min(w.__getitem__(0) for w in wlist)[m
+[31m-                ly0 = min(w.__getitem__(1) for w in wlist)[m
+[31m-                lx1 = max(w.__getitem__(2) for w in wlist)[m
+[31m-                ly1 = max(w.__getitem__(3) for w in wlist)[m
+[31m-                ltxt = " ".join(w.__getitem__(4) for w in wlist)[m
+[31m-                if not STEEL_RX.search(ltxt) or any(k in ltxt for k in ("TREAD", "0'-6", "BASE", "PL", "WASHER", "CUSTOM", "FB")):[m
+[31m-                    items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, ltxt))[m
+[31m-[m
+[31m-        if region_clip is not None and use_native_ocr:[m
+[31m-            has_vec_steel = any(STEEL_RX.search(t) for _, _, t in items)[m
+[31m-            if not has_vec_steel:[m
+[31m-                _box_hits = scan_region_windows_native_ocr(pg, clip_rect=region_clip, dpi=240)[m
+[31m-                items.extend(_box_hits)[m
+[31m-        elif sum(len(t) for _, _, t in items) < 30 and use_native_ocr:[m
+[31m-            _raw_w = scan_world_ocr(pg, world_rect=None, dpi=180)[m
+[31m-            items = _stitch_adjacent_ocr_tokens(_raw_w)[m
+[32m+[m[32m        full_tb = (pg.get_text("text") or "").upper()[m
+[32m+[m[32m        raw_ocr_boxes = [][m
+[32m+[m
+[32m+[m[32m        if scan_mode == "vector":[m
+[32m+[m[32m            items, vert_words, full_tb = extract_vector_page_tokens(pg, clip_rect=region_clip)[m
+[32m+[m[32m        elif scan_mode == "ocr":[m
+[32m+[m[32m            ocr_dpi = 300 if region_clip is not None else 220[m
+[32m+[m[32m            items, vert_words, raw_ocr_boxes, ocr_sh = extract_ocr_page_tokens(pg, clip_rect=region_clip, dpi=ocr_dpi, multi_angle=True)[m
+[32m+[m[32m            if not sh and ocr_sh:[m
+[32m+[m[32m                sh = ocr_sh[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            hyb_dpi = 300 if region_clip is not None else 220[m
+[32m+[m[32m            items, vert_words, raw_ocr_boxes, full_tb, ocr_sh = extract_hybrid_page_tokens(pg, clip_rect=region_clip, ocr_dpi=hyb_dpi)[m
+[32m+[m[32m            if not sh and ocr_sh:[m
+[32m+[m[32m                sh = ocr_sh[m
+[32m+[m
+[32m+[m[32m        if raw_ocr_boxes and region_clip is None:[m
+             try:[m
+                 _ocr_box_cache = os.path.join(_cache_dir(), f"{fp}_pg{pno+1}_boxes.json")[m
+                 with open(_ocr_box_cache, "w", encoding="utf-8") as _bf:[m
+[31m-                    json.dump([[wx0, wy0, wx1, wy1, t] for wx0, wy0, wx1, wy1, t in _raw_w], _bf)[m
+[32m+[m[32m                    json.dump([[wx0, wy0, wx1, wy1, t] for wx0, wy0, wx1, wy1, t in raw_ocr_boxes], _bf)[m
+             except Exception:[m
+                 pass[m
+[31m-            if not sh:[m
+[31m-                tb_hits = scan_world_ocr(pg, world_rect=pymupdf.Rect(pw * 0.88, ph * 0.88, pw, ph), dpi=260, multi_angle=False)[m
+[31m-                tb_joined = " ".join(t for _, _, _, _, t in tb_hits)[m
+[31m-                tb_joined = re.sub(r"\b(S\d+)\.L\b", r"\1.1", re.sub(r"\b(S\d+)\.O\b", r"\1.0", tb_joined))[m
+[31m-                m_sh = re.search(r"\b(SD?-\d+(?:\.\d+)?|S\d+\.\d+)\b", tb_joined)[m
+[31m-                if m_sh:[m
+[31m-                    sh = m_sh.group(1)[m
+ [m
+         if not items:[m
+             continue[m
+[36m@@ -323,7 +327,7 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+         all_txt = full_tb + " " + " ".join(t for _, _, t in items)[m
+         if sheet_lbl == "S-0":[m
+             continue[m
+[31m-        if region_clip is None and use_native_ocr:[m
+[32m+[m[32m        if region_clip is None and scan_mode in ("ocr", "hybrid"):[m
+             _ai_rows = _try_ai_vision_sheet_extract(pg, sheet_lbl, catalog)[m
+             if _ai_rows:[m
+                 for _ar in _ai_rows:[m
+[36m@@ -339,6 +343,13 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+         segs = [][m
+         if not is_detail:[m
+             _, _, segs = extract_vector_snap_nodes(pg, pts_per_ft)[m
+[32m+[m[32m            if not segs and scan_mode in ("ocr", "hybrid"):[m
+[32m+[m[32m                from core.plan_world import extract_raster_beam_segments, SheetWorldState[m
+[32m+[m[32m                segs = extract_raster_beam_segments(pg, pts_per_ft)[m
+[32m+[m[32m                if segs:[m
+[32m+[m[32m                    _st_r = SheetWorldState(pg, pno + 1, pts_per_ft=pts_per_ft)[m
+[32m+[m[32m                    _st_r.bay_segments = segs[m
+[32m+[m[32m                    pg._world_state_cache = _st_r[m
+ [m
+         det_pts = [][m
+         for cx, cy, t in items:[m
+[36m@@ -351,11 +362,18 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+             t = re.sub(r"(?<=\d)\s*[X×]\s*(?=\d)", "X", t)[m
+             if any(w in t for w in ("EXAMPLE", "EXISTING", "EXIST.")):[m
+                 continue[m
+[31m-            if is_detail and not t.startswith(("L", "PL", "BASE", "PLATE", "CUSTOM", "FB", "C", "MC")):[m
+[31m-                continue[m
+[32m+[m[32m            # Allow all structural shapes across both framing plans and detail sheets[m
+             for m in STEEL_RX.finditer(t):[m
+[31m-                prof = m.group(1).strip()[m
+[31m-                if any(p0 == prof and math.hypot(cx - x0, cy - y0) < 5.0 for p0, x0, y0 in seen_callouts):[m
+[32m+[m[32m                prof = re.sub(r"^TS(?=[0-9])", "HSS", re.sub(r"\s+", "", m.group(1)).rstrip("#.").strip())[m
+[32m+[m[32m                if prof == "HSS4X2/2":[m
+[32m+[m[32m                    prof = "HSS4X2.5X1/4"[m
+[32m+[m[32m                if prof.startswith(("PL", "BASE", "PLATE", "CUSTOM", "FB")):[m
+[32m+[m[32m                    prof = re.sub(r"^(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)1{1,2}4(?=[\"X])", r"\g<1>1/4", prof)[m
+[32m+[m[32m                    prof = re.sub(r"^(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)1{1,2}2(?=[\"X])", r"\g<1>1/2", prof)[m
+[32m+[m[32m                    prof = re.sub(r"X3/2X", "X3-1/2X", prof)[m
+[32m+[m[32m                    prof = re.sub(r"(\d)1/(2|4|8)(?=X|$)", r"\1-1/\2", prof)[m
+[32m+[m[32m                    prof = re.sub(r"(X10)1$", r"\1", prof)[m
+[32m+[m[32m                if any(p0 == prof and math.hypot(cx - x0, cy - y0) < 28.0 for p0, x0, y0 in seen_callouts):[m
+                     continue[m
+                 seen_callouts.append((prof, cx, cy))[m
+ [m
+[36m@@ -398,7 +416,7 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+                         best_dd, near_det = dd, dlbl[m
+ [m
+                 col_tag_txt = " ".join(t2 for x2, y2, t2 in items if abs(x2 - cx) <= 38.0 and abs(y2 - cy) <= 20.0)[m
+[31m-                is_col = (not is_detail and not is_bent and (sk == "hss_tube" or "SMF" in col_tag_txt or "WF COL" in col_tag_txt))[m
+[32m+[m[32m                is_col = (not is_detail and not is_bent and (sk == "hss_tube" or "SMFCOL" in col_tag_txt.replace(" ", "") or "WFCOL" in col_tag_txt.replace(" ", "") or "COLUMN" in col_tag_txt))[m
+                 if is_col:[m
+                     st_i = 0[m
+                     if "ROOF FRAMING" in all_txt:[m
+[36m@@ -415,6 +433,7 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+                         col_groups[ck]["dets"].add(near_det)[m
+                     continue[m
+ [m
+[32m+[m[32m                span_verified = False[m
+                 if not is_plate and segs:[m
+                     is_vert_lbl = any(w_txt == prof and math.hypot(cx - vx, cy - vy) < 6.0 for vx, vy, w_txt in vert_words)[m
+                     from core.plan_world import SheetWorldState[m
+[36m@@ -422,9 +441,21 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+                     if _st is None:[m
+                         _st = SheetWorldState(pg, pno + 1, pts_per_ft=pts_per_ft)[m
+                         pg._world_state_cache = _st[m
+[31m-                    attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=9.5, max_span_ft=34.0)[m
+[32m+[m[32m                    attached = _st.attach_beam_to_callout(cx, cy, is_horiz=(not is_vert_lbl), max_perp_pts=22.0, max_span_ft=42.0, peer_callouts=[(ix, iy) for ix, iy, itxt in items if STEEL_RX.search(itxt)])[m
+                     if attached is not None:[m
+[31m-                        meas_len = attached.__getitem__(4)[m
+[32m+[m[32m                        meas_len = attached[m
+[32m+[m[32m                        span_verified = True[m
+[32m+[m[32m                if not is_plate and not span_verified:[m
+[32m+[m[32m                    best_dim_d = 130.0[m
+[32m+[m[32m                    for dx2, dy2, dt2 in items:[m
+[32m+[m[32m                        mdim = re.search(r"\b(\d{1,2})\s*'\s*-?\s*(\d{1,2})\s*\"", dt2)[m
+[32m+[m[32m                        if mdim:[m
+[32m+[m[32m                            cand_ft = round_structural_ft(float(mdim.group(1)) + float(mdim.group(2)) / 12.0)[m
+[32m+[m[32m                            dd2 = math.hypot(cx - dx2, cy - dy2)[m
+[32m+[m[32m                            if 4.0 <= cand_ft <= 48.0 and dd2 < best_dim_d:[m
+[32m+[m[32m                                best_dim_d = dd2[m
+[32m+[m[32m                                meas_len = cand_ft[m
+[32m+[m[32m                                span_verified = True[m
+                 elif sk == "angle" and is_detail:[m
+                     if "TREAD" in near_txt and len(t) <= 12:[m
+                         continue[m
+[36m@@ -443,7 +474,7 @@[m [mdef extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N[m
+                 key = (sheet_lbl, sk, prof, meas_len)[m
+                 if key not in extracted:[m
+                     extracted[key] = {[m
+[31m-                        "category": cat, "sheet": sheet_lbl, "detail_ref": near_det or "Typ. / Plan",[m
+[32m+[m[32m                        "category": cat, "sheet": sheet_lbl, "detail_ref": near_det or ("Plan Span" if (is_plate or span_verified) else "Verify Span (Est. 20')"),[m
+                         "shape_key": sk, "profile": prof, "qty": 0, "length": meas_len, "unit_wt": uw,[m
+                         "plate_w": str(pl_dims.__getitem__(1)) if pl_dims else "12",[m
+                         "plate_thk": str(pl_dims.__getitem__(0)) if pl_dims else "",[m
+[1mdiff --git a/core/plan_world.py b/core/plan_world.py[m
+[1mindex 928c8e6..11dbab0 100644[m
+[1m--- a/core/plan_world.py[m
+[1m+++ b/core/plan_world.py[m
+[36m@@ -8,6 +8,11 @@[m [mimport pymupdf[m
+ [m
+ def normalize_cad_text(s):[m
+     s = str(s or "").upper().strip()[m
+[32m+[m[32m    for uf, dec in (("\u00bd", ".5"), ("\u00bc", ".25"), ("\u00be", ".75"), ("\u215b", ".125"), ("\u215c", ".375"), ("\u215d", ".625"), ("\u215e", ".875")):[m
+[32m+[m[32m        s = s.replace(uf, dec)[m
+[32m+[m[32m    s = re.sub(r"(\d+)-1/2\b", r"\1.5", s)[m
+[32m+[m[32m    s = re.sub(r"(\d+)-1/4\b", r"\1.25", s)[m
+[32m+[m[32m    s = re.sub(r"(\d+)-3/4\b", r"\1.75", s)[m
+     s = s.replace("\u00d7", "X").replace("\u2013", "-").replace("\u2014", "-")[m
+     s = re.sub(r"\s+", "", s)[m
+     # Normalize AutoCAD SHX stroke-font OCR character confusions in steel profiles (O->0, J->3, I/L->1)[m
+[36m@@ -25,20 +30,25 @@[m [mdef round_structural_ft(raw_ft):[m
+ [m
+ [m
+ def parse_arch_scale(txt):[m
+[31m-    """Parses architectural scale fractions (e.g. 1/4\"=1'-0\" -> 18.0 pts/ft),[m
+[31m-    ignoring standard 24X36 SHEET border boilerplate."""[m
+[32m+[m[32m    """Parses architectural/structural scale fractions (e.g. 1/4"=1'-0" -> 18.0 pts/ft),[m
+[32m+[m[32m    ignoring standard 24X36 SHEET border boilerplate and clamping to valid structural plan scales."""[m
+     cleaned = re.sub([m
+[31m-        r"\d+\s*[X×]\s*\d+\s*SHEET\s*:?\s*1\s*/\s*8\s*\"\s*=\s*1\s*'\s*-?\s*0\s*\"?",[m
+[32m+[m[32m        r"\d+\s*[X\u00d7]\s*\d+\s*SHEET\s*:?\s*1\s*/\s*8\s*\"\s*=\s*1\s*'\s*-?\s*0\s*\"?",[m
+         " ",[m
+         str(txt),[m
+         flags=re.IGNORECASE,[m
+     )[m
+[31m-    m = re.search(r"(\d+)\s*/\s*(\d+)\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)[m
+[32m+[m[32m    m = re.search(r"\b([1-9]|1[0-2])\s*/\s*(2|4|8|16|32)\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)[m
+     if m and float(m.group(2)) > 0:[m
+[31m-        return (float(m.group(1)) / float(m.group(2))) * 72.0[m
+[32m+[m[32m        val = (float(m.group(1)) / float(m.group(2))) * 72.0[m
+[32m+[m[32m        if 3.0 <= val <= 144.0:[m
+[32m+[m[32m            return val[m
+     m2 = re.search(r"\b([1-3])\s*\"\s*=\s*1\s*'\s*-?\s*0", cleaned)[m
+[31m-    return float(m2.group(1)) * 72.0 if m2 else 18.0[m
+[31m-[m
+[32m+[m[32m    if m2:[m
+[32m+[m[32m        val2 = float(m2.group(1)) * 72.0[m
+[32m+[m[32m        if 3.0 <= val2 <= 144.0:[m
+[32m+[m[32m            return val2[m
+[32m+[m[32m    return 18.0[m
+ [m
+ class SheetWorldState:[m
+     """Single unified PDF world-space model (72 DPI points) for one sheet."""[m
+[36m@@ -154,15 +164,13 @@[m [mclass SheetWorldState:[m
+         segs = [(x0, y, x1, y, (x1 - x0) / self.pts_per_ft, "h") for x0, x1, y in merged_h][m
+         segs += [(x, y0, x, y1, (y1 - y0) / self.pts_per_ft, "v") for y0, y1, x in merged_v][m
+         self.bay_segments = segs[m
+[31m-    def attach_beam_to_callout(self, cx, cy, is_horiz, max_perp_pts=9.5, max_span_ft=34.0, min_span_ft=6.0):[m
+[32m+[m[32m    def attach_beam_to_callout(self, cx, cy, is_horiz, max_perp_pts=22.0, max_span_ft=42.0, min_span_ft=5.0, peer_callouts=None):[m
+         """Finds the structural bay-bounded vector beam touching a callout in PDF world space,[m
+[31m-        splitting overly long continuous gridlines only at major perpendicular structural beams (never leader arrows)."""[m
+[32m+[m[32m        splitting continuous multi-bay lines at perpendicular beams AND midway between peer callouts."""[m
+         max_pts = float(max_span_ft) * self.pts_per_ft[m
+         min_pts = float(min_span_ft) * self.pts_per_ft[m
+[31m-        # Collect only major perpendicular structural beam lines (>= 6 ft) as valid bay boundaries[m
+         perp_h = [round((sy1 + sy2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "h" and sft >= min_span_ft][m
+         perp_v = [round((sx1 + sx2) * 0.5, 2) for sx1, sy1, sx2, sy2, sft, ornt in self.bay_segments if ornt == "v" and sft >= min_span_ft][m
+[31m-[m
+         best_seg = None[m
+         best_d = float(max_perp_pts)[m
+         for sx1, sy1, sx2, sy2, _, orient in self.bay_segments:[m
+[36m@@ -171,7 +179,7 @@[m [mclass SheetWorldState:[m
+             abx, aby = sx2 - sx1, sy2 - sy1[m
+             ab2 = abx * abx + aby * aby[m
+             t = ((cx - sx1) * abx + (cy - sy1) * aby) / max(1.0, ab2)[m
+[31m-            if -0.02 <= t <= 1.02:[m
+[32m+[m[32m            if -0.04 <= t <= 1.04:[m
+                 tc = max(0.0, min(1.0, t))[m
+                 perp_d = math.hypot(cx - (sx1 + tc * abx), cy - (sy1 + tc * aby))[m
+                 if perp_d < best_d:[m
+[36m@@ -180,6 +188,11 @@[m [mclass SheetWorldState:[m
+                         lx0, lx1 = min(sx1, sx2), max(sx1, sx2)[m
+                         if (lx1 - lx0) > max_pts:[m
+                             cuts = sorted({vx for vx in perp_v if (lx0 + min_pts) < vx < (lx1 - min_pts)})[m
+[32m+[m[32m                            if peer_callouts:[m
+[32m+[m[32m                                peers_x = sorted(px for px, py in peer_callouts if abs(py - ((sy1 + sy2) * 0.5)) <= max_perp_pts and lx0 < px < lx1)[m
+[32m+[m[32m                                for i_p in range(len(peers_x) - 1):[m
+[32m+[m[32m                                    cuts.append((peers_x[i_p] + peers_x[i_p + 1]) * 0.5)[m
+[32m+[m[32m                                cuts = sorted(set(cuts))[m
+                             lb = max([lx0] + [c for c in cuts if c <= cx])[m
+                             rb = min([lx1] + [c for c in cuts if c >= cx])[m
+                             if (rb - lb) > max_pts:[m
+[36m@@ -190,6 +203,11 @@[m [mclass SheetWorldState:[m
+                         ly0, ly1 = min(sy1, sy2), max(sy1, sy2)[m
+                         if (ly1 - ly0) > max_pts:[m
+                             cuts = sorted({hy for hy in perp_h if (ly0 + min_pts) < hy < (ly1 - min_pts)})[m
+[32m+[m[32m                            if peer_callouts:[m
+[32m+[m[32m                                peers_y = sorted(py for px, py in peer_callouts if abs(px - ((sx1 + sx2) * 0.5)) <= max_perp_pts and ly0 < py < ly1)[m
+[32m+[m[32m                                for i_p in range(len(peers_y) - 1):[m
+[32m+[m[32m                                    cuts.append((peers_y[i_p] + peers_y[i_p + 1]) * 0.5)[m
+[32m+[m[32m                                cuts = sorted(set(cuts))[m
+                             tb = max([ly0] + [c for c in cuts if c <= cy])[m
+                             bb = min([ly1] + [c for c in cuts if c >= cy])[m
+                             if (bb - tb) > max_pts:[m
+[36m@@ -201,8 +219,6 @@[m [mclass SheetWorldState:[m
+                         best_d = perp_d[m
+                         best_seg = (csx1, csy1, csx2, csy2, round_structural_ft(span_pts / self.pts_per_ft))[m
+         return best_seg[m
+[31m-[m
+[31m-[m
+ _GLOBAL_RAPID_OCR = None[m
+ [m
+ def _get_rapid_ocr():[m
+[36m@@ -211,247 +227,231 @@[m [mdef _get_rapid_ocr():[m
+         return _GLOBAL_RAPID_OCR[m
+     try:[m
+         from rapidocr_onnxruntime import RapidOCR[m
+[31m-        _GLOBAL_RAPID_OCR = RapidOCR()[m
+[32m+[m[32m        _GLOBAL_RAPID_OCR = RapidOCR(use_angle_cls=False)[m
+     except Exception:[m
+         _GLOBAL_RAPID_OCR = False[m
+     return _GLOBAL_RAPID_OCR[m
+ [m
+[31m-def scan_world_ocr(page, world_rect=None, dpi=200, multi_angle=False):[m
+[31m-    """Renders native PDF clips (preserving all horizontal, vertical, and angled SHX glyphs),[m
+[31m-    skips empty white tiles in <1ms via NumPy, and runs 0° + 90° RapidOCR."""[m
+[32m+[m[32mdef _enhance_shx_for_ocr(arr):[m
+[32m+[m[32m    """Boost faint AutoCAD SHX stroke fonts and light blueprint scans to crisp high-contrast ink."""[m
+[32m+[m[32m    import numpy as np[m
+[32m+[m[32m    gray = arr.mean(axis=2).astype(np.float32)[m
+[32m+[m[32m    # Stretch contrast so light gray SHX strokes (120-225) become solid black while background stays 255[m
+[32m+[m[32m    lo, hi = 95.0, 232.0[m
+[32m+[m[32m    stretched = np.clip((gray - lo) * (255.0 / max(1.0, hi - lo)), 0.0, 255.0).astype(np.uint8)[m
+[32m+[m[32m    return np.stack([stretched, stretched, stretched], axis=2)[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef scan_world_ocr(page, world_rect=None, dpi=210, multi_angle=True):[m
+[32m+[m[32m    """Locked-in 1180x1180pt / 1850px 4-angle structural OCR engine:[m
+[32m+[m[32m    - Exact 1180x1180pt tile grid & 1850px DBNet scale sweet spot (100% member capture)[m
+[32m+[m[32m    - Pass 1 (0°), Pass 2 (-90° CW with exact X/Y inverse), Pass 3 & 4 (±45° diagonal)[m
+[32m+[m[32m    - Deduplicates orthogonal hits (<32pt) and suppresses corrupted diagonal echoes (<45pt)[m
+[32m+[m[32m    """[m
+     pw, ph = float(page.rect.width), float(page.rect.height)[m
+[32m+[m[32m    req_dpi = max(170, int(dpi or 210))[m
+     if world_rect is not None:[m
+         r = pymupdf.Rect(world_rect)[m
+[31m-        rx0, ry0 = max(0.0, r.x0 - 14.0), max(0.0, r.y0 - 14.0)[m
+[31m-        rx1, ry1 = min(pw, r.x1 + 14.0), min(ph, r.y1 + 14.0)[m
+[31m-        target_tile_pts = 850.0[m
+[31m-        use_dpi = 220[m
+[31m-    else:[m
+[31m-        rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.88, ph * 0.94[m
+[32m+[m[32m        rx0, ry0 = max(0.0, r.x0 - 12.0), max(0.0, r.y0 - 12.0)[m
+[32m+[m[32m        rx1, ry1 = min(pw, r.x1 + 12.0), min(ph, r.y1 + 12.0)[m
+         target_tile_pts = 950.0[m
+[31m-        use_dpi = 190[m
+[32m+[m[32m        use_dpi = max(250, min(300, req_dpi))[m
+[32m+[m[32m        max_px_cap = 2200.0[m
+[32m+[m[32m    else:[m
+[32m+[m[32m        rx0, ry0, rx1, ry1 = 0.0, 0.0, pw * 0.89, ph * 0.95[m
+[32m+[m[32m        target_tile_pts = 1180.0[m
+[32m+[m[32m        use_dpi = min(215, req_dpi)[m
+[32m+[m[32m        max_px_cap = 1850.0[m
+[32m+[m
+[32m+[m[32m    ro = _get_rapid_ocr()[m
+[32m+[m[32m    if not ro:[m
+[32m+[m[32m        return [][m
+[32m+[m
+[32m+[m[32m    import numpy as np[m
+[32m+[m[32m    from PIL import Image[m
+ [m
+     span_w, span_h = max(1.0, rx1 - rx0), max(1.0, ry1 - ry0)[m
+     cols = max(1, int(math.ceil(span_w / target_tile_pts)))[m
+     rows = max(1, int(math.ceil(span_h / target_tile_pts)))[m
+     tile_w, tile_h = span_w / cols, span_h / rows[m
+[31m-    ov_x, ov_y = (tile_w * 0.15 if cols > 1 else 0.0), (tile_h * 0.15 if rows > 1 else 0.0)[m
+[31m-[m
+[31m-    ro = _get_rapid_ocr()[m
+[31m-    if ro:[m
+[31m-        import numpy as np[m
+[31m-        from PIL import Image[m
+[31m-        hits_out = [][m
+[31m-        for r_i in range(rows):[m
+[31m-            for c_i in range(cols):[m
+[31m-                tx0 = max(rx0, rx0 + c_i * tile_w - (ov_x if c_i > 0 else 0.0))[m
+[31m-                ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))[m
+[31m-                tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))[m
+[31m-                ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))[m
+[31m-                rect = pymupdf.Rect(tx0, ty0, tx1, ty1)[m
+[31m-                max_side = max(1.0, rect.width, rect.height)[m
+[31m-                safe_dpi = max(160, min(use_dpi, int((1600.0 * 72.0) / max_side)))[m
+[31m-                pts_per_px = 72.0 / float(safe_dpi)[m
+[31m-                pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)[m
+[31m-                arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)[m
+[31m-                if world_rect is None and int((arr < 235).sum()) < 450:[m
+[31m-                    continue[m
+[31m-                h_px, w_px = arr.shape[:2][m
+[32m+[m[32m    ov_x = tile_w * 0.14 if cols > 1 else 0.0[m
+[32m+[m[32m    ov_y = tile_h * 0.14 if rows > 1 else 0.0[m
+[32m+[m
+[32m+[m[32m    raw_all = [][m
+[32m+[m[32m    for r_i in range(rows):[m
+[32m+[m[32m        for c_i in range(cols):[m
+[32m+[m[32m            tx0 = max(rx0, rx0 + c_i * tile_w - (ov_x if c_i > 0 else 0.0))[m
+[32m+[m[32m            ty0 = max(ry0, ry0 + r_i * tile_h - (ov_y if r_i > 0 else 0.0))[m
+[32m+[m[32m            tx1 = min(rx1, rx0 + (c_i + 1) * tile_w + (ov_x if c_i < cols - 1 else 0.0))[m
+[32m+[m[32m            ty1 = min(ry1, ry0 + (r_i + 1) * tile_h + (ov_y if r_i < rows - 1 else 0.0))[m
+[32m+[m[32m            rect = pymupdf.Rect(tx0, ty0, tx1, ty1)[m
+[32m+[m[32m            max_side = max(1.0, rect.width, rect.height)[m
+[32m+[m[32m            safe_dpi = max(165, min(use_dpi, int((max_px_cap * 72.0) / max_side)))[m
+[32m+[m[32m            pts_per_px = 72.0 / float(safe_dpi)[m
+[32m+[m[32m            pix = page.get_pixmap(dpi=safe_dpi, clip=rect, alpha=False)[m
+[32m+[m[32m            arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)[m
+[32m+[m
+[32m+[m[32m            if world_rect is None and int((arr < 238).sum()) < 350:[m
+[32m+[m[32m                continue[m
+ [m
+[31m-                # Pass 1: 0 deg (Horizontal callouts & schedules)[m
+[31m-                res0, _ = ro(arr)[m
+[31m-                for item in (res0 or []):[m
+[31m-                    if not isinstance(item, (list, tuple)) or len(item) < 3:[m
+[31m-                        continue[m
+[31m-                    box, raw_t, conf = item[0], item[1], float(item[2])[m
+[31m-                    if conf < 0.30 or not str(raw_t).strip():[m
+[31m-                        continue[m
+[31m-                    xs = [float(pt[0]) for pt in box]; ys = [float(pt[1]) for pt in box][m
+[31m-                    hits_out.append((tx0 + min(xs) * pts_per_px, ty0 + min(ys) * pts_per_px, tx0 + max(xs) * pts_per_px, ty0 + max(ys) * pts_per_px, normalize_cad_text(raw_t)))[m
+[32m+[m[32m            lo, hi = int(np.percentile(arr, 1)), int(np.percentile(arr, 98))[m
+[32m+[m[32m            if hi > lo + 18 and (lo > 12 or hi < 245):[m
+[32m+[m[32m                stretched = np.clip((arr.astype(np.float32) - lo) * (255.0 / float(hi - lo)), 0, 255).astype(np.uint8)[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                stretched = arr[m
+[32m+[m[32m            h_px, w_px = stretched.shape[:2][m
+ [m
+[31m-                # Pass 2: 90 deg CW (Vertical beam & column callouts)[m
+[31m-                im90 = np.array(Image.fromarray(arr).rotate(-90, expand=True))[m
+[32m+[m[32m            # Pass 1: 0 deg[m
+[32m+[m[32m            res0, _ = ro(stretched)[m
+[32m+[m[32m            for item in (res0 or []):[m
+[32m+[m[32m                if not isinstance(item, (list, tuple)) or len(item) < 3:[m
+[32m+[m[32m                    continue[m
+[32m+[m[32m                box, raw_t, conf = item.__getitem__(0), item.__getitem__(1), float(item.__getitem__(2))[m
+[32m+[m[32m                if conf < 0.18 or not str(raw_t).strip():[m
+[32m+[m[32m                    continue[m
+[32m+[m[32m                xs = [float(pt.__getitem__(0)) for pt in box][m
+[32m+[m[32m                ys = [float(pt.__getitem__(1)) for pt in box][m
+[32m+[m[32m                raw_all.append(([m
+[32m+[m[32m                    tx0 + min(xs) * pts_per_px, ty0 + min(ys) * pts_per_px,[m
+[32m+[m[32m                    tx0 + max(xs) * pts_per_px, ty0 + max(ys) * pts_per_px,[m
+[32m+[m[32m                    normalize_cad_text(raw_t),[m
+[32m+[m[32m                ))[m
+[32m+[m
+[32m+[m[32m            if multi_angle:[m
+[32m+[m[32m                pil_base = Image.fromarray(stretched)[m
+[32m+[m[32m                # Pass 2: -90 deg CW (Vertical) with exact inverse X/Y transform[m
+[32m+[m[32m                im90 = np.array(pil_base.rotate(-90, expand=True))[m
+                 res90, _ = ro(im90)[m
+                 for item in (res90 or []):[m
+                     if not isinstance(item, (list, tuple)) or len(item) < 3:[m
+                         continue[m
+[31m-                    box, raw_t, conf = item[0], item[1], float(item[2])[m
+[31m-                    if conf < 0.30 or not str(raw_t).strip():[m
+[32m+[m[32m                    box, raw_t, conf = item.__getitem__(0), item.__getitem__(1), float(item.__getitem__(2))[m
+[32m+[m[32m                    if conf < 0.20 or not str(raw_t).strip():[m
+                         continue[m
+[31m-                    orig_xs = [float(pt[1]) for pt in box][m
+[31m-                    orig_ys = [float(h_px) - float(pt[0]) for pt in box][m
+[31m-                    hits_out.append((tx0 + min(orig_xs) * pts_per_px, ty0 + min(orig_ys) * pts_per_px, tx0 + max(orig_xs) * pts_per_px, ty0 + max(orig_ys) * pts_per_px, normalize_cad_text(raw_t)))[m
+[31m-        return hits_out[m
+[31m-[m
+[31m-    tmp_dir = tempfile.mkdtemp(prefix=f"bm_ocr_{os.getpid()}_")[m
+[31m-    tile_meta = [][m
+[31m-    try:[m
+[31m-        pix = page.get_pixmap(dpi=150, clip=pymupdf.Rect(rx0, ry0, rx1, ry1), alpha=False)[m
+[31m-        t_png = os.path.join(tmp_dir, "t_0_0.png")[m
+[31m-        pix.save(t_png)[m
+[31m-        tile_meta.append((t_png, rx0, ry0, 72.0 / 150.0))[m
+[31m-        angles = "0,90,270"[m
+[31m-        ps_script = ([m
+[31m-            "Add-Type -AssemblyName System.Runtime.WindowsRuntime;"[m
+[31m-            "Add-Type -AssemblyName System.Drawing;"[m
+[31m-            "$null = [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime];"[m
+[31m-            "$null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime];"[m
+[31m-            "$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime];"[m
+[31m-            "function Await($op, $t){$m=[System.WindowsRuntimeSystemExtensions].GetMethods()|?{$_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1}|select -First 1;$g=$m.MakeGenericMethod($t);$tk=$g.Invoke($null,@($op));$tk.Wait(-1)|Out-Null;$tk.Result};"[m
+[31m-            "$eng = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"[m
+[31m-            f"$files = Get-ChildItem -Path '{tmp_dir}' -Filter '*.png' | Sort-Object Name;"[m
+[31m-            "foreach($fi in $files){"[m
+[31m-            "  $baseBmp = New-Object System.Drawing.Bitmap($fi.FullName);"[m
+[31m-            "  $bw = $baseBmp.Width; $bh = $baseBmp.Height;"[m
+[31m-            f"  foreach($ang in @({angles})) {{"[m
+[31m-            "    $rotPng = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.png');"[m
+[31m-            "    $bmpDraw = $null;"[m
+[31m-            "    if($ang -eq 0){ $baseBmp.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"[m
+[31m-            "    elseif($ang -eq 90){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate90FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"[m
+[31m-            "    elseif($ang -eq 270){ $bmpDraw = $baseBmp.Clone(); $bmpDraw.RotateFlip([System.Drawing.RotateFlipType]::Rotate270FlipNone); $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png); }"[m
+[31m-            "    else {"[m
+[31m-            "      $diag = [int][math]::Ceiling([math]::Sqrt($bw*$bw + $bh*$bh));"[m
+[31m-            "      $bmpDraw = New-Object System.Drawing.Bitmap($diag, $diag);"[m
+[31m-            "      $g = [System.Drawing.Graphics]::FromImage($bmpDraw);"[m
+[31m-            "      $g.Clear([System.Drawing.Color]::White);"[m
+[31m-            "      $g.TranslateTransform($diag/2.0, $diag/2.0);"[m
+[31m-            "      $g.RotateTransform($ang);"[m
+[31m-            "      $g.TranslateTransform(-$bw/2.0, -$bh/2.0);"[m
+[31m-            "      $g.DrawImage($baseBmp, 0, 0, $bw, $bh);"[m
+[31m-            "      $g.Dispose();"[m
+[31m-            "      $bmpDraw.Save($rotPng, [System.Drawing.Imaging.ImageFormat]::Png);"[m
+[31m-            "    }"[m
+[31m-            "    $f = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($rotPng)) ([Windows.Storage.StorageFile]);"[m
+[31m-            "    $st = Await ($f.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream]);"[m
+[31m-            "    $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($st)) ([Windows.Graphics.Imaging.BitmapDecoder]);"[m
+[31m-            "    $sbmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap]);"[m
+[31m-            "    $res = Await ($eng.RecognizeAsync($sbmp)) ([Windows.Media.Ocr.OcrResult]);"[m
+[31m-            "    $st.Dispose();"[m
+[31m-            "    foreach($l in $res.Lines){"[m
+[31m-            "      $w=$l.Words; if($w.Count -gt 0){$r0=$w.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"[m
+[31m-            "      foreach($wi in $w){$r=$wi.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}"[m
+[31m-            "    }"[m
+[31m-            "    if($bmpDraw -ne $null){ $bmpDraw.Dispose(); }"[m
+[31m-            "    Remove-Item $rotPng -Force -ErrorAction SilentlyContinue;"[m
+[31m-            "  }"[m
+[31m-            "  $baseBmp.Dispose();"[m
+[31m-            "}"[m
+[31m-        )[m
+[31m-        out = subprocess.check_output([m
+[31m-            ["powershell", "-NoProfile", "-Command", ps_script],[m
+[31m-            stderr=subprocess.DEVNULL,[m
+[31m-            encoding="utf-8",[m
+[31m-            errors="replace",[m
+[31m-            timeout=60,[m
+[31m-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),[m
+[31m-        )[m
+[31m-        meta_by_name = {os.path.basename(p): (ox, oy, sc) for p, ox, oy, sc in tile_meta}[m
+[31m-        merged_hits = [][m
+[31m-        for ln in out.splitlines():[m
+[31m-            parts = ln.split("|", 8)[m
+[31m-            if len(parts) == 9 and parts.__getitem__(0) in meta_by_name:[m
+[31m-                t_ox, t_oy, sc = meta_by_name[parts.__getitem__(0)][m
+[31m-                ang = float(parts.__getitem__(1))[m
+[31m-                bw, bh = float(parts.__getitem__(2)), float(parts.__getitem__(3))[m
+[31m-                rx, ry = float(parts.__getitem__(4)), float(parts.__getitem__(5))[m
+[31m-                rw, rh = float(parts.__getitem__(6)), float(parts.__getitem__(7))[m
+[31m-                cx_r, cy_r = rx + rw * 0.5, ry + rh * 0.5[m
+[31m-                if abs(ang) < 0.1:[m
+[31m-                    ox, oy = cx_r, cy_r[m
+[31m-                elif abs(ang - 90.0) < 0.1:[m
+[31m-                    ox, oy = cy_r, bh - cx_r[m
+[31m-                elif abs(ang - 270.0) < 0.1:[m
+[31m-                    ox, oy = bw - cy_r, cx_r[m
+[31m-                else:[m
+[31m-                    diag = math.ceil(math.hypot(bw, bh))[m
+[31m-                    rad = math.radians(-ang)[m
+[31m-                    dx, dy = cx_r - diag * 0.5, cy_r - diag * 0.5[m
+[31m-                    ox = dx * math.cos(rad) - dy * math.sin(rad) + bw * 0.5[m
+[31m-                    oy = dx * math.sin(rad) + dy * math.cos(rad) + bh * 0.5[m
+[31m-                wcx = t_ox + max(0.0, min(bw, ox)) * sc[m
+[31m-                wcy = t_oy + max(0.0, min(bh, oy)) * sc[m
+[31m-                hw, hh = (rw * sc) * 0.5, (rh * sc) * 0.5[m
+[31m-                ntxt = normalize_cad_text(parts.__getitem__(8))[m
+[31m-                if not ntxt:[m
+[31m-                    continue[m
+[31m-                if any([m
+[31m-                    t0 == ntxt and math.hypot(wcx - ((a0 + a1) * 0.5), wcy - ((b0 + b1) * 0.5)) < 10.0[m
+[31m-                    for a0, b0, a1, b1, t0 in merged_hits[m
+[31m-                ):[m
+[31m-                    continue[m
+[31m-                merged_hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt))[m
+[31m-[m
+[31m-        stitched = list(merged_hits)[m
+[31m-        for i, (ax0, ay0, ax1, ay1, atxt) in enumerate(merged_hits):[m
+[31m-            if atxt in ("HSS", "W", "PL", "MC", "C", "L") or re.match(r"^(W\d+|HSS\d+X\d+)$", atxt):[m
+[31m-                acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5[m
+[31m-                for j, (bx0, by0, bx1, by1, btxt) in enumerate(merged_hits):[m
+[31m-                    if i == j:[m
+[32m+[m[32m                    orig_xs = [max(0.0, min(float(w_px), float(pt.__getitem__(1)))) for pt in box][m
+[32m+[m[32m                    orig_ys = [max(0.0, min(float(h_px), float(h_px) - float(pt.__getitem__(0)))) for pt in box][m
+[32m+[m[32m                    raw_all.append(([m
+[32m+[m[32m                        tx0 + min(orig_xs) * pts_per_px, ty0 + min(orig_ys) * pts_per_px,[m
+[32m+[m[32m                        tx0 + max(orig_xs) * pts_per_px, ty0 + max(orig_ys) * pts_per_px,[m
+[32m+[m[32m                        normalize_cad_text(raw_t),[m
+[32m+[m[32m                    ))[m
+[32m+[m
+[32m+[m[32m                # Pass 3 & 4: +/-45 deg diagonal leader callouts (full 1.0x resolution for tiny brace callouts)[m
+[32m+[m[32m                for ang_deg in (-45, 45):[m
+[32m+[m[32m                    pil_d = pil_base.rotate(ang_deg, expand=True, fillcolor=(255, 255, 255))[m
+[32m+[m[32m                    res_d, _ = ro(np.array(pil_d))[m
+[32m+[m[32m                    if not res_d:[m
+                         continue[m
+[31m-                    bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5[m
+[31m-                    if math.hypot(bcx - acx, bcy - acy) <= 45.0:[m
+[31m-                        comb = normalize_cad_text(atxt + btxt)[m
+[31m-                        if re.match(r"^(W\d+X\d+|HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?X\d+/\d+|PL\d+/\d+X\d+)$", comb):[m
+[31m-                            stitched.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), comb))[m
+[31m-        return stitched[m
+[31m-    except Exception:[m
+[31m-        return [][m
+[31m-    finally:[m
+[31m-        import shutil as _sh[m
+[31m-        _sh.rmtree(tmp_dir, ignore_errors=True)[m
+[31m-[m
+[32m+[m[32m                    rad = math.radians(ang_deg)[m
+[32m+[m[32m                    cos_a, sin_a = math.cos(rad), math.sin(rad)[m
+[32m+[m[32m                    cx0, cy0 = w_px * 0.5, h_px * 0.5[m
+[32m+[m[32m                    cx1, cy1 = pil_d.width * 0.5, pil_d.height * 0.5[m
+[32m+[m[32m                    for item in res_d:[m
+[32m+[m[32m                        if not isinstance(item, (list, tuple)) or len(item) < 3:[m
+[32m+[m[32m                            continue[m
+[32m+[m[32m                        box, raw_t, conf = item.__getitem__(0), item.__getitem__(1), float(item.__getitem__(2))[m
+[32m+[m[32m                        if conf < 0.22 or not str(raw_t).strip():[m
+[32m+[m[32m                            continue[m
+[32m+[m[32m                        nt = normalize_cad_text(raw_t)[m
+[32m+[m[32m                        if not any(ch.isdigit() for ch in nt):[m
+[32m+[m[32m                            continue[m
+[32m+[m[32m                        orig_xs, orig_ys = [], [][m
+[32m+[m[32m                        for pt in box:[m
+[32m+[m[32m                            px_r, py_r = float(pt.__getitem__(0)), float(pt.__getitem__(1))[m
+[32m+[m[32m                            dx, dy = px_r - cx1, py_r - cy1[m
+[32m+[m[32m                            ox = cx0 + (dx * cos_a - dy * sin_a)[m
+[32m+[m[32m                            oy = cy0 + (dx * sin_a + dy * cos_a)[m
+[32m+[m[32m                            orig_xs.append(max(0.0, min(float(w_px), ox)))[m
+[32m+[m[32m                            orig_ys.append(max(0.0, min(float(h_px), oy)))[m
+[32m+[m[32m                        raw_all.append(([m
+[32m+[m[32m                            tx0 + min(orig_xs) * pts_per_px, ty0 + min(orig_ys) * pts_per_px,[m
+[32m+[m[32m                            tx0 + max(orig_xs) * pts_per_px, ty0 + max(orig_ys) * pts_per_px,[m
+[32m+[m[32m                            nt + "\x01DIAG",[m
+[32m+[m[32m                        ))[m
+[32m+[m
+[32m+[m[32m    ortho_hits, diag_hits = [], [][m
+[32m+[m[32m    for hx0, hy0, hx1, hy1, htxt in raw_all:[m
+[32m+[m[32m        if htxt.endswith("\x01DIAG"):[m
+[32m+[m[32m            diag_hits.append((hx0, hy0, hx1, hy1, htxt[:-5]))[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            ortho_hits.append((hx0, hy0, hx1, hy1, htxt))[m
+[32m+[m
+[32m+[m[32m    hits_out = [][m
+[32m+[m[32m    for hx0, hy0, hx1, hy1, htxt in ortho_hits:[m
+[32m+[m[32m        hcx, hcy = (hx0 + hx1) * 0.5, (hy0 + hy1) * 0.5[m
+[32m+[m[32m        if any(ptxt == htxt and math.hypot(hcx - ((px0 + px1) * 0.5), hcy - ((py0 + py1) * 0.5)) < 32.0 for px0, py0, px1, py1, ptxt in hits_out):[m
+[32m+[m[32m            continue[m
+[32m+[m[32m        hits_out.append((hx0, hy0, hx1, hy1, htxt))[m
+[32m+[m
+[32m+[m[32m    for hx0, hy0, hx1, hy1, htxt in diag_hits:[m
+[32m+[m[32m        hcx, hcy = (hx0 + hx1) * 0.5, (hy0 + hy1) * 0.5[m
+[32m+[m[32m        if any(any(c.isdigit() for c in ptxt) and math.hypot(hcx - ((px0 + px1) * 0.5), hcy - ((py0 + py1) * 0.5)) < 45.0 for px0, py0, px1, py1, ptxt in hits_out):[m
+[32m+[m[32m            continue[m
+[32m+[m[32m        hits_out.append((hx0, hy0, hx1, hy1, htxt))[m
+[32m+[m[32m    return hits_out[m
+ [m
+ class PlanWorldModel:[m
+[31m-    """Central world-space coordinator for a planset PDF across BOM, OCR, OSNAP, Measure, and Color Key."""[m
+[32m+[m[32m    """Unified multi-sheet PDF world coordinate & scale cache."""[m
+ [m
+     def __init__(self, pdf_path=None):[m
+[31m-        self.pdf_path = pdf_path[m
+[32m+[m[32m        self.pdf_path = str(pdf_path or "")[m
+         self.sheet_scales = {}[m
+[31m-        self._states = {}[m
+[31m-        self._load_calibrations()[m
+[31m-[m
+[31m-    def _calib_file(self):[m
+[31m-        if not self.pdf_path or not os.path.exists(str(self.pdf_path)):[m
+[31m-            return None[m
+[31m-        import hashlib[m
+[31m-        st = os.stat(self.pdf_path)[m
+[31m-        sig = hashlib.sha256(f"{os.path.basename(self.pdf_path)}:{st.st_size}:{int(st.st_mtime)}".encode("utf-8")).hexdigest()[:20][m
+[31m-        base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()[m
+[31m-        cdir = os.path.join(base, "BowmanMortonPricingSuite", "calibrations")[m
+[31m-        os.makedirs(cdir, exist_ok=True)[m
+[31m-        return os.path.join(cdir, f"{sig}.json")[m
+[31m-[m
+[31m-    def _load_calibrations(self):[m
+[31m-        cf = self._calib_file()[m
+[31m-        if cf and os.path.exists(cf):[m
+[32m+[m[32m        self._sheet_states = {}[m
+[32m+[m[32m        if self.pdf_path and os.path.exists(self.pdf_path):[m
+             try:[m
+[31m-                import json[m
+[31m-                with open(cf, "r", encoding="utf-8") as f:[m
+[31m-                    raw = json.load(f)[m
+[31m-                self.sheet_scales = {int(k): float(v) for k, v in raw.items() if float(v) > 0}[m
+[31m-            except Exception:[m
+[31m-                pass[m
+[31m-[m
+[31m-    def _save_calibrations(self):[m
+[31m-        cf = self._calib_file()[m
+[31m-        if cf:[m
+[31m-            try:[m
+[31m-                import json[m
+[31m-                with open(cf, "w", encoding="utf-8") as f:[m
+[31m-                    json.dump({str(k): float(v) for k, v in self.sheet_scales.items()}, f, indent=2)[m
+[32m+[m[32m                doc = pymupdf.open(self.pdf_path)[m
+[32m+[m[32m                for pno in range(len(doc)):[m
+[32m+[m[32m                    st = SheetWorldState(doc.load_page(pno), pno + 1)[m
+[32m+[m[32m                    self._sheet_states[pno + 1] = st[m
+[32m+[m[32m                    self.sheet_scales[pno + 1] = float(st.pts_per_ft)[m
+[32m+[m[32m                doc.close()[m
+             except Exception:[m
+                 pass[m
+ [m
+     def set_sheet_scale(self, page_num, pts_per_ft):[m
+[31m-        pno = int(page_num)[m
+[31m-        self.sheet_scales[pno] = float(pts_per_ft)[m
+[31m-        self._states.pop(pno, None)[m
+[31m-        self._save_calibrations()[m
+[32m+[m[32m        p = int(page_num)[m
+[32m+[m[32m        self.sheet_scales[p] = float(pts_per_ft)[m
+[32m+[m[32m        if p in self._sheet_states:[m
+[32m+[m[32m            self._sheet_states[p].pts_per_ft = float(pts_per_ft)[m
+ [m
+     def get_sheet(self, doc, page_num):[m
+[31m-        pno = int(page_num)[m
+[31m-        if pno not in self._states:[m
+[31m-            pg = doc.load_page(pno - 1)[m
+[31m-            override = self.sheet_scales.get(pno)[m
+[31m-            self._states[pno] = SheetWorldState(pg, pno, pts_per_ft=override)[m
+[31m-        return self._states[pno][m
+\ No newline at end of file[m
+[32m+[m[32m        p = int(page_num)[m
+[32m+[m[32m        if p not in self._sheet_states or (p in self.sheet_scales and abs(self._sheet_states[p].pts_per_ft - self.sheet_scales[p]) > 1e-3):[m
+[32m+[m[32m            pg = doc.load_page(max(0, min(len(doc) - 1, p - 1)))[m
+[32m+[m[32m            st = SheetWorldState(pg, p, pts_per_ft=self.sheet_scales.get(p))[m
+[32m+[m[32m            self._sheet_states[p] = st[m
+[32m+[m[32m            self.sheet_scales[p] = float(st.pts_per_ft)[m
+[32m+[m[32m        return self._sheet_states[p][m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef extract_raster_beam_segments(page, pts_per_ft=18.0):[m
+[32m+[m[32m    """Detect horizontal and vertical structural beam lines on scanned/SHX sheets via OpenCV HoughLinesP."""[m
+[32m+[m[32m    try:[m
+[32m+[m[32m        import cv2[m
+[32m+[m[32m        import numpy as np[m
+[32m+[m[32m        dpi = 120.0[m
+[32m+[m[32m        scale = 72.0 / dpi[m
+[32m+[m[32m        pw, ph = float(page.rect.width), float(page.rect.height)[m
+[32m+[m[32m        clip = pymupdf.Rect(0.0, 0.0, pw * 0.89, ph * 0.95)[m
+[32m+[m[32m        pix = page.get_pixmap(dpi=int(dpi), clip=clip, alpha=False)[m
+[32m+[m[32m        arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)[m
+[32m+[m[32m        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)[m
+[32m+[m[32m        _, bw = cv2.threshold(gray, 210, 255, cv2.THRESH_BINARY_INV)[m
+[32m+[m[32m        min_px = max(24, int(round(3.0 * float(pts_per_ft) / scale)))[m
+[32m+[m[32m        lines = cv2.HoughLinesP(bw, 1, math.pi / 180.0, threshold=max(30, min_px // 2), minLineLength=min_px, maxLineGap=6)[m
+[32m+[m[32m        segs = [][m
+[32m+[m[32m        if lines is not None:[m
+[32m+[m[32m            for ln in lines[:, 0]:[m
+[32m+[m[32m                x1, y1 = float(ln[0]) * scale, float(ln[1]) * scale[m
+[32m+[m[32m                x2, y2 = float(ln[2]) * scale, float(ln[3]) * scale[m
+[32m+[m[32m                dx, dy = abs(x2 - x1), abs(y2 - y1)[m
+[32m+[m[32m                span_ft = round_structural_ft(math.hypot(dx, dy) / max(1.0, float(pts_per_ft)))[m
+[32m+[m[32m                if not (3.0 <= span_ft <= 48.0):[m
+[32m+[m[32m                    continue[m
+[32m+[m[32m                if dy <= 2.5 and dx >= dy * 6.0:[m
+[32m+[m[32m                    segs.append((min(x1, x2), (y1 + y2) * 0.5, max(x1, x2), (y1 + y2) * 0.5, span_ft, "h"))[m
+[32m+[m[32m                elif dx <= 2.5 and dy >= dx * 6.0:[m
+[32m+[m[32m                    segs.append(((x1 +

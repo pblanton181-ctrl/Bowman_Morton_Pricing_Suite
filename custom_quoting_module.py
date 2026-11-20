@@ -1146,6 +1146,23 @@ class PdfBomImporterDialog(QDialog):
                 return
             if tag == "planset":
                 self._load_rows_into_tree(rows)
+            elif tag == "sheet":
+                target_sheets = {str(r.get("sheet", "")).strip() for r in rows if r.get("sheet")}
+                if target_sheets:
+                    self._updating_tree = True
+                    try:
+                        for ti in range(self.tree.topLevelItemCount() - 1, -1, -1):
+                            pit = self.tree.topLevelItem(ti)
+                            for ci in range(pit.childCount() - 1, -1, -1):
+                                if pit.child(ci).text(1).strip() in target_sheets:
+                                    pit.removeChild(pit.child(ci))
+                            if pit.childCount() == 0:
+                                cat_k = pit.data(0, Qt.UserRole)
+                                self._cat_nodes.pop(cat_k, None)
+                                self.tree.takeTopLevelItem(ti)
+                    finally:
+                        self._updating_tree = False
+                self._append_rows_to_tree(rows)
             else:
                 self._append_rows_to_tree(rows)
             if hasattr(self, "lbl_summary"):
@@ -1186,7 +1203,15 @@ class PdfBomImporterDialog(QDialog):
             return
         self.pdf_path = pdf_p
         pg_num = int(self.sheet_combo.currentData() or 1)
-        self._start_bg_bom_scan(selected_pages=[pg_num], region_clip=clip_rect, use_native_ocr=True, mode_tag="box", scan_mode="hybrid")
+        box_mode = "hybrid"
+        try:
+            if hasattr(self, "_doc") and 1 <= pg_num <= len(self._doc):
+                vec_clip_txt = (self._doc.load_page(pg_num - 1).get_text("text", clip=pymupdf.Rect(clip_rect)) or "").strip()
+                if len(vec_clip_txt) >= 3:
+                    box_mode = "vector"
+        except Exception:
+            pass
+        self._start_bg_bom_scan(selected_pages=[pg_num], region_clip=clip_rect, use_native_ocr=(box_mode != "vector"), mode_tag="box", scan_mode=box_mode)
 
     def scan_whole_planset(self, use_ocr=True, prompt_if_empty=False, scan_mode=None):
         if not self.pdf_path or not os.path.exists(self.pdf_path):

@@ -47,19 +47,35 @@
                   "type": "menu_tile",
                   "text": "Auto\nScan",
                   "icon": "scan-search",
+                  "action": "_act_scan_sheet_hybrid",
                   "menu": [
                     {
-                      "text": "Scan Current Sheet (Vector + OCR)",
-                      "icon": "scan-search",
-                      "action": "_act_scan_pdf"
+                      "text": "Vector Scan Current Sheet (CAD Engine)",
+                      "icon": "file-spreadsheet",
+                      "action": "_act_scan_sheet_vector"
                     },
                     {
-                      "text": "Vector Scan Full Planset (CAD Engine)",
+                      "text": "OCR Scan Current Sheet (High-DPI Engine)",
+                      "icon": "file-text",
+                      "action": "_act_scan_sheet_ocr"
+                    },
+                    {
+                      "text": "Vector + OCR Hybrid Scan Current Sheet",
+                      "icon": "scan-search",
+                      "action": "_act_scan_sheet_hybrid"
+                    },
+                    {
+                      "text": "Drag & Scan Section (300 DPI Box)",
+                      "icon": "scan",
+                      "action": "mode:box"
+                    },
+                    {
+                      "text": "Vector Scan Full Planset (All Sheets)",
                       "icon": "file-spreadsheet",
                       "action": "_act_scan_planset_fast"
                     },
                     {
-                      "text": "OCR Scan Full Planset (High-DPI Engine)",
+                      "text": "OCR Scan Full Planset (All Sheets)",
                       "icon": "file-text",
                       "action": "_act_scan_planset_ocr"
                     },
@@ -67,11 +83,6 @@
                       "text": "Vector + OCR Hybrid Scan Full Planset",
                       "icon": "layers",
                       "action": "_act_scan_planset_hybrid"
-                    },
-                    {
-                      "text": "Drag & Scan Section (300 DPI Box)",
-                      "icon": "scan",
-                      "action": "mode:box"
                     }
                   ]
                 },

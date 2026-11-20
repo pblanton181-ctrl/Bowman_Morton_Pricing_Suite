@@ -1568,7 +1568,6 @@ class StandaloneManufacturingApp(QMainWindow):
             notes = meta.get("release_notes", "Performance & feature improvements.")
             box = QMessageBox(self)
             box.setWindowTitle(f"Update Available (v{ver})")
-            box.setStyleSheet("QMessageBox { background-color: #dcebfa; color: #0f172a; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; } QLabel { color: #0f172a; font-weight: 600; background: transparent; border: none; } QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; border-radius: 6px; padding: 6px 14px; }")
             box.setText(f"Bowman-Morton Pricing Suite v{ver} is ready!\n\nWhat's New:\n{notes}\n\nClick 'Update Now' to install and restart automatically.")
             b_now = box.addButton("Update Now", QMessageBox.AcceptRole)
             box.addButton("Later", QMessageBox.RejectRole)
@@ -1700,7 +1699,6 @@ class StandaloneManufacturingApp(QMainWindow):
         if unsaved_areas:
             box = QMessageBox(self)
             box.setWindowTitle("Unsaved Work Warning")
-            box.setStyleSheet("QMessageBox { background-color: #dcebfa; color: #0f172a; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; } QLabel { color: #0f172a; font-weight: 600; background: transparent; border: none; } QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; border-radius: 6px; padding: 6px 14px; min-width: 110px; } QPushButton:hover { background-color: #e0f2fe; color: #0369a1; }")
             box.setText(
                 "You have unsaved work that has not been finalized or exported:\n\n  • "
                 + "\n  • ".join(unsaved_areas)
@@ -3369,6 +3367,13 @@ if __name__ == "__main__":
     _pal.setColor(QPalette.ToolTipText, QColor("#0f172a"))
     app.setPalette(_pal)
     qdarktheme.setup_theme(theme="light", corner_shape="rounded", custom_colors={"primary": "#0284c7"})
+    app.setStyleSheet(app.styleSheet() + """
+        QFrame { background-color: #f8fafc; color: #0f172a; }
+        QScrollArea, QScrollArea > QWidget > QWidget { background-color: transparent; }
+        QGroupBox { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; border-top: 3px solid #0284c7 !important; border-radius: 6px; margin-top: 12px; padding: 10px; }
+        QGroupBox::title { background-color: #ffffff !important; color: #0369a1 !important; font-weight: 700; padding: 0 6px; }
+        QGroupBox QLabel, QFrame QLabel { color: #0f172a; background: transparent; }
+    """)
     app.setFont(QFont("Segoe UI", 10))
     app.setStyleSheet(app.styleSheet() + """
         QWidget {
@@ -3437,49 +3442,32 @@ if __name__ == "__main__":
         QAbstractItemView::item:selected, QAbstractItemView::item:hover {
             background-color: #ffffff; color: #0f172a;
         }
-        QMessageBox, QDialog, QInputDialog {
-            background-color: #dcebfa !important;
+        QMessageBox, QInputDialog {
+            background-color: #ffffff !important;
             color: #0f172a !important;
         }
-        QMessageBox QLabel, QDialog QLabel, QInputDialog QLabel {
+        QMessageBox QLabel, QInputDialog QLabel {
             color: #0f172a !important;
             font-family: 'Segoe UI', Arial, sans-serif;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 400;
             background: transparent !important;
         }
         QMessageBox QPushButton, QInputDialog QPushButton {
-            background-color: #ffffff; color: #0f172a !important;
-            border: 1.5px solid #0369a1 !important;
-            border-radius: 5px;
-            padding: 6px 16px;
-            min-width: 85px;
-            font-weight: 600;
+            background-color: #f3f3f3 !important;
+            color: #0f172a !important;
+            border: 1px solid #adadad !important;
+            border-radius: 4px;
+            padding: 5px 18px;
+            min-width: 80px;
+            font-weight: 400;
         }
         QMessageBox QPushButton:hover, QInputDialog QPushButton:hover {
-            background-color: rgba(96, 165, 250, 0.82) !important;
-            color: #0f172a !important;
+            background-color: #e5f1fb !important;
+            border-color: #0078d7 !important;
         }
-        QToolTip, QTipLabel { background-color: #ffffff; color: #0f172a; border: 1px solid #94a3b8; padding: 7px 9px; font-family: "Segoe UI", Arial, sans-serif; font-size: 11.5px; }
+        QToolTip, QTipLabel { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #94a3b8 !important; padding: 7px 9px; font-family: "Segoe UI", Arial, sans-serif; font-size: 11.5px; }
     """)
-
-    def _styled_msgbox(icon, parent, title, text, buttons=QMessageBox.Ok, default_btn=QMessageBox.NoButton):
-        mb = QMessageBox(icon, title, str(text), buttons, parent)
-        if default_btn != QMessageBox.NoButton:
-            mb.setDefaultButton(default_btn)
-        mb.setAttribute(Qt.WA_StyledBackground, True)
-        mb.setStyleSheet(
-            "QMessageBox { background-color: #dcebfa; color: #0f172a; border: 2px solid #0284c7; } "
-            "QLabel { color: #0f172a; background: transparent; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; font-weight: 600; } "
-            "QPushButton { background-color: #ffffff; color: #0f172a; border: 1.5px solid #0369a1; border-radius: 5px; padding: 6px 18px; min-width: 85px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; font-weight: 600; } "
-            "QPushButton:hover { background-color: rgba(96, 165, 250, 0.82); color: #0f172a; }"
-        )
-        return mb.exec()
-
-    QMessageBox.information = staticmethod(lambda parent, title, text, buttons=QMessageBox.Ok, defaultButton=QMessageBox.NoButton: _styled_msgbox(QMessageBox.Information, parent, title, text, buttons, defaultButton))
-    QMessageBox.warning = staticmethod(lambda parent, title, text, buttons=QMessageBox.Ok, defaultButton=QMessageBox.NoButton: _styled_msgbox(QMessageBox.Warning, parent, title, text, buttons, defaultButton))
-    QMessageBox.critical = staticmethod(lambda parent, title, text, buttons=QMessageBox.Ok, defaultButton=QMessageBox.NoButton: _styled_msgbox(QMessageBox.Critical, parent, title, text, buttons, defaultButton))
-    QMessageBox.question = staticmethod(lambda parent, title, text, buttons=QMessageBox.Yes | QMessageBox.No, defaultButton=QMessageBox.NoButton: _styled_msgbox(QMessageBox.Question, parent, title, text, buttons, defaultButton))
 
     from PySide6.QtCore import QObject, QEvent
     class _PopupThemeFixer(QObject):
@@ -3494,22 +3482,36 @@ if __name__ == "__main__":
             l, r, t, bt = pos.x() <= b, pos.x() >= w.width() - b, pos.y() <= b, pos.y() >= w.height() - b
             return ("T" if t else ("B" if bt else "")) + ("L" if l else ("R" if r else ""))
         def _show_clean_card_tip(self, gpos, text):
+            if window is None:
+                return
             if not hasattr(self, "_card_tip"):
-                self._card_tip = QLabel(None, Qt.ToolTip | Qt.FramelessWindowHint)
-                self._card_tip.setAttribute(Qt.WA_ShowWithoutActivating, True)
-                self._card_tip.setStyleSheet("QLabel { background-color: #ffffff; color: #0f172a; border: 1px solid #94a3b8; padding: 7px 10px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; }")
-            lines = str(text).split("\n", 1)
-            if len(lines) == 2:
-                self._card_tip.setTextFormat(Qt.RichText)
-                body_html = lines[1].replace("\n", "<br>")
-                self._card_tip.setText(f"<b style='color:#0f172a;font-size:12px;'>{lines[0]}</b><br><span style='color:#334155;'>{body_html}</span>")
+                lbl = QLabel(window)
+                lbl.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+                lbl.setAttribute(Qt.WA_StyledBackground, True)
+                lbl.setStyleSheet("QLabel { background-color: #ffffff; color: #0f172a; border: 1px solid #94a3b8; border-radius: 5px; padding: 7px 10px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; }")
+                self._card_tip = lbl
+                self._card_tip_lbl = lbl
+            s_txt = str(text).strip()
+            if s_txt.startswith("<"):
+                self._card_tip_lbl.setTextFormat(Qt.RichText)
+                self._card_tip_lbl.setText(s_txt)
             else:
-                self._card_tip.setTextFormat(Qt.PlainText)
-                self._card_tip.setText(str(text))
-            self._card_tip.adjustSize()
-            self._card_tip.move(gpos.x() + 12, gpos.y() + 18)
+                lines = s_txt.split("\n", 1)
+                if len(lines) == 2:
+                    self._card_tip_lbl.setTextFormat(Qt.RichText)
+                    body_html = lines.__getitem__(1).replace("\n", "<br>")
+                    self._card_tip_lbl.setText(f"<b style='color:#0f172a;font-size:12px;'>{lines.__getitem__(0)}</b><br><span style='color:#334155;'>{body_html}</span>")
+                else:
+                    self._card_tip_lbl.setTextFormat(Qt.PlainText)
+                    self._card_tip_lbl.setText(s_txt)
+            self._card_tip_lbl.adjustSize()
+            local_pt = window.mapFromGlobal(gpos)
+            tx = max(6, min(window.width() - self._card_tip.width() - 6, local_pt.x() + 12))
+            ty = max(6, min(window.height() - self._card_tip.height() - 6, local_pt.y() + 18))
+            self._card_tip.move(tx, ty)
             self._card_tip.show()
             self._card_tip.raise_()
+            self._card_tip.repaint()
 
         def eventFilter(self, obj, ev):
             et = ev.type()
@@ -3520,7 +3522,7 @@ if __name__ == "__main__":
                     return True
             if et == QEvent.ToolTip and isinstance(obj, QWidget):
                 tip_txt = obj.toolTip()
-                if tip_txt and not tip_txt.lstrip().startswith("<b"):
+                if tip_txt:
                     self._show_clean_card_tip(ev.globalPos(), tip_txt)
                     ev.accept()
                     return True
@@ -3604,40 +3606,7 @@ if __name__ == "__main__":
             pass
 
     class _GlobalExcelDropFilter(QObject):
-        def _show_clean_card_tip(self, gpos, text):
-            if not hasattr(self, "_card_tip"):
-                self._card_tip = QLabel(None, Qt.ToolTip | Qt.FramelessWindowHint)
-                self._card_tip.setAttribute(Qt.WA_ShowWithoutActivating, True)
-                self._card_tip.setStyleSheet("QLabel { background-color: #ffffff; color: #0f172a; border: 1px solid #94a3b8; padding: 7px 10px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; }")
-            lines = str(text).split("\n", 1)
-            if len(lines) == 2:
-                self._card_tip.setTextFormat(Qt.RichText)
-                body_html = lines[1].replace("\n", "<br>")
-                self._card_tip.setText(f"<b style='color:#0f172a;font-size:12px;'>{lines[0]}</b><br><span style='color:#334155;'>{body_html}</span>")
-            else:
-                self._card_tip.setTextFormat(Qt.PlainText)
-                self._card_tip.setText(str(text))
-            self._card_tip.adjustSize()
-            self._card_tip.move(gpos.x() + 12, gpos.y() + 18)
-            self._card_tip.show()
-            self._card_tip.raise_()
-
         def eventFilter(self, obj, ev):
-            et = ev.type()
-            if et == QEvent.ShortcutOverride and getattr(ev, "key", lambda: None)() == Qt.Key_Tab:
-                fw = QApplication.focusWidget()
-                if fw is not None and fw.__class__.__name__ == "CadBlueprintCanvas":
-                    ev.accept()
-                    return True
-            if et == QEvent.ToolTip and isinstance(obj, QWidget):
-                tip_txt = obj.toolTip()
-                if tip_txt and not tip_txt.lstrip().startswith("<b"):
-                    self._show_clean_card_tip(ev.globalPos(), tip_txt)
-                    ev.accept()
-                    return True
-            elif et in (QEvent.Leave, QEvent.MouseButtonPress, QEvent.WindowDeactivate):
-                if hasattr(self, "_card_tip") and self._card_tip.isVisible():
-                    self._card_tip.hide()
             et = ev.type()
             if et in (QEvent.DragEnter, QEvent.DragMove):
                 if hasattr(ev, "mimeData") and ev.mimeData().hasUrls():

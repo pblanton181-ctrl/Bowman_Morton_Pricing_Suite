@@ -51,6 +51,31 @@ def extract_vector_page_tokens(page, clip_rect=None):
             if compact != joined:
                 items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, joined))
 
+
+    # Stitch 90-deg / 270-deg rotated vertical fragments sharing the same X column
+    if len(vert_words) > 1:
+        v_sorted = sorted(vert_words, key=lambda item: (round(item.__getitem__(0) / 8.0), item.__getitem__(1)))
+        v_cluster = [v_sorted.__getitem__(0)]
+        for vw in v_sorted[1:]:
+            if abs(vw.__getitem__(0) - v_cluster[-1].__getitem__(0)) <= 8.0 and abs(vw.__getitem__(1) - v_cluster[-1].__getitem__(1)) <= 36.0:
+                v_cluster.append(vw)
+            else:
+                if len(v_cluster) > 1:
+                    vcx = sum(x for x, _, _ in v_cluster) / len(v_cluster)
+                    vcy = sum(y for _, y, _ in v_cluster) / len(v_cluster)
+                    for merged_v in ("".join(t for _, _, t in v_cluster), "".join(t for _, _, t in reversed(v_cluster))):
+                        mv_norm = normalize_cad_text(merged_v)
+                        items.append((vcx, vcy, mv_norm))
+                        vert_words.append((vcx, vcy, mv_norm))
+                v_cluster = [vw]
+        if len(v_cluster) > 1:
+            vcx = sum(x for x, _, _ in v_cluster) / len(v_cluster)
+            vcy = sum(y for _, y, _ in v_cluster) / len(v_cluster)
+            for merged_v in ("".join(t for _, _, t in v_cluster), "".join(t for _, _, t in reversed(v_cluster))):
+                mv_norm = normalize_cad_text(merged_v)
+                items.append((vcx, vcy, mv_norm))
+                vert_words.append((vcx, vcy, mv_norm))
+
     return items, vert_words, full_tb
 
 

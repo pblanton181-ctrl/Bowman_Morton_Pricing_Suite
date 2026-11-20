@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os, sys, json, datetime, traceback
 from PySide6.QtCore import QObject, QEvent
 from PySide6.QtWidgets import (
@@ -44,51 +44,21 @@ def record_shop_error_ticket(exc_type, exc_val, exc_tb, context_hint=""):
     if app is None:
         return code
 
-    dlg = QDialog(app.activeWindow())
-    dlg.setWindowTitle(f"System Notice - Error Code {code}")
-    dlg.setMinimumWidth(480)
-    dlg.setStyleSheet(
-        "QDialog { background-color: #f8fafc; border: 2px solid #dc2626; border-radius: 8px; } "
-        "QLabel { color: #0f172a; font-family: 'Segoe UI', Arial, sans-serif; background: transparent; border: none; } "
-        "QPushButton { background-color: #ffffff; border: 1.5px solid #0284c7; color: #0284c7; font-weight: 700; border-radius: 5px; padding: 7px 14px; } "
-        "QPushButton:hover { background-color: #e0f2fe; } "
-        "QPushButton#ContBtn { background-color: #0284c7; color: #ffffff; }"
+    from PySide6.QtWidgets import QMessageBox
+    box = QMessageBox(app.activeWindow())
+    box.setIcon(QMessageBox.Critical)
+    box.setWindowTitle(f"Bowman-Morton Pricing Suite - Error {code}")
+    box.setText(f"An unexpected action occurred (Error Code: {code}).")
+    box.setInformativeText(
+        f"Share Error Code {code} with Admin/Dev.\n"
+        f"Technical details were saved to logs/shop_error_log.txt so you can keep working safely."
     )
-    vl = QVBoxLayout(dlg)
-    vl.setContentsMargins(16, 14, 16, 14)
-    vl.setSpacing(10)
-
-    hdr = QLabel(f"An unexpected action occurred - Error Ticket:  {code}")
-    hdr.setStyleSheet("color: #b91c1c; font-size: 14px; font-weight: 800;")
-    vl.addWidget(hdr)
-
-    sub = QLabel(
-        f"Write down Error Code <b>{code}</b> to share with Admin/Dev.<br>"
-        f"The full technical report was saved automatically to <i>logs/shop_error_log.txt</i> so you can keep working safely."
-    )
-    sub.setWordWrap(True)
-    sub.setStyleSheet("color: #334155; font-size: 12px;")
-    vl.addWidget(sub)
-
-    box_err = QTextEdit()
-    box_err.setReadOnly(True)
-    box_err.setMaximumHeight(95)
-    box_err.setPlainText(f"Ticket: {code}\nTime: {ts}\nSummary: {short_msg}")
-    box_err.setStyleSheet("QTextEdit { background-color: #fff1f2; color: #7f1d1d; border: 1px solid #fca5a5; border-radius: 5px; font-family: 'Consolas', monospace; font-size: 11.5px; padding: 6px; }")
-    vl.addWidget(box_err)
-
-    row = QHBoxLayout()
-    btn_copy = QPushButton(f"Copy Code ({code})")
-    btn_copy.clicked.connect(lambda: (QApplication.clipboard().setText(f"{code}: {short_msg}"), btn_copy.setText("Copied!")))
-    row.addWidget(btn_copy)
-    row.addStretch()
-    btn_ok = QPushButton("Continue Working")
-    btn_ok.setObjectName("ContBtn")
-    btn_ok.clicked.connect(dlg.accept)
-    row.addWidget(btn_ok)
-    vl.addLayout(row)
-
-    dlg.exec()
+    box.setDetailedText(f"Ticket: {code}\nTime: {ts}\nContext: {context_hint}\nSummary: {short_msg}\n\n{tb_str}")
+    btn_copy = box.addButton(f"Copy Code ({code})", QMessageBox.ActionRole)
+    box.addButton(QMessageBox.Ok)
+    box.exec()
+    if box.clickedButton() == btn_copy:
+        QApplication.clipboard().setText(f"{code}: {short_msg}")
     return code
 
 
@@ -107,7 +77,7 @@ def install_global_error_catcher():
 
 class UniversalSummaryTooltipFilter(QObject):
     def eventFilter(self, obj, ev):
-        if ev.type() == QEvent.ToolTip and isinstance(obj, QWidget):
+        if ev.type() in (QEvent.Enter, QEvent.ToolTip) and isinstance(obj, QWidget):
             cur_tip = (obj.toolTip() or "").strip()
             if not cur_tip:
                 generated = self._describe_widget(obj)

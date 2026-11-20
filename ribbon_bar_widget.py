@@ -630,8 +630,19 @@ class BowmanMortonRibbonBar(QFrame):
         if pt and hasattr(pt, "load_new_pdf_planset"): pt.load_new_pdf_planset()
 
     def _act_scan_pdf(self):
+        self._act_scan_sheet_hybrid()
+
+    def _act_scan_sheet_vector(self):
         pt = getattr(self.app, "planset_takeoff_tab", None)
-        if pt and hasattr(pt, "btn_scan_pg"): pt.btn_scan_pg.click()
+        if pt and hasattr(pt, "_scan_selected_sheet"): pt._scan_selected_sheet(scan_mode="vector")
+
+    def _act_scan_sheet_ocr(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt and hasattr(pt, "_scan_selected_sheet"): pt._scan_selected_sheet(scan_mode="ocr")
+
+    def _act_scan_sheet_hybrid(self):
+        pt = getattr(self.app, "planset_takeoff_tab", None)
+        if pt and hasattr(pt, "_scan_selected_sheet"): pt._scan_selected_sheet(scan_mode="hybrid")
 
     def _act_scan_planset(self, use_ocr=False, scan_mode=None):
         pt = getattr(self.app, "planset_takeoff_tab", None)
