@@ -1,6 +1,6 @@
 {
-    "github_version_url": "https://githubusercontent.com",
-    "github_zip_url_tpl": "https://github.com{version}/BowmanMortonPricingSuite_v{version}.zip",
+    "github_version_url": "https://raw.githubusercontent.com/pblanton181-ctrl/Bowman_Morton_Pricing_Suite/master/version.json",
+    "github_zip_url_tpl": "https://github.com/pblanton181-ctrl/Bowman_Morton_Pricing_Suite/releases/download/v{version}/BowmanMortonPricingSuite_v{version}.zip",
     "shared_updates_dir": "\\\\BOWMANSERVER\\shared\\Bowman-Morton Pricing & Bidding 2025\\Updates",
     "shared_data_dir": "\\\\BOWMANSERVER\\shared\\Bowman-Morton Pricing & Bidding 2025\\AppData"
 }

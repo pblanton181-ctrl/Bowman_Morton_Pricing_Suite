@@ -89,7 +89,7 @@ class UpdateCheckWorker(QThread):
 
 def install_and_restart_update(parent_win, meta):
     import shutil
-    app_dir = get_app_dir()
+    app_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else get_app_dir()
     new_ver = str(meta.get("version", "")).strip()
     zip_name = str(meta.get("zip_name") or f"BowmanMortonPricingSuite_v{new_ver}.zip")
     cfg = meta.get("_cfg", {})
