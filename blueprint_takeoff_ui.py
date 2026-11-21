@@ -108,7 +108,7 @@ class CadBlueprintCanvas(QLabel):
                 self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
                 self.setFrameShape(QFrame.NoFrame)
             def keyPressEvent(self, ev):
-                if ev.key() in (Qt.Key_Return, Qt.Key_Enter) and (ev.modifiers() & Qt.ControlModifier):
+                if ev.key() in (Qt.Key_Return, Qt.Key_Enter) and not (ev.modifiers() & Qt.ShiftModifier):
                     self._c._commit_inline_text()
                     ev.accept()
                     return
@@ -202,16 +202,32 @@ class CadBlueprintCanvas(QLabel):
         c_hex = self.active_color.name()
         wt = "bold" if self.font_bold else "normal"
         st = "italic" if self.font_italic else "normal"
-        pt_sz = max(8, int(round(self.font_size * self.zoom)))
-        self._inline_editor.setFont(self._current_qfont(True))
         is_pdf_edit = getattr(self, "_inline_pdf_edit_rect", None) is not None
-        self._inline_editor.document().setDocumentMargin(0 if is_pdf_edit else 2)
-        bg_css = "background-color: #ffffff !important; border: 1.5px solid #0284c7 !important; border-radius: 3px; padding: 0px 3px;" if is_pdf_edit else "background-color: transparent !important; border: none !important; padding: 0px;"
-        self._inline_editor.setStyleSheet(
-            f"QPlainTextEdit {{ {bg_css} "
-            f"color: {c_hex} !important; font-family: '{self.font_family}'; "
-            f"font-size: {pt_sz}pt; font-weight: {wt}; font-style: {st}; }}"
-        )
+        if is_pdf_edit:
+            px_sz = max(5, int(round(float(self.font_size) * (self.render_dpi / 72.0) * self.zoom * 0.88)))
+            f_ed = QFont(self.font_family)
+            f_ed.setPixelSize(px_sz)
+            f_ed.setBold(self.font_bold)
+            f_ed.setItalic(self.font_italic)
+            f_ed.setUnderline(self.font_underline)
+            self._inline_editor.setFont(f_ed)
+            self._inline_editor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+            self._inline_editor.document().setDocumentMargin(0)
+            self._inline_editor.setStyleSheet(
+                f"QPlainTextEdit {{ background-color: #ffffff !important; "
+                f"border: 1px solid rgba(2, 132, 199, 0.55) !important; border-radius: 1px; padding: 0px; margin: 0px; "
+                f"color: {c_hex} !important; font-family: '{self.font_family}'; "
+                f"font-size: {px_sz}px; font-weight: {wt}; font-style: {st}; }}"
+            )
+        else:
+            pt_sz = max(7, int(round(self.font_size * self.zoom)))
+            self._inline_editor.setFont(self._current_qfont(True))
+            self._inline_editor.document().setDocumentMargin(2)
+            self._inline_editor.setStyleSheet(
+                f"QPlainTextEdit {{ background-color: transparent !important; border: none !important; padding: 0px; "
+                f"color: {c_hex} !important; font-family: '{self.font_family}'; "
+                f"font-size: {pt_sz}pt; font-weight: {wt}; font-style: {st}; }}"
+            )
 
     def _resize_inline_editor(self):
         locked_qr = getattr(self, "_inline_locked_qrect", None)
@@ -227,6 +243,8 @@ class CadBlueprintCanvas(QLabel):
 
     def _start_inline_text(self, qpos, initial_text=""):
         if self._inline_editor.isVisible():
+            if self._inline_editor.geometry().contains(qpos):
+                return
             self._commit_inline_text()
         self._inline_pdf_pt = self._to_pdf_pt(qpos)
         self._inline_editor.setPlainText(initial_text)
@@ -289,6 +307,8 @@ class CadBlueprintCanvas(QLabel):
 
     def set_interaction_mode(self, mode):
         if self._inline_editor.isVisible():
+            if self._inline_editor.geometry().adjusted(-6, -6, 6, 6).contains(pos):
+                return
             self._commit_inline_text()
         self.mode = mode
         self._drag_start = None
@@ -447,12 +467,26 @@ class CadBlueprintCanvas(QLabel):
         return QRect()
 
     def delete_selected_markup(self):
-        if self.mode == 'edit_pdf' and 0 <= getattr(self, '_selected_pdf_block', -1) < len(getattr(self, '_pdf_edit_blocks', [])):
-            blk = self._pdf_edit_blocks[self._selected_pdf_block]
+        if self.mode == 'edit_pdf':
+            blks_all = getattr(self, '_pdf_edit_blocks', [])
+            sel_set = set(getattr(self, '_selected_pdf_blocks', set()))
+            if 0 <= getattr(self, '_selected_pdf_block', -1) < len(blks_all):
+                sel_set.add(self._selected_pdf_block)
+            valid_idxs = sorted(i for i in sel_set if 0 <= i < len(blks_all))
             vw = self._get_vis_workspace()
-            if vw is not None:
-                vw.redact_native_pdf_box(blk['rect'])
-            return
+            if valid_idxs and vw is not None:
+                items_to_del = [
+                    (blks_all.__getitem__(idx_d).get('rect'), blks_all.__getitem__(idx_d).get('kind') == 'shx_vector')
+                    for idx_d in valid_idxs
+                ]
+                if hasattr(vw, 'redact_native_pdf_boxes'):
+                    vw.redact_native_pdf_boxes(items_to_del)
+                else:
+                    for r_d, shx_d in reversed(items_to_del):
+                        vw.redact_native_pdf_box(r_d, is_shx=shx_d)
+                self._selected_pdf_block = -1
+                self._selected_pdf_blocks = set()
+                return
         targets = set(getattr(self, "selected_indices", set()))
         if 0 <= self.selected_idx < len(self.markups):
             targets.add(self.selected_idx)
@@ -499,6 +533,13 @@ class CadBlueprintCanvas(QLabel):
 
     def clear_markups(self):
         self._inline_editor.hide()
+        self._inline_pdf_edit_rect = None
+        self._inline_pdf_edit_meta = None
+        self._inline_locked_qrect = None
+        self._selected_pdf_block = -1
+        self._selected_pdf_blocks = set()
+        self._hover_pdf_block = -1
+        self._snap_badge_pt = None
         self.markups.clear()
         self.selected_idx = -1
         self.selected_indices.clear()
@@ -557,10 +598,67 @@ class CadBlueprintCanvas(QLabel):
                     return i
         return -1
 
-    def set_color_key_overlays(self, highlights, legend_entries):
-        self.key_highlights = highlights or []
-        self.legend_entries = legend_entries or []
+    def set_color_key_overlays(self, highlights, legend_items=None):
+        self.key_highlights = highlights or list()
+        self.key_legend_items = legend_items or list()
+        self._selected_hl_idx = -1
+        self._hl_drag_mode = None
         self.update()
+
+    def _hl_geom(self, hl):
+        x0, y0, x1, y1 = hl["rect"]
+        cx_p, cy_p = (x0 + x1) * 0.5, (y0 + y1) * 0.5
+        ang = float(hl.get("angle", 0.0) or 0.0)
+        w_p = float(hl.get("w_pts", 0.0) or 0.0)
+        h_p = float(hl.get("h_pts", 0.0) or 0.0)
+        if w_p <= 1.0 or h_p <= 1.0:
+            t_len = float(hl.get("true_len", 0.0) or 0.0)
+            if abs(ang) > 1.0 and abs(abs(ang) - 90.0) > 1.0 and t_len > 4.0:
+                w_p, h_p = t_len, 10.5
+            elif abs(abs(ang) - 90.0) <= 1.0 and (y1 - y0) > (x1 - x0):
+                w_p, h_p = max(10.0, y1 - y0), max(8.0, x1 - x0)
+            else:
+                w_p, h_p = max(10.0, x1 - x0 + 2.0), max(8.0, y1 - y0)
+            hl["w_pts"], hl["h_pts"] = w_p, h_p
+        ctr_px = self._from_pdf_pt(cx_p, cy_p)
+        p_edge_x = self._from_pdf_pt(cx_p + w_p * 0.5, cy_p)
+        p_edge_y = self._from_pdf_pt(cx_p, cy_p + h_p * 0.5)
+        hw_px = max(8.0, abs(p_edge_x.x() - ctr_px.x()))
+        hh_px = max(5.0, abs(p_edge_y.y() - ctr_px.y()))
+        return cx_p, cy_p, w_p, h_p, ang, ctr_px, hw_px, hh_px
+
+    def _hl_screen_rect_and_handles(self, hl):
+        _, _, _, _, ang, ctr, hw, hh = self._hl_geom(hl)
+        rad = math.radians(ang)
+        ca, sa = math.cos(rad), math.sin(rad)
+        def _rot(lx, ly):
+            return QPoint(int(round(ctr.x() + lx * ca - ly * sa)), int(round(ctr.y() + lx * sa + ly * ca)))
+        handles = {
+            "rotate": _rot(0.0, -(hh + 18.0)),
+            "left":   _rot(-hw, 0.0),
+            "right":  _rot(hw, 0.0),
+            "top":    _rot(0.0, -hh),
+            "bottom": _rot(0.0, hh),
+        }
+        return ctr, hw, hh, ang, handles
+
+    def _hit_test_key_highlight(self, pos):
+        hls = getattr(self, "key_highlights", list())
+        sel_i = getattr(self, "_selected_hl_idx", -1)
+        if 0 <= sel_i < len(hls):
+            _, _, _, _, handles = self._hl_screen_rect_and_handles(hls.__getitem__(sel_i))
+            for op_name, hpt in handles.items():
+                if math.hypot(pos.x() - hpt.x(), pos.y() - hpt.y()) <= 8.5:
+                    return sel_i, op_name
+        for i in range(len(hls) - 1, -1, -1):
+            ctr, hw, hh, ang, _ = self._hl_screen_rect_and_handles(hls.__getitem__(i))
+            rad = math.radians(-ang)
+            dx, dy = pos.x() - ctr.x(), pos.y() - ctr.y()
+            lx = dx * math.cos(rad) - dy * math.sin(rad)
+            ly = dx * math.sin(rad) + dy * math.cos(rad)
+            if abs(lx) <= (hw + 5.0) and abs(ly) <= (hh + 5.0):
+                return i, "move"
+        return -1, None
 
     def load_pixmap(self, qpix, render_dpi=150.0, page_markups=None):
         self._inline_editor.hide()
@@ -580,14 +678,14 @@ class CadBlueprintCanvas(QLabel):
         self.zoom = max(0.25, min(2.5, min(vw / float(self._base_pix.width()), vh / float(self._base_pix.height()))))
         self._apply_zoom()
 
-    def set_zoom(self, z, anchor_vp=None):
+    def set_zoom(self, z, anchor_vp=None, fast=False):
         self._user_zoomed = True
         old_z = self.zoom
         new_z = max(0.25, min(3.5, float(z)))
         if abs(new_z - old_z) < 1e-4:
             return
         self.zoom = new_z
-        self._apply_zoom()
+        self._apply_zoom(fast=fast)
         if self.scroll_area and anchor_vp is not None:
             hbar, vbar = self.scroll_area.horizontalScrollBar(), self.scroll_area.verticalScrollBar()
             ratio = new_z / old_z
@@ -601,6 +699,21 @@ class CadBlueprintCanvas(QLabel):
         mode = Qt.FastTransformation if fast else Qt.SmoothTransformation
         self.setPixmap(self._base_pix.scaled(w, h, Qt.KeepAspectRatio, mode))
         self.resize(w, h)
+        if getattr(self, "_inline_editor", None) is not None and self._inline_editor.isVisible():
+            pdf_er = getattr(self, "_inline_pdf_edit_rect", None)
+            if pdf_er is not None and len(pdf_er) >= 4:
+                qr_z = QRect(
+                    self._from_pdf_pt(pdf_er.__getitem__(0), pdf_er.__getitem__(1)),
+                    self._from_pdf_pt(pdf_er.__getitem__(2), pdf_er.__getitem__(3)),
+                ).normalized().adjusted(-1, -1, 6, 2)
+                self._inline_locked_qrect = qr_z
+                self._apply_inline_style()
+                self._inline_editor.setGeometry(qr_z)
+            elif getattr(self, "_inline_pdf_pt", None) is not None:
+                qp_z = self._from_pdf_pt(*self._inline_pdf_pt)
+                self._apply_inline_style()
+                self._resize_inline_editor()
+                self._inline_editor.move(max(4, qp_z.x()), max(4, qp_z.y() - 14))
         self.update()
 
     def _world_to_screen_tx(self):
@@ -817,8 +930,14 @@ class CadBlueprintCanvas(QLabel):
         delta, mods = ev.angleDelta().y(), ev.modifiers()
         if mods & Qt.ControlModifier:
             step = 1.15 if delta > 0 else (1.0 / 1.15)
-            pos = self._snap_to_endpoint(ev.position().toPoint() if hasattr(ev, "position") else ev.pos())
-            self.set_zoom(self.zoom * step, anchor_vp=self.mapTo(self.scroll_area.viewport(), pos))
+            pos = ev.position().toPoint() if hasattr(ev, "position") else ev.pos()
+            self._snap_badge_pt = None
+            self.set_zoom(self.zoom * step, anchor_vp=self.mapTo(self.scroll_area.viewport(), pos), fast=True)
+            if not hasattr(self, "_wheel_zoom_settle"):
+                self._wheel_zoom_settle = QTimer(self)
+                self._wheel_zoom_settle.setSingleShot(True)
+                self._wheel_zoom_settle.timeout.connect(lambda: self._apply_zoom(fast=False))
+            self._wheel_zoom_settle.start(100)
             ev.accept()
         elif mods & Qt.ShiftModifier:
             self.scroll_area.horizontalScrollBar().setValue(self.scroll_area.horizontalScrollBar().value() - delta)
@@ -968,7 +1087,7 @@ class CadBlueprintCanvas(QLabel):
                     tl_q = self._from_pdf_pt(bx0, by0)
                     self._inline_pdf_edit_rect = tuple(blk["rect"])
                     self._inline_pdf_edit_meta = dict(blk)
-                    self._start_inline_text(QPoint(tl_q.x(), tl_q.y() + 14), initial_text=blk.get("text", ""))
+                    self._start_inline_text(QPoint(tl_q.x(), tl_q.y() + 14), initial_text=init_txt)
                     ev.accept()
                     return
         if self.mode == "area" and len(self._poly_pts) >= 3:
@@ -1051,6 +1170,23 @@ class CadBlueprintCanvas(QLabel):
         if btn != Qt.LeftButton:
             return
 
+        if getattr(self, "_pending_stamp", None) is not None and btn == Qt.LeftButton:
+            px, py = self._to_pdf_pt(self._hover_pt or pos)
+            st_m = dict(self._pending_stamp)
+            st_m["x"] = px
+            st_m["y"] = py
+            self.markups.append(st_m)
+            self.selected_idx = len(self.markups) - 1
+            self.selected_indices = {self.selected_idx}
+            self._pending_stamp = None
+            self.mode = "select"
+            self.setCursor(Qt.ArrowCursor)
+            p_win = self.window()
+            if hasattr(p_win, "master_ribbon") and hasattr(p_win.master_ribbon, "update_contextual_selection"):
+                p_win.master_ribbon.update_contextual_selection(st_m)
+            self.update()
+            ev.accept()
+            return
         if getattr(self, "_pending_cad_shape", None) is not None and btn == Qt.LeftButton:
             px, py = self._to_pdf_pt(self._hover_pt or pos)
             sh = dict(self._pending_cad_shape)
@@ -1085,6 +1221,21 @@ class CadBlueprintCanvas(QLabel):
                 if not shift_held:
                     self.selected_idx = -1
                     self.selected_indices.clear()
+                hl_hit, hl_op = (-1, None)
+                if self.mode == "select":
+                    hl_hit, hl_op = self._hit_test_key_highlight(pos)
+                if hl_hit >= 0:
+                    self._selected_hl_idx = hl_hit
+                    self._hl_drag_mode = hl_op
+                    self._hl_drag_last_pdf = self._to_pdf_pt(pos)
+                    self.setCursor(Qt.CrossCursor if hl_op == "rotate" else (Qt.SizeFDiagCursor if hl_op == "resize" else Qt.SizeAllCursor))
+                    self.update()
+                    self.setFocus()
+                    ev.accept()
+                    return
+                else:
+                    self._selected_hl_idx = -1
+                    self._hl_drag_mode = None
                 if self.mode == "select":
                     self._marquee_start = pos
                     self._marquee_cur = pos
@@ -1290,6 +1441,41 @@ class CadBlueprintCanvas(QLabel):
             self.update()
             return
 
+        if getattr(self, "_hl_drag_mode", None) and 0 <= getattr(self, "_selected_hl_idx", -1) < len(getattr(self, "key_highlights", list())):
+            hl = self.key_highlights.__getitem__(self._selected_hl_idx)
+            cx_p, cy_p = self._to_pdf_pt(pos)
+            lx_p, ly_p = getattr(self, "_hl_drag_last_pdf", (cx_p, cy_p))
+            dx_p, dy_p = cx_p - lx_p, cy_p - ly_p
+            self._hl_drag_last_pdf = (cx_p, cy_p)
+            hx, hy, hw_p, hh_p, ang_h, _, _, _ = self._hl_geom(hl)
+            op_h = self._hl_drag_mode
+            if op_h == "move":
+                x0, y0, x1, y1 = hl["rect"]
+                hl["rect"] = (x0 + dx_p, y0 + dy_p, x1 + dx_p, y1 + dy_p)
+            elif op_h in ("left", "right", "top", "bottom"):
+                rad = math.radians(-ang_h)
+                vx, vy = cx_p - hx, cy_p - hy
+                loc_x = vx * math.cos(rad) - vy * math.sin(rad)
+                loc_y = vx * math.sin(rad) + vy * math.cos(rad)
+                if op_h in ("left", "right"):
+                    new_w = max(8.0, abs(loc_x) * 2.0)
+                    hl["w_pts"] = new_w
+                    hl["true_len"] = new_w
+                    hl["rect"] = (hx - new_w * 0.5, hy - hh_p * 0.5, hx + new_w * 0.5, hy + hh_p * 0.5)
+                else:
+                    new_h = max(6.0, abs(loc_y) * 2.0)
+                    hl["h_pts"] = new_h
+                    hl["rect"] = (hx - hw_p * 0.5, hy - new_h * 0.5, hx + hw_p * 0.5, hy + new_h * 0.5)
+            elif op_h == "rotate":
+                ang_new = math.degrees(math.atan2(cx_p - hx, -(cy_p - hy)))
+                for snap_a in (-135.0, -90.0, -45.0, 0.0, 45.0, 90.0, 135.0, 180.0, -180.0):
+                    if abs(ang_new - snap_a) <= 3.5:
+                        ang_new = snap_a
+                        break
+                hl["angle"] = ang_new
+            self.update()
+            return
+
         if self._marquee_start is not None:
             self._marquee_cur = pos
             self.update()
@@ -1359,7 +1545,18 @@ class CadBlueprintCanvas(QLabel):
             self._drag_cur = pos
             self.update()
         elif self.mode == "edit_pdf":
-            self.update()
+            if self._inline_editor.isVisible():
+                return
+            px_h, py_h = self._to_pdf_pt(pos)
+            new_hov = -1
+            for bi_h, blk_h in enumerate(getattr(self, "_pdf_edit_blocks", [])):
+                hx0, hy0, hx1, hy1 = blk_h.get("rect", (0, 0, 0, 0))
+                if (hx0 - 3) <= px_h <= (hx1 + 3) and (hy0 - 3) <= py_h <= (hy1 + 3):
+                    new_hov = bi_h
+                    break
+            if new_hov != getattr(self, "_hover_pdf_block", -1):
+                self._hover_pdf_block = new_hov
+                self.update()
         elif (self.mode == "polyline" and self._pline_pts) or (self.mode in ("measure", "calibrate", "line", "dashed", "centerline", "arrow") and self._p1 is not None) or (self.mode == "hanger_skew" and getattr(self, "_skew_pts", None)):
             self.update()
 
@@ -1371,16 +1568,44 @@ class CadBlueprintCanvas(QLabel):
             vw = self._get_vis_workspace()
             blocks = getattr(self, "_pdf_edit_blocks", [])
             sel_b = getattr(self, "_selected_pdf_block", -1)
+            sel_multi = set(getattr(self, "_selected_pdf_blocks", set()))
             dist_px = math.hypot(p1.x() - p0.x(), p1.y() - p0.y())
-            if 0 <= sel_b < len(blocks) and dist_px >= 6.0 and vw is not None:
-                # Dragged an existing PDF text/SHX object -> move it in the live PDF!
+            if dist_px >= 6.0 and 0 <= sel_b < len(blocks) and sel_b in sel_multi and vw is not None:
                 x0, y0 = self._to_pdf_pt(p0)
                 x1, y1 = self._to_pdf_pt(p1)
-                vw.move_pdf_block(blocks[sel_b], x1 - x0, y1 - y0)
+                for idx_m in sorted(i for i in sel_multi if 0 <= i < len(blocks)):
+                    vw.move_pdf_block(blocks.__getitem__(idx_m), x1 - x0, y1 - y0)
+            elif dist_px >= 6.0:
+                x0, y0 = self._to_pdf_pt(p0)
+                x1, y1 = self._to_pdf_pt(p1)
+                sx0, sy0, sx1, sy1 = min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)
+                picked = set()
+                for idx_c, b_c in enumerate(blocks):
+                    br = b_c.get("rect")
+                    if not br or len(br) < 4:
+                        continue
+                    bx0, by0, bx1, by1 = br.__getitem__(0), br.__getitem__(1), br.__getitem__(2), br.__getitem__(3)
+                    if not (bx1 < sx0 or bx0 > sx1 or by1 < sy0 or by0 > sy1):
+                        picked.add(idx_c)
+                self._selected_pdf_blocks = picked
+                self._selected_pdf_block = min(picked) if len(picked) == 1 else -1
+                if self._inline_editor.isVisible():
+                    self._commit_inline_text()
             elif 0 <= sel_b < len(blocks) and dist_px < 6.0:
-                blk = blocks[sel_b]
-                bx0, by0, bx1, by1 = blk["rect"]
-                qr = QRect(self._from_pdf_pt(bx0, by0), self._from_pdf_pt(bx1, by1)).normalized().adjusted(-3, -4, 14, 6)
+                blk = blocks.__getitem__(sel_b)
+                r_b = blk.get("rect", (0, 0, 10, 10))
+                bx0, by0, bx1, by1 = r_b.__getitem__(0), r_b.__getitem__(1), r_b.__getitem__(2), r_b.__getitem__(3)
+                init_txt = str(blk.get("text", "") or "").strip()
+                if not init_txt and blk.get("kind") == "shx_vector" and vw is not None and getattr(vw, "_doc", None) is not None:
+                    try:
+                        from core.pdf_live_editor_engine import PdfLiveEditorEngine
+                        pno_cur = max(0, int(vw.get_page_fn()) - 1)
+                        init_txt = PdfLiveEditorEngine.ocr_single_box(vw._doc.load_page(pno_cur), (bx0, by0, bx1, by1))
+                        if init_txt:
+                            blk["text"] = init_txt
+                    except Exception:
+                        pass
+                qr = QRect(self._from_pdf_pt(bx0, by0), self._from_pdf_pt(bx1, by1)).normalized().adjusted(-1, -1, 6, 2)
                 if blk.get("font_family"):
                     self.font_family = str(blk["font_family"])
                 self.font_size = max(6, int(round(float(blk.get("font_size", 10)))))
@@ -1392,17 +1617,11 @@ class CadBlueprintCanvas(QLabel):
                     rc, gc, bc = blk["color"][:3]
                     self.active_color = QColor(int(rc * 255), int(gc * 255), int(bc * 255))
                 self._inline_pdf_edit_rect = tuple(blk["rect"])
+                self._inline_pdf_edit_meta = dict(blk)
                 self._inline_locked_qrect = qr
                 self._start_inline_text(QPoint(qr.x(), qr.y() + 14), initial_text=blk.get("text", ""))
                 self._inline_editor.setGeometry(qr)
-            elif dist_px >= 10.0 and sel_b < 0:
-                # Dragged a new box over unclustered area -> strip & open live inline text editor
-                x0, y0 = self._to_pdf_pt(p0)
-                x1, y1 = self._to_pdf_pt(p1)
-                sel_r = (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
-                self._inline_pdf_edit_rect = sel_r
-                tl_q = self._from_pdf_pt(sel_r, sel_r)
-                self._start_inline_text(QPoint(tl_q.x(), tl_q.y() + 14), initial_text="")
+
             self.update()
             ev.accept()
             return
@@ -1420,6 +1639,12 @@ class CadBlueprintCanvas(QLabel):
                         if matched:
                             self.selected_indices.add(i)
                 self.selected_idx = max(self.selected_indices) if self.selected_indices else -1
+            self.update()
+            ev.accept()
+            return
+        if getattr(self, "_hl_drag_mode", None):
+            self._hl_drag_mode = None
+            self.setCursor(Qt.ArrowCursor)
             self.update()
             ev.accept()
             return
@@ -1683,6 +1908,20 @@ class CadBlueprintCanvas(QLabel):
             self.undo_last_markup()
             ev.accept()
             return
+        if 0 <= getattr(self, "_selected_hl_idx", -1) < len(getattr(self, "key_highlights", list())):
+            if ev.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+                self.key_highlights.pop(self._selected_hl_idx)
+                self._selected_hl_idx = -1
+                self.update()
+                ev.accept()
+                return
+            if ev.key() in (Qt.Key_BracketLeft, Qt.Key_BracketRight):
+                step_a = -5.0 if ev.key() == Qt.Key_BracketLeft else 5.0
+                hl_k = self.key_highlights.__getitem__(self._selected_hl_idx)
+                hl_k["angle"] = float(hl_k.get("angle", 0.0) or 0.0) + step_a
+                self.update()
+                ev.accept()
+                return
         if ev.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             self.delete_selected_markup()
             ev.accept()
@@ -1718,12 +1957,29 @@ class CadBlueprintCanvas(QLabel):
         p = QPainter(self)
         p.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing | QPainter.SmoothPixmapTransform, True)
 
-        for hl in self.key_highlights:
+        sel_hl_i = getattr(self, "_selected_hl_idx", -1)
+        for hl_i, hl in enumerate(self.key_highlights):
             col = hl["color"]
-            x0, y0, x1, y1 = hl["rect"]
+            _, _, _, _, ang_hl, ctr_hl, hw_px, hh_px = self._hl_geom(hl)
+            p.save()
+            p.translate(ctr_hl)
+            p.rotate(ang_hl)
             p.setBrush(QColor(col.red(), col.green(), col.blue(), 65))
             p.setPen(QPen(col, 2))
-            p.drawRoundedRect(QRect(self._from_pdf_pt(x0, y0), self._from_pdf_pt(x1, y1)).adjusted(-1, 0, 1, 0), 2, 2)
+            p.drawRoundedRect(QRect(int(round(-hw_px)), int(round(-hh_px)), int(round(hw_px * 2.0)), int(round(hh_px * 2.0))), 2, 2)
+            if hl_i == sel_hl_i:
+                rw_i, rh_i = int(round(hw_px)), int(round(hh_px))
+                p.setBrush(Qt.NoBrush)
+                p.setPen(QPen(QColor("#0f172a"), 1.3, Qt.DashLine))
+                p.drawRect(QRect(-rw_i - 2, -rh_i - 2, (rw_i + 2) * 2, (rh_i + 2) * 2))
+                p.setPen(QPen(QColor("#0284c7"), 1.5))
+                p.drawLine(0, -rh_i - 2, 0, -rh_i - 18)
+                p.setBrush(QColor("#0284c7"))
+                p.drawEllipse(QPoint(0, -rh_i - 18), 5, 5)
+                p.setBrush(QColor("#ffffff"))
+                for sx, sy in ((-rw_i - 2, 0), (rw_i + 2, 0), (0, -rh_i - 2), (0, rh_i + 2)):
+                    p.drawRect(QRect(sx - 4, sy - 4, 8, 8))
+            p.restore()
             if hl.get("seg"):
                 sx1, sy1, sx2, sy2 = hl["seg"]
                 p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), 190), 5, Qt.SolidLine, Qt.RoundCap))
@@ -1983,27 +2239,44 @@ class CadBlueprintCanvas(QLabel):
                     p.drawText(qpt.x(), ly, line_s)
 
         if self.mode == "edit_pdf":
-            sel_bi = getattr(self, "_selected_pdf_block", -1)
             blks = getattr(self, "_pdf_edit_blocks", [])
-            hov_pt = self._to_pdf_pt(self._hover_pt) if self._hover_pt is not None else None
-            for bi, blk in enumerate(blks):
-                bx0, by0, bx1, by1 = blk["rect"]
-                is_hov = hov_pt is not None and (bx0 - 3) <= hov_pt[0] <= (bx1 + 3) and (by0 - 3) <= hov_pt[1] <= (by1 + 3)
-                if bi != sel_bi and not is_hov:
-                    continue
-                qr = QRect(self._from_pdf_pt(bx0, by0), self._from_pdf_pt(bx1, by1)).normalized().adjusted(-2, -1, 2, 1)
-                p.setBrush(QColor(2, 132, 199, 34) if bi == sel_bi else QColor(2, 132, 199, 18))
-                p.setPen(QPen(QColor("#0284c7"), 1.8 if bi == sel_bi else 1.2, Qt.SolidLine if bi == sel_bi else Qt.DashLine))
-                p.drawRect(qr)
-            if 0 <= sel_bi < len(blks) and self._drag_start and self._drag_cur:
-                dx = self._drag_cur.x() - self._drag_start.x()
-                dy = self._drag_cur.y() - self._drag_start.y()
-                bx0, by0, bx1, by1 = blks[sel_bi]["rect"]
-                qr_ghost = QRect(self._from_pdf_pt(bx0, by0), self._from_pdf_pt(bx1, by1)).normalized().translated(dx, dy)
-                p.setBrush(QColor(16, 185, 129, 45))
-                p.setPen(QPen(QColor("#059669"), 2.0, Qt.SolidLine))
-                p.drawRect(qr_ghost)
-        if self.mode in ("box", "highlight", "filled_box", "edit_pdf") and self._drag_start and self._drag_cur:
+            if blks:
+                guide_rects = []
+                for blk_g in blks:
+                    rg = blk_g.get("rect")
+                    if rg and len(rg) >= 4:
+                        guide_rects.append(QRect(self._from_pdf_pt(rg.__getitem__(0), rg.__getitem__(1)), self._from_pdf_pt(rg.__getitem__(2), rg.__getitem__(3))).normalized().adjusted(-1, -1, 2, 1))
+                if guide_rects:
+                    p.setBrush(Qt.NoBrush)
+                    p.setPen(QPen(QColor(2, 132, 199, 85), 0.9, Qt.DashLine))
+                    p.drawRects(guide_rects)
+            if not self._inline_editor.isVisible():
+                sel_bi = getattr(self, "_selected_pdf_block", -1)
+                hov_bi = getattr(self, "_hover_pdf_block", -1)
+                active_set = (set(getattr(self, "_selected_pdf_blocks", set())) | {sel_bi, hov_bi}) - {-1}
+                for bi in active_set:
+                    if 0 <= bi < len(blks):
+                        r_i = blks.__getitem__(bi).get("rect", (0, 0, 0, 0))
+                        qr = QRect(self._from_pdf_pt(r_i.__getitem__(0), r_i.__getitem__(1)), self._from_pdf_pt(r_i.__getitem__(2), r_i.__getitem__(3))).normalized().adjusted(-2, -1, 2, 1)
+                        p.setBrush(QColor(2, 132, 199, 12) if bi == sel_bi else QColor(2, 132, 199, 6))
+                        p.setPen(QPen(QColor("#0284c7"), 1.0 if bi == sel_bi else 0.8, Qt.SolidLine if bi == sel_bi else Qt.DashLine))
+                        p.drawRect(qr)
+                if self._drag_start and self._drag_cur:
+                    dx = self._drag_cur.x() - self._drag_start.x()
+                    dy = self._drag_cur.y() - self._drag_start.y()
+                    if math.hypot(dx, dy) >= 6.0:
+                        from PySide6.QtGui import QGuiApplication as _QGuiApp
+                        if (_QGuiApp.keyboardModifiers() & Qt.AltModifier) and 0 <= sel_bi < len(blks):
+                            r_s = blks.__getitem__(sel_bi).get("rect", (0, 0, 0, 0))
+                            qr_ghost = QRect(self._from_pdf_pt(r_s.__getitem__(0), r_s.__getitem__(1)), self._from_pdf_pt(r_s.__getitem__(2), r_s.__getitem__(3))).normalized().translated(dx, dy)
+                            p.setBrush(QColor(16, 185, 129, 38))
+                            p.setPen(QPen(QColor("#059669"), 1.6, Qt.SolidLine))
+                            p.drawRect(qr_ghost)
+                        else:
+                            p.setBrush(Qt.NoBrush)
+                            p.setPen(QPen(QColor("#0284c7"), 1.0, Qt.SolidLine))
+                            p.drawRect(QRect(self._drag_start, self._drag_cur).normalized())
+        if self.mode in ("box", "highlight", "filled_box") and self._drag_start and self._drag_cur:
             p.setBrush(QColor(self.active_color.red(), self.active_color.green(), self.active_color.blue(), 45))
             p.setPen(QPen(self.active_color, max(1.5, float(self.active_line_width) * self.zoom), Qt.SolidLine))
             p.drawRect(QRect(self._drag_start, self._drag_cur).normalized())
@@ -2719,39 +2992,82 @@ class VisualTakeoffWorkspace(QWidget):
 
     def set_mode(self, mode):
         self.canvas.set_interaction_mode(mode)
-        if mode == 'edit_pdf' and not getattr(self.canvas, '_pdf_edit_blocks', None):
-            from PySide6.QtCore import QThread, Signal
-            pg_idx = int(getattr(self, '_cur_page', 0))
-            pdf_p = str(getattr(self, 'pdf_path', '') or '')
-            if hasattr(self, 'lbl_hint'):
-                self.lbl_hint.setText('EXTRACTING EDITABLE PDF TEXT IN BACKGROUND — UI STAYS UNLOCKED...')
-
-            class _EditPdfBgWorker(QThread):
-                done_blocks = Signal(list)
-                def run(self_w):
-                    try:
-                        import pymupdf as _pm_bg
-                        from core.pdf_live_editor_engine import PdfLiveEditorEngine
-                        if pdf_p and os.path.exists(pdf_p):
-                            _d = _pm_bg.open(pdf_p)
-                            _p = _d.load_page(min(pg_idx, len(_d) - 1))
-                            blks = PdfLiveEditorEngine.extract_live_objects(_p, page_num=pg_idx + 1, pdf_path=pdf_p, run_ocr_if_shx=True)
-                            _d.close()
-                        else:
-                            blks = []
-                    except Exception:
-                        blks = []
-                    self_w.done_blocks.emit(blks)
-
-            w_ed = _EditPdfBgWorker(self)
-            self._edit_pdf_worker = w_ed
-            def _apply_ed_blocks(blks):
-                self.canvas._pdf_edit_blocks = blks
+        if mode == 'edit_pdf':
+            cur_pg_num = max(1, int(self.get_page_fn())) if callable(getattr(self, 'get_page_fn', None)) else 1
+            pg_idx = max(0, cur_pg_num - 1)
+            self._edit_blocks_cache = getattr(self, '_edit_blocks_cache', {})
+            if pg_idx in self._edit_blocks_cache:
+                cached_blks = self._edit_blocks_cache.get(pg_idx, [])
+                self.canvas._pdf_edit_blocks_page = pg_idx
+                self.canvas._pdf_edit_blocks = cached_blks
                 self.canvas.update()
                 if hasattr(self, 'lbl_hint'):
-                    self.lbl_hint.setText(f'EDIT PDF READY — {len(blks)} editable text block(s) detected. Click text to edit or drag a box to replace.')
-            w_ed.done_blocks.connect(_apply_ed_blocks)
-            w_ed.start()
+                    self.lbl_hint.setText(f'EDIT PDF READY (SHEET {cur_pg_num}) — {len(cached_blks)} editable text block(s) ready.')
+            elif not getattr(self.canvas, '_pdf_edit_blocks', None) or getattr(self.canvas, '_pdf_edit_blocks_page', -1) != pg_idx:
+                from PySide6.QtCore import QThread, Signal
+                self.canvas._pdf_edit_blocks = []
+                self.canvas._selected_pdf_block = -1
+                self.canvas._hover_pdf_block = -1
+                self.canvas._pdf_edit_blocks_page = pg_idx
+                self._edit_pdf_workers = [w for w in getattr(self, '_edit_pdf_workers', []) if w.isRunning()]
+                for old_w in self._edit_pdf_workers:
+                    old_w._cancelled = True
+                pdf_p = str(getattr(self, 'pdf_path', '') or '')
+                doc_bytes = None
+                if pg_idx in getattr(self, '_edited_pdf_pages', set()) and getattr(self, '_doc', None) is not None and len(self._doc) > 0:
+                    try:
+                        doc_bytes = self._doc.tobytes()
+                    except Exception:
+                        doc_bytes = None
+                if hasattr(self, 'lbl_hint'):
+                    self.lbl_hint.setText(f'EXTRACTING EDITABLE PDF TEXT ON SHEET {cur_pg_num} IN BACKGROUND...')
+
+                class _EditPdfBgWorker(QThread):
+                    done_blocks = Signal(int, list)
+                    def __init__(self_w, parent=None):
+                        super().__init__(parent)
+                        self_w._cancelled = False
+                    def run(self_w):
+                        try:
+                            import pymupdf as _pm_bg
+                            from core.pdf_live_editor_engine import PdfLiveEditorEngine
+                            if self_w._cancelled:
+                                return
+                            if doc_bytes:
+                                _d = _pm_bg.open(stream=doc_bytes, filetype="pdf")
+                                _p = _d.load_page(min(pg_idx, len(_d) - 1))
+                                blks = PdfLiveEditorEngine.extract_live_objects(_p, page_num=pg_idx + 1, pdf_path=pdf_p, run_ocr_if_shx=False)
+                                _d.close()
+                            elif pdf_p and os.path.exists(pdf_p):
+                                _d = _pm_bg.open(pdf_p)
+                                _p = _d.load_page(min(pg_idx, len(_d) - 1))
+                                blks = PdfLiveEditorEngine.extract_live_objects(_p, page_num=pg_idx + 1, pdf_path=pdf_p, run_ocr_if_shx=False)
+                                _d.close()
+                            else:
+                                blks = []
+                        except Exception:
+                            blks = []
+                        if not self_w._cancelled:
+                            self_w.done_blocks.emit(pg_idx, blks)
+
+                w_ed = _EditPdfBgWorker(self)
+                self._edit_pdf_workers.append(w_ed)
+                self._edit_pdf_worker = w_ed
+                def _apply_ed_blocks(done_idx, blks, ref_w=w_ed):
+                    if getattr(ref_w, '_cancelled', False):
+                        return
+                    self._edit_blocks_cache[done_idx] = blks
+                    now_idx = max(0, (int(self.get_page_fn()) if callable(getattr(self, 'get_page_fn', None)) else 1) - 1)
+                    if done_idx != now_idx:
+                        return
+                    self.canvas._pdf_edit_blocks_page = done_idx
+                    self.canvas._pdf_edit_blocks = blks
+                    self.canvas.update()
+                    if hasattr(self, 'lbl_hint'):
+                        self.lbl_hint.setText(f'EDIT PDF READY (SHEET {done_idx + 1}) — {len(blks)} editable text block(s) ready.')
+                w_ed.done_blocks.connect(_apply_ed_blocks)
+                w_ed.finished.connect(lambda ref_w=w_ed: self._edit_pdf_workers.remove(ref_w) if ref_w in getattr(self, '_edit_pdf_workers', []) else None)
+                QTimer.singleShot(180, lambda ref_w=w_ed, target_idx=pg_idx: ref_w.start() if (not getattr(ref_w, '_cancelled', False) and max(0, (int(self.get_page_fn()) if callable(getattr(self, 'get_page_fn', None)) else 1) - 1) == target_idx) else None)
         on_s = "QPushButton { background-color: rgba(2, 132, 199, 0.24); border: 2px solid #0284c7; color: #000000; font-weight: 700; font-weight: bold; padding: 5px 8px; border-radius: 5px; }"
         off_s = "QPushButton { background-color: #e8f3fe; border: 1px solid #60a5fa; color: #0f172a; font-weight: bold; padding: 5px 8px; border-radius: 5px; }"
         for b, m in ((self.btn_pan, "pan"), (self.btn_sel, "select"), (self.btn_meas, "measure"), (self.btn_count, "count"), (self.btn_text, "text"), (self.btn_box, "box"), (self.btn_cal, "calibrate")):
@@ -2843,9 +3159,42 @@ class VisualTakeoffWorkspace(QWidget):
         if not getattr(self, "_doc", None) or pno >= len(self._doc):
             return
         self._push_pdf_undo_snapshot()
+        _ed_p = max(0, int(self.get_page_fn()) - 1)
+        self._edited_pdf_pages = getattr(self, '_edited_pdf_pages', set())
+        self._edited_pdf_pages.add(_ed_p)
+        if hasattr(self, '_edit_blocks_cache'):
+            self._edit_blocks_cache.pop(_ed_p, None)
         pg = self._doc.load_page(pno)
         from core.pdf_live_editor_engine import PdfLiveEditorEngine
         PdfLiveEditorEngine.replace_or_insert_text(pg, old_rect_tuple, new_rect_tuple, new_text, font_size=font_size, color_rgb=color_rgb, bold=bold, italic=italic, font_family=font_family, baseline_y=baseline_y, is_shx=is_shx)
+        prev_blks = list(getattr(self.canvas, "_pdf_edit_blocks", []) or [])
+        txt_after = str(new_text or "").strip()
+        updated_blks = []
+        import pymupdf as _pm_u
+        old_pr = _pm_u.Rect(*old_rect_tuple)
+        inserted_new = False
+        for b_it in prev_blks:
+            br = b_it.get("rect")
+            b_pr = _pm_u.Rect(*br) if (br and len(br) >= 4) else _pm_u.Rect()
+            inter_a = (old_pr & b_pr).get_area()
+            is_inside = (not b_pr.is_empty) and (inter_a >= min(b_pr.get_area(), old_pr.get_area()) * 0.45 or tuple(br or ()) == tuple(old_rect_tuple))
+            if is_inside:
+                if txt_after and not inserted_new:
+                    nb = dict(b_it)
+                    nb["rect"] = list(new_rect_tuple)
+                    nb["text"] = txt_after
+                    nb["kind"] = "truetype"
+                    nb["font_family"] = font_family
+                    nb["font_size"] = float(font_size)
+                    nb["bold"] = bool(bold)
+                    nb["italic"] = bool(italic)
+                    nb["color"] = color_rgb
+                    updated_blks.append(nb)
+                    inserted_new = True
+            else:
+                updated_blks.append(b_it)
+        self._edit_blocks_cache = getattr(self, "_edit_blocks_cache", {})
+        self._edit_blocks_cache[pno] = updated_blks
         self.render_sheet(pg_num, preserve_view=True)
 
     def move_pdf_block(self, blk, dx_pdf, dy_pdf):
@@ -2856,20 +3205,47 @@ class VisualTakeoffWorkspace(QWidget):
         if not getattr(self, "_doc", None) or pno >= len(self._doc):
             return
         self._push_pdf_undo_snapshot()
+        _ed_p = max(0, int(self.get_page_fn()) - 1)
+        self._edited_pdf_pages = getattr(self, '_edited_pdf_pages', set())
+        self._edited_pdf_pages.add(_ed_p)
+        if hasattr(self, '_edit_blocks_cache'):
+            self._edit_blocks_cache.pop(_ed_p, None)
         pg = self._doc.load_page(pno)
         from core.pdf_live_editor_engine import PdfLiveEditorEngine
         PdfLiveEditorEngine.move_object(pg, blk, dx_pdf, dy_pdf)
         self.render_sheet(pg_num, preserve_view=True)
 
-    def redact_native_pdf_box(self, rect_pdf):
+    def redact_native_pdf_box(self, rect_pdf, is_shx=False):
         pg_num = int(self.get_page_fn())
         pno = max(0, pg_num - 1)
         if not getattr(self, "_doc", None) or pno >= len(self._doc):
             return
         self._push_pdf_undo_snapshot()
+        _ed_p = max(0, int(self.get_page_fn()) - 1)
+        self._edited_pdf_pages = getattr(self, '_edited_pdf_pages', set())
+        self._edited_pdf_pages.add(_ed_p)
+        if hasattr(self, '_edit_blocks_cache'):
+            self._edit_blocks_cache.pop(_ed_p, None)
         pg = self._doc.load_page(pno)
         from core.pdf_live_editor_engine import PdfLiveEditorEngine
-        PdfLiveEditorEngine.erase_region(pg, rect_pdf)
+        PdfLiveEditorEngine.erase_region(pg, rect_pdf, is_shx=is_shx)
+        self.render_sheet(pg_num, preserve_view=True)
+
+    def redact_native_pdf_boxes(self, rect_items):
+        if not rect_items:
+            return
+        pg_num = int(self.get_page_fn())
+        pno = max(0, pg_num - 1)
+        if not getattr(self, "_doc", None) or pno >= len(self._doc):
+            return
+        self._push_pdf_undo_snapshot()
+        self._edited_pdf_pages = getattr(self, "_edited_pdf_pages", set())
+        self._edited_pdf_pages.add(pno)
+        if hasattr(self, "_edit_blocks_cache"):
+            self._edit_blocks_cache.pop(pno, None)
+        pg = self._doc.load_page(pno)
+        from core.pdf_live_editor_engine import PdfLiveEditorEngine
+        PdfLiveEditorEngine.erase_regions_batch(pg, rect_items)
         self.render_sheet(pg_num, preserve_view=True)
 
     def save_edited_pdf(self):
@@ -2948,7 +3324,9 @@ class VisualTakeoffWorkspace(QWidget):
         except Exception:
             pass
         self.canvas._pdf_edit_blocks = []
+        self.canvas._pdf_edit_blocks_page = -1
         self.canvas._selected_pdf_block = -1
+        self.canvas._hover_pdf_block = -1
         if getattr(self.canvas, "mode", "") == "edit_pdf":
             self.set_mode("edit_pdf")
         self._refresh_color_key_ui()
@@ -2984,6 +3362,102 @@ class VisualTakeoffWorkspace(QWidget):
             cache[pg_idx] = self._doc.load_page(pg_idx).get_text("words")
         return cache.get(pg_idx, [])
 
+    def _collect_page_searchable_boxes(self, pg, pg_num, max_x_ratio=0.90):
+        """Returns unified (x0, y0, x1, y1, raw_text) boxes across TrueType, SHX, and cached OCR layers, including stitched adjacent fragments."""
+        pw = float(pg.rect.width)
+        mx = pw * max_x_ratio
+        raw_words = list()
+        for wb in pg.get_text("words"):
+            if len(wb) >= 5 and float(wb.__getitem__(0)) < mx:
+                raw_words.append((float(wb.__getitem__(0)), float(wb.__getitem__(1)), float(wb.__getitem__(2)), float(wb.__getitem__(3)), str(wb.__getitem__(4))))
+
+        if self.pdf_path and os.path.exists(self.pdf_path):
+            try:
+                import json as _js, hashlib as _hl, tempfile as _tf, bom_pdf_engine as _be
+                _cf = os.path.join(_be._cache_dir(), f"{_be._file_fingerprint(self.pdf_path)}_pg{pg_num}_boxes.json")
+                if os.path.exists(_cf):
+                    with open(_cf, encoding="utf-8") as _f:
+                        for it_c in _js.load(_f):
+                            bx0, by0, bx1, by1, bt = float(it_c.__getitem__(0)), float(it_c.__getitem__(1)), float(it_c.__getitem__(2)), float(it_c.__getitem__(3)), str(it_c.__getitem__(4))
+                            t_ang = float(it_c.__getitem__(5)) if len(it_c) >= 6 else 0.0
+                            t_rw = float(it_c.__getitem__(6)) if len(it_c) >= 7 else 0.0
+                            if bx0 < mx:
+                                raw_words.append((bx0, by0, bx1, by1, bt, t_ang, t_rw))
+                else:
+                    st = os.stat(self.pdf_path)
+                    sig = _hl.sha256(f"{os.path.basename(self.pdf_path)}:{st.st_size}:{int(st.st_mtime)}".encode("utf-8")).hexdigest()[:20]
+                    cdir = os.path.join(os.environ.get("LOCALAPPDATA") or _tf.gettempdir(), "BowmanMortonPricingSuite", "ocr_box_cache_v1")
+                    for dpi_try in (180, 240, 150):
+                        alt_cf = os.path.join(cdir, f"{sig}_p{pg_num}_d{dpi_try}_m1.json")
+                        if os.path.exists(alt_cf):
+                            with open(alt_cf, encoding="utf-8") as _af:
+                                for it_c in _js.load(_af):
+                                    bx0, by0, bx1, by1, bt = float(it_c.__getitem__(0)), float(it_c.__getitem__(1)), float(it_c.__getitem__(2)), float(it_c.__getitem__(3)), str(it_c.__getitem__(4))
+                                    t_ang = float(it_c.__getitem__(5)) if len(it_c) >= 6 else 0.0
+                                    t_rw = float(it_c.__getitem__(6)) if len(it_c) >= 7 else 0.0
+                                    if bx0 < mx:
+                                        raw_words.append((bx0, by0, bx1, by1, bt, t_ang, t_rw))
+                            break
+            except Exception:
+                pass
+
+        for eb in getattr(self, "_edit_blocks_cache", dict()).get(pg_num - 1, list()):
+            er = eb.get("rect")
+            et = str(eb.get("text", "") or "").strip()
+            if er and len(er) >= 4 and et and float(er.__getitem__(0)) < mx:
+                raw_words.append((float(er.__getitem__(0)), float(er.__getitem__(1)), float(er.__getitem__(2)), float(er.__getitem__(3)), et))
+
+        norm_rw = list()
+        for rw_it in raw_words:
+            x0, y0, x1, y1, t = rw_it.__getitem__(0), rw_it.__getitem__(1), rw_it.__getitem__(2), rw_it.__getitem__(3), rw_it.__getitem__(4)
+            norm_rw.append((x0, y0, x1, y1, t))
+        boxes_out = [(rw_it.__getitem__(0), rw_it.__getitem__(1), rw_it.__getitem__(2), rw_it.__getitem__(3), rw_it.__getitem__(4), float(rw_it.__getitem__(5)) if len(rw_it) >= 6 else 0.0, float(rw_it.__getitem__(6)) if len(rw_it) >= 7 else 0.0) for rw_it in raw_words]
+        raw_words = norm_rw
+        h_sorted = sorted(raw_words, key=lambda b: (round((b.__getitem__(1) + b.__getitem__(3)) * 0.5 / 6.0), b.__getitem__(0)))
+        for idx_w in range(len(h_sorted) - 1):
+            ax0, ay0, ax1, ay1, at = h_sorted.__getitem__(idx_w)
+            bx0, by0, bx1, by1, bt = h_sorted.__getitem__(idx_w + 1)
+            acy = (ay0 + ay1) * 0.5
+            bcy = (by0 + by1) * 0.5
+            if abs(acy - bcy) <= 13.0 and -6.0 <= (bx0 - ax1) <= 30.0:
+                boxes_out.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), f"{at}{bt}", 0.0))
+                if idx_w + 2 < len(h_sorted):
+                    cx0, cy0, cx1, cy1, ct = h_sorted.__getitem__(idx_w + 2)
+                    ccy = (cy0 + cy1) * 0.5
+                    if abs(bcy - ccy) <= 8.0 and -4.0 <= (cx0 - bx1) <= 22.0:
+                        boxes_out.append((min(ax0, bx0, cx0), min(ay0, by0, cy0), max(ax1, bx1, cx1), max(ay1, by1, cy1), f"{at}{bt}{ct}", 0.0))
+
+        v_sorted = sorted(raw_words, key=lambda b: (round((b.__getitem__(0) + b.__getitem__(2)) * 0.5 / 6.0), b.__getitem__(1)))
+        for idx_v in range(len(v_sorted) - 1):
+            ax0, ay0, ax1, ay1, at = v_sorted.__getitem__(idx_v)
+            bx0, by0, bx1, by1, bt = v_sorted.__getitem__(idx_v + 1)
+            acx = (ax0 + ax1) * 0.5
+            bcx = (bx0 + bx1) * 0.5
+            if abs(acx - bcx) <= 13.0 and -6.0 <= (by0 - ay1) <= 30.0:
+                boxes_out.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), f"{at}{bt}", 0.0))
+                boxes_out.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), f"{bt}{at}", 0.0))
+
+        short_toks = [b for b in raw_words if 1 <= len(str(b.__getitem__(4)).strip()) <= 14]
+        for idx_a in range(len(short_toks)):
+            ax0, ay0, ax1, ay1, at = short_toks.__getitem__(idx_a)
+            acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5
+            for idx_b in range(idx_a + 1, len(short_toks)):
+                bx0, by0, bx1, by1, bt = short_toks.__getitem__(idx_b)
+                bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
+                ux0, uy0, ux1, uy1 = min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1)
+                if math.hypot(bcx - acx, bcy - acy) <= 26.0 and (ux1 - ux0) <= 72.0 and (uy1 - uy0) <= 36.0:
+                    dx_ab, dy_ab = bcx - acx, bcy - acy
+                    ang_deg = 0.0
+                    if abs(dx_ab) >= 5.0 and abs(dy_ab) >= 5.0:
+                        raw_deg = math.degrees(math.atan2(dy_ab, dx_ab))
+                        if raw_deg > 90.0: raw_deg -= 180.0
+                        elif raw_deg < -90.0: raw_deg += 180.0
+                        ang_deg = 45.0 if raw_deg > 18.0 else (-45.0 if raw_deg < -18.0 else 0.0)
+                    boxes_out.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), f"{at}{bt}", ang_deg))
+                    boxes_out.append((min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), f"{bt}{at}", ang_deg))
+
+        return boxes_out
+
     def _refresh_color_key_ui(self):
         pg_num = self.get_page_fn()
         eff_key = self._effective_key_for_page(pg_num)
@@ -2993,72 +3467,101 @@ class VisualTakeoffWorkspace(QWidget):
             it.setData(Qt.UserRole, prof)
             self.key_list.addItem(it)
 
-        highlights = []
+        highlights = list()
         counts = {p: 0 for p in eff_key}
         if eff_key and 1 <= pg_num <= len(self._doc):
             pg = self._doc.load_page(pg_num - 1)
-            mx = float(pg.rect.width) * 0.90
-            word_boxes = list(pg.get_text("words"))
-            if self.pdf_path and os.path.exists(self.pdf_path):
-                try:
-                    import json as _js, bom_pdf_engine as _be
-                    _cf = os.path.join(_be._cache_dir(), f"{_be._file_fingerprint(self.pdf_path)}_pg{pg_num}_boxes.json")
-                    if os.path.exists(_cf):
-                        with open(_cf, encoding="utf-8") as _f:
-                            for bx0, by0, bx1, by1, bt in _js.load(_f):
-                                word_boxes.append((bx0, by0, bx1, by1, str(bt)))
-                except Exception:
-                    pass
-
-            line_map = {}
-            for wb in word_boxes:
-                if len(wb) >= 8:
-                    wx0, wy0, wx1, wy1, wstr, bno, lno, _ = wb[:8]
-                    line_map.setdefault((bno, lno), []).append((wx0, wy0, wx1, wy1, wstr))
-            for _, wlist in line_map.items():
-                if len(wlist) > 1:
-                    word_boxes.append((
-                        min(w[0] for w in wlist),
-                        min(w[1] for w in wlist),
-                        max(w[2] for w in wlist),
-                        max(w[3] for w in wlist),
-                        " ".join(str(w[4]) for w in wlist),
-                    ))
-
+            word_boxes = self._collect_page_searchable_boxes(pg, pg_num, max_x_ratio=0.90)
             from core.plan_world import normalize_cad_text as _norm_tok
+            from core.ocr_scan_engine import _normalize_ocr_cad_noise as _norm_shx
 
-            norm_keys = {_norm_tok(k): (k, qc) for k, qc in eff_key.items() if _norm_tok(k)}
-            for wb in word_boxes:
-                wx0, wy0, wx1, wy1, wstr = wb[:5]
-                if wx0 >= mx:
+            norm_keys = dict()
+            for k, qc in eff_key.items():
+                nk1 = _norm_tok(k)
+                nk2 = _norm_shx(k)
+                if nk1:
+                    norm_keys[nk1] = (k, qc)
+                if nk2:
+                    norm_keys[nk2] = (k, qc)
+
+            def _shx_clean_key(s_in):
+                s_u = _norm_shx(s_in) or _norm_tok(s_in)
+                s_u = re.sub(r"\bW[IL](\d+X[\dJSB]+(?:\.\d+)?)", r"W1\1", s_u)
+                s_u = re.sub(r"\b(W\d+X)S(\d)\b", r"\g<1>5\2", s_u)
+                s_u = re.sub(r"\b(W\d+X\d+)J\b", r"\g<1>3", s_u)
+                s_u = re.sub(r"\b(W\d+X\d)B\b", r"\g<1>8", s_u)
+                s_u = re.sub(r"(?<![A-Z])SS[AB](?=X\d+(?:\.\d+)?X\d+)", "HSS8", s_u)
+                s_u = re.sub(r"(?<![A-Z])SS(?=\d+(?:\.\d+)?X\d+(?:\.\d+)?X\d+)", "HSS", s_u)
+                s_u = re.sub(r"(?<![A-Z0-9])(4X2\.5X1/4|4X4X1/4|5X5X1/4|6X6X1/4|6X6X5/16|8X4X5/16|8X4X3/8)\b", r"HSS\1", s_u)
+                return s_u
+
+            for item_b in word_boxes:
+                wx0, wy0, wx1, wy1, wstr = item_b.__getitem__(0), item_b.__getitem__(1), item_b.__getitem__(2), item_b.__getitem__(3), item_b.__getitem__(4)
+                w_ang = float(item_b.__getitem__(5)) if len(item_b) >= 6 else 0.0
+                nw1 = _norm_tok(wstr)
+                nw2 = _shx_clean_key(wstr)
+                if not nw1 and not nw2:
                     continue
-                nw = _norm_tok(wstr)
-                if not nw:
-                    continue
-                matched_pair = norm_keys.get(nw)
+                matched_pair = norm_keys.get(nw1) or norm_keys.get(nw2)
                 if matched_pair is None:
+                    nw1_c = re.sub(r"[^A-Z0-9/.]", "", nw1)
+                    nw2_c = re.sub(r"[^A-Z0-9/.]", "", nw2)
                     for nk, pair in norm_keys.items():
-                        if len(nk) >= 4 and nk in nw:
+                        nk_c = re.sub(r"[^A-Z0-9/.]", "", nk)
+                        if len(nk_c) >= 4 and ((nw1_c and nk_c in nw1_c) or (nw2_c and nk_c in nw2_c)):
                             matched_pair = pair
                             break
                 if matched_pair is not None:
                     orig_k, col = matched_pair
-                    counts[orig_k] = counts.get(orig_k, 0) + 1
                     cx, cy = (wx0 + wx1) * 0.5, (wy0 + wy1) * 0.5
                     dup = False
                     for h_prev in highlights:
                         if h_prev["profile"] == orig_k:
                             px0, py0, px1, py1 = h_prev["rect"]
-                            if abs(((px0 + px1) * 0.5) - cx) < 20.0 and abs(((py0 + py1) * 0.5) - cy) < 20.0:
+                            if abs(((px0 + px1) * 0.5) - cx) < 10.0 and abs(((py0 + py1) * 0.5) - cy) < 10.0:
                                 dup = True
                                 break
                     if not dup:
-                        highlights.append({"profile": orig_k, "color": col, "rect": (wx0, wy0, wx1, wy1), "seg": None})
+                        counts[orig_k] = counts.get(orig_k, 0) + 1
+                        # Detect 45-degree / -45-degree stroke angle directly from SHX vector line angles without shifting box position
+                        if not pg.get_text("words"):
+                            try:
+                                import pymupdf as _pm_a
+                                rot_m = getattr(pg, "rotation_matrix", _pm_a.Matrix(1, 1))
+                                is_r = bool(getattr(pg, "rotation", 0) % 360 != 0)
+                                clip_r = _pm_a.Rect(wx0 - 4.0, wy0 - 4.0, wx1 + 4.0, wy1 + 4.0)
+                                diag_pos, diag_neg, ortho_cnt = 0, 0, 0
+                                for drw in pg.get_drawings():
+                                    rr = drw.get("rect")
+                                    if not rr:
+                                        continue
+                                    rd = (rr * rot_m) if is_r else rr
+                                    if not clip_r.intersects(rd) or max(rd.width, rd.height) > 16.0:
+                                        continue
+                                    for itm in drw.get("items", ()):
+                                        if itm.__getitem__(0) == "l" and len(itm) >= 3:
+                                            p1 = (itm.__getitem__(1) * rot_m) if is_r else itm.__getitem__(1)
+                                            p2 = (itm.__getitem__(2) * rot_m) if is_r else itm.__getitem__(2)
+                                            dx_l, dy_l = p2.x - p1.x, p2.y - p1.y
+                                            if math.hypot(dx_l, dy_l) < 1.2:
+                                                continue
+                                            deg_l = math.degrees(math.atan2(dy_l, dx_l)) % 180.0
+                                            if any(abs(deg_l - a0) <= 12.0 for a0 in (0.0, 90.0, 180.0)):
+                                                ortho_cnt += 1
+                                            elif abs(deg_l - 45.0) <= 12.0:
+                                                diag_pos += 1
+                                            elif abs(deg_l - 135.0) <= 12.0:
+                                                diag_neg += 1
+                                if (diag_pos + diag_neg) > ortho_cnt and (diag_pos + diag_neg) >= 4:
+                                    w_ang = 45.0 if diag_pos >= diag_neg else -45.0
+                            except Exception:
+                                pass
+                        w_tlen = float(item_b.__getitem__(6)) if len(item_b) >= 7 else 0.0
+                        highlights.append({"profile": orig_k, "color": col, "rect": (wx0, wy0, wx1, wy1), "angle": w_ang, "true_len": w_tlen, "seg": None})
 
-        # If Scope is Whole Planset, show total checked BOM qty across the entire planset (with multi-sheet vector fallback)
         is_global = (self.key_scope_combo.currentData() == "global")
         if is_global:
-            bom_totals = {}
+            bom_totals = dict()
             dlg = self.window()
             if hasattr(dlg, "tree"):
                 for i in range(dlg.tree.topLevelItemCount()):
@@ -3075,13 +3578,6 @@ class VisualTakeoffWorkspace(QWidget):
             for p_key in eff_key:
                 if bom_totals.get(p_key, 0) > 0:
                     counts[p_key] = bom_totals[p_key]
-                elif counts.get(p_key, 0) == 0:
-                    tot_vec = 0
-                    for p_idx in range(len(self._doc)):
-                        pg_i = self._doc.load_page(p_idx)
-                        mx_i = float(pg_i.rect.width) * 0.72
-                        tot_vec += sum(1 for wx0, _, _, _, wstr, *_ in self._get_cached_page_words(pg_i.number) if wx0 < mx_i and re.sub(r"\s+", "", wstr.upper()) == p_key)
-                    counts[p_key] = tot_vec
 
         self.canvas.set_color_key_overlays(highlights, [(p, eff_key[p], counts.get(p, 0)) for p in eff_key])
 
@@ -3093,33 +3589,25 @@ class VisualTakeoffWorkspace(QWidget):
         if not norm_prof:
             self.lbl_prof_sheets.setText("Click a key item to jump sheets:")
             return
-        target_nk = re.sub(r"\s+", "", str(norm_prof).upper()).replace("×", "X")
-        found_pages = []
+        from core.plan_world import normalize_cad_text as _norm_tok
+        from core.ocr_scan_engine import _normalize_ocr_cad_noise as _norm_shx
+        target_nk = _norm_shx(norm_prof) or _norm_tok(norm_prof)
+        found_pages = list()
         for p_idx in range(len(self._doc)):
             pg = self._doc.load_page(p_idx)
-            mx = float(pg.rect.width) * 0.90
+            boxes = self._collect_page_searchable_boxes(pg, p_idx + 1, max_x_ratio=0.90)
             hit_pg = False
-            for wx0, _, _, _, wstr, *_ in pg.get_text("words"):
-                if wx0 < mx and target_nk in re.sub(r"\s+", "", wstr.upper()).replace("×", "X"):
+            for item_p in boxes:
+                bt = item_p.__getitem__(4)
+                nb = _norm_shx(bt) or _norm_tok(bt)
+                if nb and target_nk and target_nk in nb:
                     hit_pg = True
                     break
-            if not hit_pg and self.pdf_path and os.path.exists(self.pdf_path):
-                try:
-                    import json as _js, bom_pdf_engine as _be
-                    _cf = os.path.join(_be._cache_dir(), f"{_be._file_fingerprint(self.pdf_path)}_pg{p_idx + 1}_boxes.json")
-                    if os.path.exists(_cf):
-                        with open(_cf, encoding="utf-8") as _f:
-                            for bx0, _, _, _, bt in _js.load(_f):
-                                if bx0 < mx and target_nk in re.sub(r"\s+", "", str(bt).upper()).replace("×", "X"):
-                                    hit_pg = True
-                                    break
-                except Exception:
-                    pass
             if hit_pg:
                 found_pages.append(p_idx + 1)
         if found_pages:
             self.lbl_prof_sheets.setText(f"{norm_prof} found on {len(found_pages)} sheet(s):")
-            for p_num in found_pages[:6]:
+            for p_num in found_pages[:8]:
                 btn_p = QPushButton(f"Pg {p_num}")
                 btn_p.setToolTip(f"<b>Jump to Page {p_num}</b><br>Switch directly to Page {p_num} with {norm_prof} highlighted.")
                 btn_p.setStyleSheet("QPushButton { background-color: #0284c7; color: #ffffff; border: 1px solid #0369a1; border-radius: 4px; padding: 3px 7px; font-size: 11px; font-weight: bold; } QPushButton:hover { background-color: rgba(2, 132, 199, 0.42); color: #0f172a; }")
@@ -3245,7 +3733,8 @@ class VisualTakeoffWorkspace(QWidget):
                         _cf = os.path.join(_be._cache_dir(), f"{_be._file_fingerprint(self.pdf_path)}_pg{pg_num}_boxes.json")
                         if os.path.exists(_cf):
                             with open(_cf, encoding="utf-8") as _f:
-                                for bx0, by0, bx1, by1, bt in _js.load(_f):
+                                for _jb in _js.load(_f):
+                                    bx0, by0, bx1, by1, bt = _jb.__getitem__(0), _jb.__getitem__(1), _jb.__getitem__(2), _jb.__getitem__(3), _jb.__getitem__(4)
                                     word_boxes.append((bx0, by0, bx1, by1, str(bt)))
                     except Exception:
                         pass

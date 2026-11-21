@@ -36,21 +36,30 @@ def extract_vector_page_tokens(page, clip_rect=None):
             vert_words.append((cx_w, cy_w, nw))
         lines_grp.setdefault((bno, lno), []).append((wx0, wy0, wx1, wy1, nw))
 
-    # Stitch adjacent vector words on the same text line (handles split "W 12 X 26" or "PL 1/2 X 12")
+    # Stitch strictly adjacent vector words on the same text line (<= 16pt gap, e.g. "W 12 X 26" or "PL 1/2 X 12")
     for (bno, lno), wlist in lines_grp.items():
         if len(wlist) > 1:
-            w_sorted = sorted(wlist, key=lambda w: w[0])
-            lx0 = min(w[0] for w in w_sorted)
-            ly0 = min(w[1] for w in w_sorted)
-            lx1 = max(w[2] for w in w_sorted)
-            ly1 = max(w[3] for w in w_sorted)
-            joined = " ".join(w[4] for w in w_sorted)
-            compact = re.sub(r"\b(W|WT|S|HP|HSS|L|C|MC|PL|FB|PIPE)\s+(\d)", r"\1\2", joined)
-            compact = re.sub(r"(?<=\d)\s*[X×]\s*(?=\d)", "X", compact)
-            items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, compact))
-            if compact != joined:
-                items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, joined))
-
+            w_sorted = sorted(wlist, key=lambda w: w.__getitem__(0))
+            grp = [w_sorted.__getitem__(0)]
+            for w_nxt in w_sorted[1:]:
+                if (w_nxt.__getitem__(0) - grp[-1].__getitem__(2)) <= 16.0:
+                    grp.append(w_nxt)
+                else:
+                    if len(grp) > 1:
+                        lx0, ly0 = min(g.__getitem__(0) for g in grp), min(g.__getitem__(1) for g in grp)
+                        lx1, ly1 = max(g.__getitem__(2) for g in grp), max(g.__getitem__(3) for g in grp)
+                        joined = " ".join(g.__getitem__(4) for g in grp)
+                        compact = re.sub(r"\b(W|WT|S|HP|HSS|L|C|MC|PL|FB|PIPE)\s+(\d)", r"\1\2", joined)
+                        compact = re.sub(r"(?<=\d)\s*[X×]\s*(?=\d)", "X", compact)
+                        items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, compact))
+                    grp = [w_nxt]
+            if len(grp) > 1:
+                lx0, ly0 = min(g.__getitem__(0) for g in grp), min(g.__getitem__(1) for g in grp)
+                lx1, ly1 = max(g.__getitem__(2) for g in grp), max(g.__getitem__(3) for g in grp)
+                joined = " ".join(g.__getitem__(4) for g in grp)
+                compact = re.sub(r"\b(W|WT|S|HP|HSS|L|C|MC|PL|FB|PIPE)\s+(\d)", r"\1\2", joined)
+                compact = re.sub(r"(?<=\d)\s*[X×]\s*(?=\d)", "X", compact)
+                items.append(((lx0 + lx1) * 0.5, (ly0 + ly1) * 0.5, compact))
 
     # Stitch 90-deg / 270-deg rotated vertical fragments sharing the same X column
     if len(vert_words) > 1:

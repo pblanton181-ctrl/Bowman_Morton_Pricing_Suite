@@ -2184,6 +2184,7 @@ QComboBox, QLineEdit {
         
         self.model_box = QComboBox()
         self.model_box.currentIndexChanged.connect(self.handle_model_switch_visual_update)
+        self.model_box.currentIndexChanged.connect(lambda *_: self.update_live_price_preview())
         
         c1_layout.addWidget(QLabel("Search & Select Part Model:"))
         c1_layout.addWidget(self.smart_lookup_input)
@@ -2252,8 +2253,12 @@ QComboBox, QLineEdit {
         for i in range(9):
             cb = QCheckBox("")
             cb.setVisible(False)
+            cb.stateChanged.connect(lambda *_: self.update_live_price_preview())
             self.surcharge_grid.addWidget(cb, i // 3, i % 3)
             self.check_boxes.append(cb)
+        self.entry_manual_1.textChanged.connect(lambda *_: self.update_live_price_preview())
+        self.entry_manual_2.textChanged.connect(lambda *_: self.update_live_price_preview())
+        self.team_box.currentIndexChanged.connect(lambda *_: self.update_live_price_preview())
         c3_layout.addLayout(self.surcharge_grid)
         scroll_layout.addWidget(c3)
 
@@ -2537,8 +2542,17 @@ QComboBox, QLineEdit {
     def handle_smart_lookup_filter(self, filter_text):
         if not hasattr(self, 'current_card_models'): return
         query = filter_text.strip().upper()
-        filtered = [m for m in self.current_card_models if query in m.upper()] if query else self.current_card_models
+        if query:
+            starts = [m for m in self.current_card_models if m.upper().startswith(query)]
+            contains = [m for m in self.current_card_models if query in m.upper() and not m.upper().startswith(query)]
+            filtered = starts + contains
+        else:
+            filtered = self.current_card_models
         self.populate_model_box(filtered)
+        if query and filtered and self.model_box.count() > 1:
+            self.model_box.setCurrentIndex(1)
+        elif not query:
+            self.update_live_price_preview()
 
     def populate_model_box(self, items_list):
         self.model_box.blockSignals(True)
@@ -2554,6 +2568,95 @@ QComboBox, QLineEdit {
 # ==========================================
 # SECTION 13 (PART B): PIPELINE CALCULATION & EXECUTION LOOP
 # ==========================================
+    def update_live_price_preview(self):
+        if not hasattr(self, "spec_label"):
+            return
+        card = self.category_box.currentText()
+        model = self.model_box.currentText()
+        if model in ("Select a model...", "No matched variants found") or not model or card not in self.data_core.clean_database:
+            self.spec_label.setText(
+                "Item Price Breakdown:<br>"
+                "  -> Part Model Base: N/A<br>"
+                "  -> Configured Height: N/A<br>"
+                "  -> Shipping Weight: 0.0 lbs<br>"
+                "  -> Baseline Item Cost: $0.00<br>"
+                "  -> Active Surcharges: None<br>"
+                "  -> Add-ons Premium Total: $0.00<br>"
+                "------------------------------------<br>"
+                "FINAL CALCULATED RATE: $0.00"
+            )
+            return
+        c_data = self.data_core.clean_database.get(card, {}).get(model, None)
+        if not c_data:
+            return
+        s_id = c_data["schema_id"]
+        config = CARDS_SCHEMA_MATRIX[s_id]
+        raw_p = self.team_box.currentText()
+        mult = PricingCalculatorCore.get_profile_multiplier(raw_p, self.custom_safeguards)
+        try:
+            def _scrub(v):
+                cl = "".join(c for c in str(v) if c in (".", "-") or c.isdigit())
+                return float(cl) if cl else 0.0
+            raw_cost_txt = str(c_data.get("cost", "")).strip()
+            if not any(ch.isdigit() for ch in raw_cost_txt):
+                self.spec_label.setText(
+                    f"<b style='color:#b45309;'>SPECIAL ORDER / QUOTE REQUIRED:</b><br>"
+                    f"Model <b>{model}</b> requires custom shop verification."
+                )
+                return
+            base_raw = _scrub(raw_cost_txt)
+            v1 = _scrub(self.entry_manual_1.text()) if self.var1_widget.isVisible() else 1.0
+            v2 = _scrub(self.entry_manual_2.text()) if self.var2_widget.isVisible() else 1.0
+            min_h = float(c_data.get("min_ht", 0.0) or 0.0)
+            b_ht_str = " N/A"
+            if config["mode"] == "height_input":
+                eff_h = max(min_h, v1)
+                extra_h = max(0.0, eff_h - min_h)
+                rate_in = float(c_data.get("extra_per_in", 0.0) or 0.0)
+                base_raw += extra_h * rate_in
+                b_ht_str = f" {eff_h:.2f}'"
+            elif config["mode"] == "double_height":
+                eff_v = max(min_h, v1)
+                eff_r = max(min_h, v2)
+                rate_in = float(c_data.get("extra_per_in", 0.0) or 0.0)
+                base_raw += (max(0.0, eff_v - min_h) + max(0.0, eff_r - min_h)) * rate_in
+                b_ht_str = f" {eff_v:.2f}' V / {eff_r:.2f}' R"
+            wgt = _scrub(c_data.get("weight", 0.0))
+            if config["mode"] in ("qty_input", "fixed_standard_cost"):
+                q_n = max(1.0, v1)
+                base_raw *= q_n
+                wgt *= q_n
+            active_addons = [cb.text() for cb in self.check_boxes if cb.isVisible() and cb.isChecked()]
+            surcharge_delta = 0.0
+            for cb in self.check_boxes:
+                if cb.isVisible() and cb.isChecked():
+                    if getattr(cb, "_is_custom_admin_cb", False):
+                        surcharge_delta += float(getattr(cb, "_custom_fee_val", 0.0))
+                    else:
+                        txt_c = cb.text()
+                        if "+$" in txt_c:
+                            surcharge_delta += _scrub(txt_c.split("+$", 1)[1])
+                        elif "%" in txt_c:
+                            pct = _scrub(txt_c.split("%", 1)[0].split("(")[-1])
+                            surcharge_delta += base_raw * (pct / 100.0)
+            f_price = (base_raw + surcharge_delta) * mult
+            bullets_html = ("<br>" + "<br>".join(f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style='color:#0369a1;'>- {a}</span>" for a in active_addons)) if active_addons else " None"
+            self.spec_label.setText(
+                f"Item Price Breakdown:<br>"
+                f"  -> Part Model Base: {model}<br>"
+                f"  -> Configured Height:{b_ht_str}<br>"
+                f"  -> Shipping Weight: {wgt:.1f} lbs<br>"
+                f"  -> Baseline Item Cost: ${base_raw:,.2f}<br>"
+                f"  -> Active Surcharges:{bullets_html}<br>"
+                f"  -> Add-ons Premium Total: ${surcharge_delta:,.2f}<br>"
+                f"------------------------------------<br>"
+                f"FINAL CALCULATED RATE: ${f_price:,.2f}"
+            )
+            if hasattr(self, "lbl_fx_formula"):
+                self.lbl_fx_formula.setText(f"CATALOG FORMULA: Base (${base_raw:,.2f}) + Add-ons (${surcharge_delta:,.2f})  =  Final Rate ${f_price:,.2f}  [{wgt:.1f} lbs]")
+        except Exception:
+            pass
+
     def calculate_standalone_pricing(self):
         card = self.category_box.currentText()
         model = self.model_box.currentText()
@@ -2712,7 +2815,7 @@ QComboBox, QLineEdit {
                 addon_breakdown_list.append("Standard Stock (No Add-ons)")
 
             self.data_core.rfq_ledger_items.append({
-                "model": f"{model} (x{int(v1) if config['mode']=='qty_input' else 1})",
+                "model": extended_model_label if config["mode"] in ("height_input", "double_height") else f"{model} (x{int(v1) if config['mode']=='qty_input' else 1})",
                 "weight": f"{wgt:.1f} lbs",
                 "cost": f"${f_price:.2f}",
                 "addons": addon_list_str,
@@ -2739,6 +2842,7 @@ QComboBox, QLineEdit {
                 self.model_box.blockSignals(False)
             if hasattr(self, "entry_manual_1") and self.entry_manual_1.isVisible():
                 self.entry_manual_1.setText("1")
+            self.update_live_price_preview()
 
         except Exception as e: self.spec_label.setText(f"âŒ Calculation Error: {e}")
         # === END OF FUNCTION ===

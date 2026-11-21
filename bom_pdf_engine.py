@@ -84,14 +84,17 @@ def parse_plate_spec(raw_pl):
     return max(0.5, uw), max(0.25, round(ln / 12.0, 2)), thk, wid
 
 def extract_story_heights(doc):
-    elevs = {}
+    ff_elevs = dict()
+    any_elevs = dict()
     for pno in range(len(doc)):
         txt = doc.load_page(pno).get_text("text").upper()
-        if not re.search(r"(?:T\.O\.\s*ROOF|FLOOR\s*\d|LEVEL\s*\d|PARKING)", txt):
+        if not re.search(r"(?:T\.O\.\s*ROOF|TOP\s*OF\s*ROOF|FLOOR\s*\d|LEVEL\s*\d|PARKING)", txt):
             continue
         for ln in txt.splitlines():
+            if "T.O.P" in ln or "T.O. WIN" in ln or "WINDOW" in ln:
+                continue
             m = re.search(
-                r"\b(T\.O\.\s*ROOF|ROOF|FLOOR\s*[1-9](?:\.0)?|LEVEL\s*[1-9]|PARKING|FIRST\s*FLOOR|SECOND\s*FLOOR|THIRD\s*FLOOR|FOURTH\s*FLOOR)\b"
+                r"\b(TOP\s*OF\s*ROOF|T\.O\.\s*ROOF|ROOF|FLOOR\s*[1-9](?:\.0)?|LEVEL\s*[1-9](?:\s*FF)?|PARKING|FIRST\s*FLOOR|SECOND\s*FLOOR|THIRD\s*FLOOR|FOURTH\s*FLOOR)\b"
                 r".*?(\d{1,3})\s*'\s*-\s*(\d{1,2})(?:\s+(\d+)/(\d+))?\s*\"",
                 ln,
             )
@@ -101,10 +104,14 @@ def extract_story_heights(doc):
                 frac = (float(m.group(4)) / float(m.group(5))) if (m.group(4) and m.group(5) and float(m.group(5)) > 0) else 0.0
                 val = ft + (inch + frac) / 12.0
                 if 0.0 <= val <= 900.0:
-                    elevs[lbl] = val
-    if len(elevs) < 2:
-        return []
-    ordered = sorted(elevs.items(), key=lambda kv: kv.__getitem__(1))
+                    base_k = re.sub(r"\s*FF$", "", lbl)
+                    if "FF" in lbl or "ROOF" in lbl or "PARKING" in lbl or "FLOOR" in lbl:
+                        ff_elevs[base_k] = val
+                    any_elevs[base_k] = val
+    use_map = ff_elevs if len(ff_elevs) >= 2 else any_elevs
+    if len(use_map) < 2:
+        return list()
+    ordered = sorted(use_map.items(), key=lambda kv: kv.__getitem__(1))
     vals = [v for _, v in ordered]
     return [round(b - a, 2) for a, b in zip(vals, vals.__getitem__(slice(1, None))) if 6.0 <= (b - a) <= 35.0]
 
@@ -146,7 +153,7 @@ def extract_vector_snap_nodes(page, pts_per_ft=18.0):
     return st.snap_endpoints, st.snap_midpoints, st.bay_segments
 
 def scan_region_windows_native_ocr(page, clip_rect=None, dpi=200):
-    return [(wx0, wy0, txt) for wx0, wy0, wx1, wy1, txt in scan_world_ocr(page, world_rect=clip_rect, dpi=dpi)]
+    return [(it.__getitem__(0), it.__getitem__(1), it.__getitem__(4)) for it in scan_world_ocr(page, world_rect=clip_rect, dpi=dpi)]
 
 def inspect_pdf_sheets(pdf_path):
     doc = pymupdf.open(pdf_path)
@@ -157,20 +164,41 @@ def inspect_pdf_sheets(pdf_path):
         pw, ph = float(pg.rect.width), float(pg.rect.height)
         vp_len = sum(len(str(bstr).strip()) for bx0, by0, bx1, by1, bstr, *_ in pg.get_text("blocks") if bx0 < pw * 0.88 and by0 < ph * 0.94)
         mode = "Vector Text" if vp_len >= 30 else ("SHX Vector" if len(pg.get_drawings()) >= 40 else "Blank/Raster")
-        is_struct = (sh.startswith(("S-", "SD-", "S")) and not sh.startswith(("SUR", "SITE"))) or (not sh and mode in ("SHX Vector", "Blank/Raster"))
+        if not sh and mode in ("SHX Vector", "Blank/Raster"):
+            try:
+                tb_hits = scan_world_ocr(pg, world_rect=pymupdf.Rect(pw * 0.84, ph * 0.82, pw, ph), dpi=180, multi_angle=False)
+                tb_txt = normalize_cad_text(" ".join(str(it.__getitem__(4)) for it in tb_hits))
+                m_tb = re.findall(r"\b(SD?-\d+(?:\.\d+)?|S\d+\.\d+|S-\d+|[ACMEPLG]-?\d+(?:\.\d+)?)\b", tb_txt)
+                if m_tb:
+                    sh = m_tb[-1]
+            except Exception:
+                pass
+        is_struct = bool(sh and sh.startswith(("S-", "SD-", "S")) and not sh.startswith(("SUR", "SITE", "SPEC")))
         sheets.append({"page": pno + 1, "sheet": sh or f"P.{pno+1}", "mode": mode, "recommended": is_struct})
     return sheets
 
 def _stitch_adjacent_ocr_tokens(raw_boxes):
-    """Joins split SHX OCR fragments on the same horizontal or vertical line (e.g. 'W16' + 'X67' -> 'W16X67')."""
-    out = [( (bx0 + bx1) * 0.5, (by0 + by1) * 0.5, t ) for bx0, by0, bx1, by1, t in raw_boxes]
-    sorted_b = sorted(raw_boxes, key=lambda b: (round(b[1] / 6.0), b[0]))
-    for i in range(len(sorted_b) - 1):
-        ax0, ay0, ax1, ay1, at = sorted_b[i]
-        bx0, by0, bx1, by1, bt = sorted_b[i + 1]
-        if abs(((ay0 + ay1) * 0.5) - ((by0 + by1) * 0.5)) <= 8.0 and -4.0 <= (bx0 - ax1) <= 22.0:
-            out.append(((ax0 + bx1) * 0.5, (ay0 + by1) * 0.5, f"{at}{bt}"))
-            out.append(((ax0 + bx1) * 0.5, (ay0 + by1) * 0.5, f"{at} {bt}"))
+    """Joins split SHX OCR fragments across horizontal, vertical, and 45-degree angled callouts."""
+    out = list()
+    short_toks = list()
+    for it_rb in raw_boxes:
+        bx0, by0, bx1, by1, t = it_rb.__getitem__(0), it_rb.__getitem__(1), it_rb.__getitem__(2), it_rb.__getitem__(3), it_rb.__getitem__(4)
+        t_s = str(t or "").strip()
+        if not t_s:
+            continue
+        out.append(((bx0 + bx1) * 0.5, (by0 + by1) * 0.5, t_s))
+        if len(t_s) <= 14:
+            short_toks.append((float(bx0), float(by0), float(bx1), float(by1), t_s))
+    for i in range(len(short_toks)):
+        ax0, ay0, ax1, ay1, at = short_toks.__getitem__(i)
+        acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5
+        for j in range(i + 1, len(short_toks)):
+            bx0, by0, bx1, by1, bt = short_toks.__getitem__(j)
+            bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
+            if math.hypot(bcx - acx, bcy - acy) <= 44.0:
+                mx, my = (acx + bcx) * 0.5, (acy + bcy) * 0.5
+                out.append((mx, my, f"{at}{bt}"))
+                out.append((mx, my, f"{bt}{at}"))
     return out
 
 def _try_ai_vision_sheet_extract(pg, sheet_lbl, catalog):
@@ -329,7 +357,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
             try:
                 _ocr_box_cache = os.path.join(_cache_dir(), f"{fp}_pg{pno+1}_boxes.json")
                 with open(_ocr_box_cache, "w", encoding="utf-8") as _bf:
-                    json.dump([[wx0, wy0, wx1, wy1, t] for wx0, wy0, wx1, wy1, t in raw_ocr_boxes], _bf)
+                    json.dump([list(it_b) for it_b in raw_ocr_boxes], _bf)
             except Exception:
                 pass
 
@@ -365,21 +393,33 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                     pg._world_state_cache = _st_r
 
         det_pts = []
+        example_pts = []
         for cx, cy, t in items:
+            tu = str(t or "").upper()
+            if any(k in tu for k in ("EXAMPLE", "FRAMING LEGEND", "FRAMINGLEGEND", "STEEL BEAM", "STEELBEAM")):
+                example_pts.append((cx, cy))
             for dm in DETAIL_RX.finditer(t):
                 det_pts.append((cx, cy, dm.group(1).replace(" ", "")))
 
         seen_callouts = []
-        _pw_lim = float(pg.rect.width) * 0.72
+        _pw_lim = float(pg.rect.width) * (0.72 if len(pg.get_text("words")) >= 30 else 0.88)
         for cx, cy, t in items:
             if not is_detail and region_clip is None and cx > _pw_lim:
                 continue
+            t = re.sub(r"\bW[IL](\d+X[\dJ]+(?:\.\d+)?)", r"W1\1", t)
+            t = re.sub(r"\b(W\d+X\d+)J\b", r"\g<1>3", t)
+            t = re.sub(r"\b(W\d+X)S(\d)\b", r"\g<1>5\2", t)
+            t = re.sub(r"\b(W\d+X\d)B\b", r"\g<1>8", t)
+            t = re.sub(r"(?<![A-Z])SS[AB](?=X\d+(?:\.\d+)?X\d+)", "HSS8", t)
+            t = re.sub(r"(?<![A-Z])SS(?=\d+(?:\.\d+)?X\d+(?:\.\d+)?X\d+)", "HSS", t)
+            t = re.sub(r"(?<![A-Z0-9])(4X2\.5X1/4|4X4X1/4|5X5X1/4|6X6X1/4|6X6X5/16|8X4X5/16|8X4X3/8)\b", r"HSS\1", t)
             t = re.sub(r"BENT\s*(HSS|PL|L|C|MC)", r"BENT \1", t)
             t = re.sub(r"\b(W|WT|S|HP|HSS|L|C|MC)\s+(\d)", r"\1\2", t)
             t = re.sub(r"(?<=\d)\s*[X×]\s*(?=\d)", "X", t)
             if any(w in t for w in ("EXAMPLE", "EXISTING", "EXIST.", "FRAMINGLEGEND", "STEELBEAM(")):
                 continue
-            # Allow all structural shapes across both framing plans and detail sheets
+            if any(abs(cx - ex) <= 145.0 and abs(cy - ey) <= 45.0 for ex, ey in example_pts):
+                continue
             for m in STEEL_RX.finditer(t):
                 prof = re.sub(r"^TS(?=[0-9])", "HSS", re.sub(r"\s+", "", m.group(1)).rstrip("#.").strip())
                 prof = re.sub(r"(\d+)-1/2(?=X)", r"\1.5", prof)
@@ -387,13 +427,22 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                 prof = re.sub(r"(\d+)-3/4(?=X)", r"\1.75", prof)
                 if prof == "HSS4X2/2":
                     prof = "HSS4X2.5X1/4"
+                prof = re.sub(r"^(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)56$", r"\1X5/16", prof)
+                prof = re.sub(r"^(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)14$", r"\1X1/4", prof)
+                prof = re.sub(r"^(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)38$", r"\1X3/8", prof)
+                prof = re.sub(r"^(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)12$", r"\1X1/2", prof)
+                if re.match(r"^W\d+X\d{3}$", prof) and prof not in catalog and prof.__getitem__(slice(0, -1)) in catalog:
+                    prof = prof.__getitem__(slice(0, -1))
                 if prof.startswith(("PL", "BASE", "PLATE", "CUSTOM", "FB")):
+                    prof = re.sub(r"^(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)(?:34|94)(?=[\"X])", r"\g<1>3/4", prof)
                     prof = re.sub(r"^(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)1{1,2}4(?=[\"X])", r"\g<1>1/4", prof)
                     prof = re.sub(r"^(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)1{1,2}2(?=[\"X])", r"\g<1>1/2", prof)
                     prof = re.sub(r"X3/2X", "X3-1/2X", prof)
                     prof = re.sub(r"(\d)1/(2|4|8)(?=X|$)", r"\1-1/\2", prof)
                     prof = re.sub(r"(X10)1$", r"\1", prof)
-                if any(p0 == prof and math.hypot(cx - x0, cy - y0) < 68.0 for p0, x0, y0 in seen_callouts):
+                if any((p0 == prof or p0.startswith(prof) or prof.startswith(p0)) and math.hypot(cx - x0, cy - y0) < 68.0 for p0, x0, y0 in seen_callouts):
+                    continue
+                if is_detail and not prof.startswith(("PL", "CUSTOMPL", "BASEPL", "PLATEWASHERPL", "FB")):
                     continue
                 seen_callouts.append((prof, cx, cy))
 
@@ -404,6 +453,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                 is_plate = prof.startswith(("PL", "BASE", "PLATE", "CUSTOM", "FB"))
                 pl_dims = None
 
+                in_cat = bool(is_plate or (prof in catalog))
                 if is_plate:
                     uw, meas_len, thk_p, wid_p = parse_plate_spec(prof)
                     sk = "plate"
@@ -412,9 +462,12 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                     sk, uw = catalog[prof]
                     meas_len = 20.0
                 else:
-                    if prof.startswith(("W", "S", "HP")) and not prof.startswith("WT"):
-                        continue
-                    if prof.startswith(("HSS", "PIPE")):
+                    if prof.startswith(("W", "WT", "S", "HP")):
+                        mw_nom = re.match(r"^(?:WT|HP|W|S)\d+(?:\.\d+)?X(\d+(?:\.\d+)?)$", prof)
+                        if not mw_nom:
+                            continue
+                        sk, uw = "beam", float(mw_nom.group(1))
+                    elif prof.startswith(("HSS", "PIPE")):
                         sk, uw = "hss_tube", 20.0
                         mh = re.match(r"HSS(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)X(\d+)/(\d+)", prof)
                         if mh and float(mh.group(4)) > 0:
@@ -441,15 +494,21 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                 is_col = (not is_detail and not is_bent and (sk == "hss_tube" or "SMFCOL" in col_tag_txt.replace(" ", "") or "WFCOL" in col_tag_txt.replace(" ", "") or "COLUMN" in col_tag_txt))
                 if is_col:
                     st_i = 0
-                    if "ROOF FRAMING" in all_txt:
-                        st_i = 3
-                    elif "THIRD FLOOR" in all_txt or "FLOOR 03" in all_txt:
+                    if "LEVEL 1 WALL" in all_txt or "FIRST FLOOR WALL" in all_txt or "1ST FLOOR WALL" in all_txt:
+                        st_i = 0
+                    elif "LEVEL 2 WALL" in all_txt or "SECOND FLOOR WALL" in all_txt or "2ND FLOOR WALL" in all_txt:
+                        st_i = 1
+                    elif "LEVEL 3 WALL" in all_txt or "THIRD FLOOR WALL" in all_txt or "3RD FLOOR WALL" in all_txt:
                         st_i = 2
-                    elif "PARKING FLOOR" in all_txt or "SECOND FLOOR" in all_txt or "FLOOR 02" in all_txt:
+                    elif "ROOF FRAMING" in all_txt:
+                        st_i = max(0, len(story_deltas) - 1) if story_deltas else 2
+                    elif "THIRD FLOOR" in all_txt or "LEVEL 3" in all_txt or "FLOOR 03" in all_txt:
+                        st_i = 2
+                    elif "PARKING FLOOR" in all_txt or "SECOND FLOOR" in all_txt or "LEVEL 2" in all_txt or "FLOOR 02" in all_txt:
                         st_i = 1
                     col_h = story_deltas.__getitem__(min(st_i, len(story_deltas) - 1)) if story_deltas else (9.0 if st_i == 0 else (14.33 if st_i == 1 else (10.0 if st_i == 2 else 11.83)))
                     ck = (sheet_lbl, prof, col_h)
-                    col_groups.setdefault(ck, {"sheet": sheet_lbl, "dets": set(), "sk": sk, "prof": prof, "len": col_h, "uw": uw, "qty": 0})
+                    col_groups.setdefault(ck, {"sheet": sheet_lbl, "dets": set(), "sk": sk, "prof": prof, "len": col_h, "uw": uw, "qty": 0, "in_cat": in_cat})
                     col_groups[ck]["qty"] += 1
                     if near_det:
                         col_groups[ck]["dets"].add(near_det)
@@ -510,6 +569,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
                         "shape_key": sk, "profile": prof, "qty": 0, "length": meas_len, "unit_wt": uw,
                         "plate_w": str(pl_dims.__getitem__(1)) if pl_dims else "12",
                         "plate_thk": str(pl_dims.__getitem__(0)) if pl_dims else "",
+                        "in_catalog": in_cat,
                     }
                 extracted[key]["qty"] += max(1, qty_add)
 
@@ -519,7 +579,7 @@ def extract_full_bom(pdf_path, matrix_path="steel_matrix.json", selected_pages=N
             "category": "Columns", "sheet": cg["sheet"],
             "detail_ref": ", ".join(sorted(cg["dets"])) if cg["dets"] else "Typ. / Plan",
             "shape_key": cg["sk"], "profile": cg["prof"], "qty": cg["qty"],
-            "length": cg["len"], "unit_wt": cg["uw"], "plate_w": "12", "plate_thk": "",
+            "length": cg["len"], "unit_wt": cg["uw"], "plate_w": "12", "plate_thk": "", "in_catalog": cg.get("in_cat", True),
         })
 
     if region_clip is None:

@@ -115,6 +115,50 @@
               ]
             },
             {
+              "title": "Callouts & Notes",
+              "items": [
+                {
+                  "type": "tile",
+                  "text": "Edit\nPDF",
+                  "icon": "file-edit",
+                  "action": "mode:edit_pdf",
+                  "mode": "edit_pdf",
+                  "tip": "Edit PDF Text & Objects: Click any text block to edit in place, or drag a box over any SHX/vector text to whiteout and replace."
+                },
+                {
+                  "type": "mode_tile",
+                  "mode": "text",
+                  "text": "Text\nNote (T)",
+                  "icon": "type"
+                },
+                {
+                  "type": "mode_tile",
+                  "mode": "callout",
+                  "text": "Callout\nBox (Q)",
+                  "icon": "message-square"
+                },
+                {
+                  "type": "tile",
+                  "text": "Review\nStamp",
+                  "icon": "stamp",
+                  "action": "_stamp_review_note"
+                }
+              ]
+            },
+            {
+              "title": "Sheet & Layers",
+              "custom_widget": "sheet_nav_bar"
+            },
+            {
+              "title": "Scale & Snaps",
+              "custom_widget": "scale_snap_bar"
+            }
+          ]
+        },
+        {
+          "label": "Markup & CAD",
+          "groups": [
+            {
               "title": "Navigate",
               "items": [
                 {
@@ -180,10 +224,6 @@
               ]
             },
             {
-              "title": "Scale & Snaps",
-              "custom_widget": "scale_snap_bar"
-            },
-            {
               "title": "Edit",
               "items": [
                 {
@@ -230,43 +270,78 @@
                   "tip": "Edit Native PDF Text & Erase: Click any text on the PDF to edit it in place, or drag a box to whiteout/erase."
                 }
               ]
+            },
+            {
+              "title": "Layer Visibility",
+              "items": [
+                {
+                  "type": "stack",
+                  "items": [
+                    {
+                      "text": "Toggle Dimensions",
+                      "icon": "ruler",
+                      "action": "layer:dims"
+                    },
+                    {
+                      "text": "Toggle Welds & Grid",
+                      "icon": "flame",
+                      "action": "layer:welds"
+                    },
+                    {
+                      "text": "Toggle Notes & Clouds",
+                      "icon": "type",
+                      "action": "layer:notes"
+                    }
+                  ]
+                },
+                {
+                  "type": "tile",
+                  "text": "Show\nAll",
+                  "icon": "eye",
+                  "action": "layer:all"
+                }
+              ]
+            },
+            {
+              "title": "Clouds & Highlight",
+              "items": [
+                {
+                  "type": "mode_tile",
+                  "mode": "cloud",
+                  "text": "Rev\nCloud",
+                  "icon": "cloud"
+                },
+                {
+                  "type": "stack",
+                  "items": [
+                    {
+                      "text": "Highlighter Pen",
+                      "icon": "highlighter",
+                      "action": "pen_yellow_hl"
+                    },
+                    {
+                      "text": "Highlight Box",
+                      "icon": "square-dashed",
+                      "action": "mode:highlight"
+                    },
+                    {
+                      "text": "Whiteout Box",
+                      "icon": "square",
+                      "action": "mode:filled_box"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "Appearance",
+              "custom_widget": "font_appearance_bar"
             }
           ]
         },
         {
-          "label": "Markup & CAD",
+          "label": "Engineering & Output",
           "groups": [
-            {
-              "title": "Callouts & Notes",
-              "items": [
-                {
-                  "type": "tile",
-                  "text": "Edit\nPDF",
-                  "icon": "file-edit",
-                  "action": "mode:edit_pdf",
-                  "mode": "edit_pdf",
-                  "tip": "Edit PDF Text & Objects: Click any text block to edit in place, or drag a box over any SHX/vector text to whiteout and replace."
-                },
-                {
-                  "type": "mode_tile",
-                  "mode": "text",
-                  "text": "Text\nNote (T)",
-                  "icon": "type"
-                },
-                {
-                  "type": "mode_tile",
-                  "mode": "callout",
-                  "text": "Callout\nBox (Q)",
-                  "icon": "message-square"
-                },
-                {
-                  "type": "tile",
-                  "text": "Review\nStamp",
-                  "icon": "stamp",
-                  "action": "_stamp_review_note"
-                }
-              ]
-            },
             {
               "title": "2D CAD & Steel Symbols",
               "items": [
@@ -328,110 +403,6 @@
                   "icon": "triangle-right",
                   "action": "mode:hanger_skew",
                   "tip": "T-Square Hanger Skew Gauge: Click 2 points along carrying beam/wall, then swing left or right to read true Simpson hanger skew from 90\u00b0."
-                }
-              ]
-            },
-            {
-              "title": "Clouds & Highlight",
-              "items": [
-                {
-                  "type": "mode_tile",
-                  "mode": "cloud",
-                  "text": "Rev\nCloud",
-                  "icon": "cloud"
-                },
-                {
-                  "type": "stack",
-                  "items": [
-                    {
-                      "text": "Highlighter Pen",
-                      "icon": "highlighter",
-                      "action": "pen_yellow_hl"
-                    },
-                    {
-                      "text": "Highlight Box",
-                      "icon": "square-dashed",
-                      "action": "mode:highlight"
-                    },
-                    {
-                      "text": "Whiteout Box",
-                      "icon": "square",
-                      "action": "mode:filled_box"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "title": "Appearance",
-              "custom_widget": "font_appearance_bar"
-            }
-          ]
-        },
-        {
-          "label": "Engineering & Output",
-          "groups": [
-            {
-              "title": "Sheet & Layers",
-              "custom_widget": "sheet_nav_bar"
-            },
-            {
-              "title": "Layer Visibility",
-              "items": [
-                {
-                  "type": "stack",
-                  "items": [
-                    {
-                      "text": "Toggle Dimensions",
-                      "icon": "ruler",
-                      "action": "layer:dims"
-                    },
-                    {
-                      "text": "Toggle Welds & Grid",
-                      "icon": "flame",
-                      "action": "layer:welds"
-                    },
-                    {
-                      "text": "Toggle Notes & Clouds",
-                      "icon": "type",
-                      "action": "layer:notes"
-                    }
-                  ]
-                },
-                {
-                  "type": "tile",
-                  "text": "Show\nAll",
-                  "icon": "eye",
-                  "action": "layer:all"
-                }
-              ]
-            },
-            {
-              "title": "Trig & Geometry Studio",
-              "items": [
-                {
-                  "type": "tile",
-                  "text": "Stair\nStringer",
-                  "icon": "triangle-right",
-                  "action": "trig:0"
-                },
-                {
-                  "type": "tile",
-                  "text": "Brace &\nGusset",
-                  "icon": "shapes",
-                  "action": "trig:1"
-                },
-                {
-                  "type": "tile",
-                  "text": "Bolt\nCircle",
-                  "icon": "circle-dot",
-                  "action": "trig:2"
-                },
-                {
-                  "type": "tile",
-                  "text": "Slope &\nBrace",
-                  "icon": "trending-up",
-                  "action": "trig:3"
                 }
               ]
             },

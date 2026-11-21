@@ -1092,6 +1092,13 @@ class PdfBomImporterDialog(QDialog):
         self.viewport.pts_per_ft = float(self.scale_combo.currentData() or 18.0)
 
     def _render_current_sheet(self):
+        win = self.window()
+        if win is not None and hasattr(win, "master_ribbon") and hasattr(win.master_ribbon, "ribbon_sheet_cb") and hasattr(self, "sheet_combo"):
+            rcb = win.master_ribbon.ribbon_sheet_cb
+            if rcb.currentIndex() != self.sheet_combo.currentIndex() and 0 <= self.sheet_combo.currentIndex() < rcb.count():
+                rcb.blockSignals(True)
+                rcb.setCurrentIndex(self.sheet_combo.currentIndex())
+                rcb.blockSignals(False)
         if hasattr(self, 'vis_workspace'):
             self.vis_workspace.render_sheet(int(self.sheet_combo.currentData() or 1))
 
@@ -1256,21 +1263,54 @@ class PdfBomImporterDialog(QDialog):
         self._switch_dialog_view(0)
 
     def reset_to_blank_sheet(self):
+        old_doc = getattr(self, "_doc", None)
         self.pdf_path = ""
         self._doc = pymupdf.open()
         self._doc.new_page(width=1224, height=792)
+        if old_doc is not None:
+            try:
+                old_doc.close()
+            except Exception:
+                pass
         if hasattr(self, "vis_workspace"):
-            self.vis_workspace.pdf_path = ""
-            self.vis_workspace._doc = self._doc
-            self.vis_workspace.page_markups = {}
-            self.vis_workspace.global_color_key.clear()
-            self.vis_workspace.sheet_color_keys.clear()
-            self.vis_workspace.canvas.clear_markups()
+            from core.plan_world import PlanWorldModel
+            vw = self.vis_workspace
+            vw.pdf_path = ""
+            vw._doc = self._doc
+            vw.world_model = PlanWorldModel("")
+            vw.sheet_scales = {}
+            vw.page_markups = {}
+            vw._pdf_snap_cache = {}
+            vw._pdf_undo_stack = []
+            vw.global_color_key.clear()
+            vw.sheet_color_keys.clear()
+            cv = getattr(vw, "canvas", None)
+            if cv is not None:
+                cv.world_state = None
+                cv.pdf_snap_endpoints = []
+                cv.pdf_snap_midpoints = []
+                cv.canonical_beam_segs = []
+                cv._pdf_edit_blocks = []
+                cv._selected_pdf_block = -1
+                if hasattr(cv, "_scaled_cache"):
+                    cv._scaled_cache = None
+                if hasattr(cv, "_cached_zoom"):
+                    cv._cached_zoom = None
+                cv.clear_markups()
+                cv._pdf_edit_blocks = []
+                cv._pdf_edit_blocks_page = -1
+            if hasattr(self, "vis_workspace") and self.vis_workspace is not None:
+                self.vis_workspace._edit_blocks_cache = {}
+                self.vis_workspace._edited_pdf_pages = set()
+                self.vis_workspace.page_markups = {}
         if hasattr(self, "sheet_combo"):
             self.sheet_combo.blockSignals(True)
             self.sheet_combo.clear()
-            self.sheet_combo.addItem("Pg 1 (Blank Sheet)", 0)
+            self.sheet_combo.addItem("Pg 1 (Blank Sheet)", 1)
             self.sheet_combo.blockSignals(False)
+        win = self.window()
+        if win is not None and hasattr(win, "master_ribbon") and hasattr(win.master_ribbon, "sync_sheet_list"):
+            win.master_ribbon.sync_sheet_list([("Pg 1 (Blank Sheet)", 1)], 0)
         if hasattr(self, "tree"):
             self.tree.clear()
             self._cat_nodes = {}
@@ -1367,14 +1407,34 @@ class PdfBomImporterDialog(QDialog):
         child = QTreeWidgetItem()
         child.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
         child.setCheckState(0, Qt.Checked)
-        child.setText(0, r.get("shape_key", "beam"))
+        prof_s = str(r.get("profile", ""))
+        sk_s = str(r.get("shape_key", "beam"))
+        in_cat = bool(r.get("in_catalog", True))
+        if in_cat and sk_s != "plate" and hasattr(self, "steel_matrix_data") and isinstance(self.steel_matrix_data, dict):
+            cat_sec = self.steel_matrix_data.get(sk_s, {})
+            if isinstance(cat_sec, dict) and cat_sec and prof_s not in cat_sec:
+                in_cat = False
+        det_s = str(r.get("detail_ref", ""))
+        if not in_cat and "[Not in Matrix]" not in det_s:
+            det_s = f"{det_s}  [Not in Matrix]".strip()
+        child.setText(0, sk_s)
         child.setText(1, str(r.get("sheet", "")))
-        child.setText(2, str(r.get("detail_ref", "")))
-        child.setText(3, str(r.get("profile", "")))
+        child.setText(2, det_s)
+        child.setText(3, prof_s)
         child.setText(4, str(r.get("qty", 1)))
         child.setText(5, str(r.get("length", 0.0)))
         child.setText(6, f"{float(r.get('unit_wt', 0.0)):.2f}")
-        child.setData(0, Qt.UserRole, dict(r))
+        if not in_cat:
+            f_warn = child.font(3)
+            f_warn.setBold(True)
+            for ci_w in (2, 3):
+                child.setFont(ci_w, f_warn)
+                child.setBackground(ci_w, QColor("#fef3c7"))
+                child.setForeground(ci_w, QColor("#b45309"))
+                child.setToolTip(ci_w, "Not in steel_matrix.json — extracted using nominal weight fallback.")
+        row_meta = dict(r)
+        row_meta["in_catalog"] = in_cat
+        child.setData(0, Qt.UserRole, row_meta)
         if insert_idx is not None:
             parent_item.insertChild(insert_idx, child)
         else:
@@ -1654,7 +1714,7 @@ class StructuralQuotingSandbox(QWidget):
         self.ledger_tree.setRootIsDecorated(True)
         self.ledger_tree.setTextElideMode(Qt.ElideNone)
         self.ledger_tree.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.ledger_tree.itemDoubleClicked.connect(lambda *_: self.edit_selected_project_item())
+        self.ledger_tree.itemDoubleClicked.connect(lambda *_: self._focus_struct_fx_bar())
         self.ledger_tree.header().setStretchLastSection(False)
         self.ledger_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
         self.ledger_tree.setColumnWidth(1, 112)
@@ -2000,14 +2060,20 @@ class StructuralQuotingSandbox(QWidget):
         os.makedirs(d, exist_ok=True)
         return os.path.join(d, "draft_structural.json")
 
+    def _focus_struct_fx_bar(self):
+        if hasattr(self, "struct_fx_bar"):
+            for child_w in self.struct_fx_bar.findChildren(QLineEdit):
+                child_w.setFocus()
+                child_w.selectAll()
+                break
+
     def _on_t2_fx_selection_changed(self, cur, prev):
         if getattr(self, "_suppress_t2_fx_sel", False):
             return
         if cur is None:
-            self.struct_fx_bar.set_formula("ACTIVE", "Click any main line or sub-line to inspect its live cost & formula...")
+            self.struct_fx_bar.set_formula("ACTIVE", "Click any main line or sub-line to inspect or edit customer-facing text...")
             return
         parent = cur.parent()
-        fx_detail = cur.data(0, Qt.UserRole + 1)
         if parent is None:
             r_idx = self.ledger_tree.indexOfTopLevelItem(cur)
             if 0 <= r_idx < len(self.current_project_items):
@@ -2015,19 +2081,37 @@ class StructuralQuotingSandbox(QWidget):
                 raw_m = str(self.current_project_items[r_idx].get("model", ""))
                 clean_m = _re_fx.sub(r"\s*\[\$[0-9,]+\.\d{2}\s*ea\]", "", raw_m).strip()
                 def _save_t2_main(new_v, i=r_idx):
-                    if 0 <= i < len(self.current_project_items):
-                        self.current_project_items[i]["model"] = new_v
+                    v_clean = str(new_v or "").strip()
+                    if v_clean and 0 <= i < len(self.current_project_items):
+                        self.current_project_items[i]["model"] = v_clean
                         self._suppress_t2_fx_sel = True
                         self.sync_local_workbench_view()
                         if i < self.ledger_tree.topLevelItemCount():
                             self.ledger_tree.setCurrentItem(self.ledger_tree.topLevelItem(i))
                         self._suppress_t2_fx_sel = False
-                self.struct_fx_bar.set_formula(f"ROW {r_idx + 1}", str(fx_detail or clean_m))
+                        if hasattr(self, "trigger_autosave"):
+                            self.trigger_autosave()
+                self.struct_fx_bar.set_editable_entry(f"ROW {r_idx + 1}", clean_m, _save_t2_main)
         else:
             p_idx = self.ledger_tree.indexOfTopLevelItem(parent)
             c_idx = parent.indexOfChild(cur)
-            disp_fx = str(fx_detail or cur.text(0).lstrip("- ").strip())
-            self.struct_fx_bar.set_formula(f"ROW {p_idx + 1}.{c_idx + 1}", disp_fx)
+            raw_sub = cur.text(0).lstrip("- ").strip()
+            def _save_t2_sub(new_v, pi=p_idx, ci=c_idx):
+                v_clean = str(new_v or "").strip()
+                if v_clean and 0 <= pi < len(self.current_project_items):
+                    it_p = self.current_project_items[pi]
+                    it_p.setdefault("custom_sub_labels", {})[str(ci)] = v_clean
+                    self._suppress_t2_fx_sel = True
+                    self.sync_local_workbench_view()
+                    if pi < self.ledger_tree.topLevelItemCount():
+                        top_it = self.ledger_tree.topLevelItem(pi)
+                        top_it.setExpanded(True)
+                        if ci < top_it.childCount():
+                            self.ledger_tree.setCurrentItem(top_it.child(ci))
+                    self._suppress_t2_fx_sel = False
+                    if hasattr(self, "trigger_autosave"):
+                        self.trigger_autosave()
+            self.struct_fx_bar.set_editable_entry(f"ROW {p_idx + 1}.{c_idx + 1}", raw_sub, _save_t2_sub)
 
     def save_structural_draft(self, silent=False):
         payload = {
@@ -2758,6 +2842,13 @@ class StructuralQuotingSandbox(QWidget):
                         ca.setFirstColumnSpanned(True)
                         ca.setText(0, f"- {tok.strip()}")
                         ca.setForeground(0, QColor("#1e3a8a"))
+            for ci_k, ov_txt in (item.get("custom_sub_labels") or {}).items():
+                try:
+                    ci_i = int(ci_k)
+                    if 0 <= ci_i < parent.childCount():
+                        parent.child(ci_i).setText(0, str(ov_txt))
+                except Exception:
+                    pass
             sub_ov2 = item.get("custom_sublines") or {}
             for _ci, _ct in sub_ov2.items():
                 if 0 <= int(_ci) < parent.childCount():

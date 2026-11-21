@@ -19,6 +19,16 @@ def _normalize_ocr_cad_noise(raw_txt):
     t = re.sub(r"\b(W|WT|S|HP|HSS|L|C|MC|PL|FB|PIPE)\s+(\d)", r"\1\2", t)
     t = re.sub(r"(?<=\d)\s*[X\u00d7*]\s*(?=\d)", "X", t)
     t = re.sub(r"\b(HSS|W|L|C|PL)(\d+)O\b", r"\g<1>\g<2>0", t)
+    t = re.sub(r"\bW[IL](\d+X[\dJ]+(?:\.\d+)?)", r"W1\1", t)
+    t = re.sub(r"\b(W\d+X\d+)J\b", r"\g<1>3", t)
+    t = re.sub(r"(?<![A-Z])SS[AB](?=X\d+(?:\.\d+)?X\d+)", "HSS8", t)
+    t = re.sub(r"(?<![A-Z])SS(?=\d+(?:\.\d+)?X\d+(?:\.\d+)?X\d+)", "HSS", t)
+    t = re.sub(r"(?<![A-Z0-9])(4X2\.5X1/4|4X4X1/4|5X5X1/4|6X6X1/4|6X6X5/16|8X4X5/16|8X4X3/8)\b", r"HSS\1", t)
+    t = re.sub(r"\b(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)56\b", r"\1X5/16", t)
+    t = re.sub(r"\b(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)14\b", r"\1X1/4", t)
+    t = re.sub(r"\b(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)38\b", r"\1X3/8", t)
+    t = re.sub(r"\b(HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?)12\b", r"\1X1/2", t)
+    t = re.sub(r"\b(CUSTOMPL|PL|BASEPL|PLATEWASHERPL|FB)(?:34|94)(?=[\"X])", r"\g<1>3/4", t)
     t = re.sub(r"\b(S\d+)\.L\b", r"\1.1", re.sub(r"\b(S\d+)\.O\b", r"\1.0", t))
     return t.strip()
 
@@ -83,7 +93,8 @@ def stitch_ocr_boxes(raw_boxes):
         return [], []
 
     dedup_boxes = []
-    for wx0, wy0, wx1, wy1, txt in raw_boxes:
+    for _row5 in raw_boxes:
+        wx0, wy0, wx1, wy1, txt = _row5.__getitem__(0), _row5.__getitem__(1), _row5.__getitem__(2), _row5.__getitem__(3), _row5.__getitem__(4)
         nt = _normalize_ocr_cad_noise(txt)
         if not nt:
             continue
@@ -164,12 +175,12 @@ def extract_ocr_page_tokens(page, clip_rect=None, dpi=180, multi_angle=True):
 
     sheet_tag = ""
     if clip_rect is None:
-        tb_from_raw = " ".join(t for wx0, wy0, wx1, wy1, t in raw_boxes if wx0 >= pw * 0.82 and wy0 >= ph * 0.75)
+        tb_from_raw = " ".join(str(it.__getitem__(4)) for it in raw_boxes if float(it.__getitem__(0)) >= pw * 0.82 and float(it.__getitem__(1)) >= ph * 0.75)
         if not tb_from_raw.strip():
             tb_hits = scan_world_ocr(
                 page, world_rect=pymupdf.Rect(pw * 0.85, ph * 0.85, pw, ph), dpi=240, multi_angle=False
             )
-            tb_from_raw = " ".join(t for _, _, _, _, t in tb_hits)
+            tb_from_raw = " ".join(str(it.__getitem__(4)) for it in tb_hits)
         tb_joined = _normalize_ocr_cad_noise(tb_from_raw)
         m_sh = re.search(r"\b(SD?-\d+(?:\.\d+)?|S\d+\.\d+|S-\d+)\b", tb_joined)
         if m_sh:

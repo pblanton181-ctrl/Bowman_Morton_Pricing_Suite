@@ -82,7 +82,7 @@ class SheetWorldState:
                     dpi=260,
                     multi_angle=True,
                 )
-                tb_str = " ".join(t for _, _, _, _, t in tb_hits)
+                tb_str = " ".join(str(it.__getitem__(4)) for it in tb_hits)
                 if tb_str:
                     return float(parse_arch_scale(tb_str))
             except Exception:
@@ -278,11 +278,12 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
                     if has_dark_stroke or has_dark_fill:
                         shx_paths.append((max(0.35, w_pen), drw.get("items", ()), has_dark_fill))
                 t_png = os.path.join(tmp_dir, f"t_{r_i}_{c_i}.png")
-                if len(shx_paths) >= 1:
+                min_strokes = 6 if world_rect is None else 1
+                if len(shx_paths) >= min_strokes:
                     clean_im = Image.new("RGB", (max(32, int(round(rect.width * sc))), max(32, int(round(rect.height * sc)))), (255, 255, 255))
                     dr = ImageDraw.Draw(clean_im)
                     for w_pen, itms, is_f in shx_paths:
-                        lw = max(2, int(round(w_pen * sc * 1.45)))
+                        lw = max(1, int(round(w_pen * sc * 0.85)))
                         for itm in itms:
                             op = itm.__getitem__(0)
                             if op == "l" and len(itm) >= 3:
@@ -339,7 +340,7 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
             "    $res = Await ($eng.RecognizeAsync($sbmp)) ([Windows.Media.Ocr.OcrResult]);"
             "    $st.Dispose();"
             "    foreach($l in $res.Lines){"
-            "      $w=$l.Words; if($w.Count -gt 0){$r0=$w.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r0.X,1),[math]::Round($r0.Y,1),[math]::Round($r0.Width,1),[math]::Round($r0.Height,1),$l.Text)};"
+            "      $w=$l.Words; if($w.Count -gt 0){$lx0=999999.0;$ly0=999999.0;$lx1=0.0;$ly1=0.0;foreach($wi in $w){$wr=$wi.BoundingRect;if($wr.X -lt $lx0){$lx0=$wr.X};if($wr.Y -lt $ly0){$ly0=$wr.Y};if(($wr.X+$wr.Width) -gt $lx1){$lx1=$wr.X+$wr.Width};if(($wr.Y+$wr.Height) -gt $ly1){$ly1=$wr.Y+$wr.Height}}; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($lx0,1),[math]::Round($ly0,1),[math]::Round([math]::Max(1.0,$lx1-$lx0),1),[math]::Round([math]::Max(1.0,$ly1-$ly0),1),$l.Text)};"
             "      foreach($wi in $w){$r=$wi.BoundingRect; Write-Output ('{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}' -f $fi.Name,$ang,$bw,$bh,[math]::Round($r.X,1),[math]::Round($r.Y,1),[math]::Round($r.Width,1),[math]::Round($r.Height,1),$wi.Text)}"
             "    }"
             "    if($bmpDraw -ne $null){ $bmpDraw.Dispose(); }"
@@ -381,32 +382,44 @@ def scan_world_ocr(page, world_rect=None, dpi=260, multi_angle=True):
                     oy = dx * math.sin(rad) + dy * math.cos(rad) + bh * 0.5
                 wcx = t_ox + max(0.0, min(bw, ox)) * sc
                 wcy = t_oy + max(0.0, min(bh, oy)) * sc
-                hw, hh = (rw * sc) * 0.5, (rh * sc) * 0.5
+                is_orth = (abs(ang - 90.0) < 0.1 or abs(ang - 270.0) < 0.1)
+                is_diag = (abs(ang - 45.0) < 0.1 or abs(ang - 315.0) < 0.1)
+                tilt_deg = 90.0 if is_orth else (-45.0 if abs(ang - 45.0) < 0.1 else (45.0 if abs(ang - 315.0) < 0.1 else 0.0))
+                if is_diag:
+                    diag_proj = (rw * sc) * 0.36 + (rh * sc) * 0.36
+                    hw, hh = diag_proj, diag_proj
+                elif is_orth:
+                    hw, hh = (rh * sc) * 0.5, (rw * sc) * 0.5
+                else:
+                    hw, hh = (rw * sc) * 0.5, (rh * sc) * 0.5
                 ntxt = normalize_cad_text(parts.__getitem__(8))
                 if not ntxt:
                     continue
                 if any(
-                    t0 == ntxt and math.hypot(wcx - ((a0 + a1) * 0.5), wcy - ((b0 + b1) * 0.5)) < 10.0
-                    for a0, b0, a1, b1, t0 in merged_hits
+                    item_m.__getitem__(4) == ntxt and math.hypot(wcx - ((item_m.__getitem__(0) + item_m.__getitem__(2)) * 0.5), wcy - ((item_m.__getitem__(1) + item_m.__getitem__(3)) * 0.5)) < 10.0
+                    for item_m in merged_hits
                 ):
                     continue
-                merged_hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt))
+                merged_hits.append((wcx - hw, wcy - hh, wcx + hw, wcy + hh, ntxt, tilt_deg, round(rw * sc, 1), round(rh * sc, 1)))
         stitched = list(merged_hits)
         # Two-pass stacked/adjacent callout stitcher (handles 2-line and 3-line callouts like W8 / X24 or HSS / 4X2-1/2 / X1/4)
         for _pass in range(2):
             cur_list = list(stitched)
-            for i, (ax0, ay0, ax1, ay1, atxt) in enumerate(cur_list):
+            for i, item_a in enumerate(cur_list):
+                ax0, ay0, ax1, ay1, atxt = item_a.__getitem__(0), item_a.__getitem__(1), item_a.__getitem__(2), item_a.__getitem__(3), item_a.__getitem__(4)
+                a_tilt = float(item_a.__getitem__(5)) if len(item_a) >= 6 else 0.0
                 if atxt in ("HSS", "BENTHSS", "W", "WB", "PL", "MC", "C", "L") or re.match(r"^(?:BENT)?(?:W|WB)\d+X?$|^(?:BENT)?HSS\d+(?:\.\d+)?X?(?:\d+(?:\.\d+)?X?)?$", atxt):
                     acx, acy = (ax0 + ax1) * 0.5, (ay0 + ay1) * 0.5
-                    for j, (bx0, by0, bx1, by1, btxt) in enumerate(cur_list):
+                    for j, item_b in enumerate(cur_list):
                         if i == j:
                             continue
+                        bx0, by0, bx1, by1, btxt = item_b.__getitem__(0), item_b.__getitem__(1), item_b.__getitem__(2), item_b.__getitem__(3), item_b.__getitem__(4)
                         bcx, bcy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
                         if math.hypot(bcx - acx, bcy - acy) <= 68.0:
                             comb = normalize_cad_text(atxt + btxt)
                             if re.match(r"^(?:BENT)?(W\d+X\d+(?:\.\d+)?|HSS\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+/\d{1,2})?|PL\d+/\d{1,2}X\d+)$", comb):
-                                nbox = (min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), comb)
-                                if not any(t0 == comb and math.hypot(((nbox[0]+nbox[2])*0.5)-((a0+a1)*0.5), ((nbox[1]+nbox[3])*0.5)-((b0+b1)*0.5)) < 12.0 for a0, b0, a1, b1, t0 in stitched):
+                                nbox = (min(ax0, bx0), min(ay0, by0), max(ax1, bx1), max(ay1, by1), comb, a_tilt)
+                                if not any(it_s.__getitem__(4) == comb and math.hypot(((nbox.__getitem__(0)+nbox.__getitem__(2))*0.5)-((it_s.__getitem__(0)+it_s.__getitem__(2))*0.5), ((nbox.__getitem__(1)+nbox.__getitem__(3))*0.5)-((it_s.__getitem__(1)+it_s.__getitem__(3))*0.5)) < 12.0 for it_s in stitched):
                                     stitched.append(nbox)
         return stitched
     finally:

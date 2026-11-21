@@ -82,7 +82,8 @@ def decompose_page_objects(page, page_num=1, pdf_path=""):
             continue
         matched_txt = ""
         best_ov = 0.0
-        for ox0, oy0, ox1, oy1, ot in ocr_hits:
+        for _oh in ocr_hits:
+            ox0, oy0, ox1, oy1, ot = _oh.__getitem__(0), _oh.__getitem__(1), _oh.__getitem__(2), _oh.__getitem__(3), _oh.__getitem__(4)
             inter = b & pymupdf.Rect(ox0, oy0, ox1, oy1)
             if not inter.is_empty:
                 ov = inter.get_area()

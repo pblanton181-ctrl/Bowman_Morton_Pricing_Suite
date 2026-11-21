@@ -97,6 +97,8 @@ class BowmanMortonRibbonBar(QFrame):
         self.search_box.setStyleSheet("QLineEdit { background-color: #ffffff; color: #0f172a; border: 1px solid #94a3b8; border-radius: 4px; padding: 1px 10px; font-size: 11.5px; } QLineEdit:focus { border: 1.5px solid #0284c7; }")
         self.search_box.returnPressed.connect(self._on_quick_search)
         QShortcut(QKeySequence("Ctrl+K"), self.app, activated=self.search_box.setFocus)
+        QShortcut(QKeySequence("F8"), self.app, activated=lambda: self.btn_ortho_lock.toggle() if hasattr(self, "btn_ortho_lock") else None)
+        QShortcut(QKeySequence("F3"), self.app, activated=lambda: self.btn_ep_snap.toggle() if hasattr(self, "btn_ep_snap") else None)
         tr.addWidget(self.search_box); tr.addStretch(1)
 
         for kind, tip, slot, is_close in [("min", "Minimize", lambda: self.app.showMinimized(), False), ("max", "Maximize / Restore", self._toggle_max, False), ("close", "Close", lambda: self.app.close(), True)]:
@@ -523,10 +525,12 @@ class BowmanMortonRibbonBar(QFrame):
         pt = getattr(self.app, "planset_takeoff_tab", None); vw = getattr(pt, "vis_workspace", None) if pt else None; cv = getattr(vw, "canvas", None) if vw else None
         if not cv: return
         today = datetime.date.today().strftime("%m/%d/%Y")
-        txt, ok = QInputDialog.getItem(self.app, "Stamp Blueprint Note", "Stamp text:", [f"VERIFIED FOR TAKEOFF - {today}", f"HOLD FOR RFI - {today}", f"FIELD VERIFY - {today}", f"APPROVED FOR FAB - {today}"], 0, True)
+        txt, ok = QInputDialog.getItem(self.app, "Place Blueprint Stamp", "Choose or type stamp text, then click on the sheet to place:", [f"VERIFIED FOR TAKEOFF - {today}", f"HOLD FOR RFI - {today}", f"FIELD VERIFY - {today}", f"APPROVED FOR FAB - {today}"], 0, True)
         if ok and txt.strip():
-            cv.markups.append({"type": "text", "x": 60.0, "y": 60.0, "text": txt.strip(), "color": QColor(cv.active_color), "font_family": cv.font_family, "font_size": cv.font_size, "bold": True, "italic": False})
-            cv.selected_idx = len(cv.markups) - 1; self._vis_mode("select"); self.update_contextual_selection(cv.markups[cv.selected_idx]); cv.update()
+            cv._pending_stamp = {"type": "text", "x": 0.0, "y": 0.0, "text": txt.strip(), "color": QColor(cv.active_color), "font_family": cv.font_family, "font_size": cv.font_size, "bold": True, "italic": False}
+            cv.setCursor(Qt.CrossCursor)
+            self._update_telemetry("Click Sheet to Place Stamp")
+            cv.setFocus()
 
     def _refresh_biu_styles(self):
         pt = getattr(self.app, "planset_takeoff_tab", None); vw = getattr(pt, "vis_workspace", None) if pt else None; cv = getattr(vw, "canvas", None) if vw else None

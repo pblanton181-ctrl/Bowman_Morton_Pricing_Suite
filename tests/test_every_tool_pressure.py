@@ -44,10 +44,11 @@ def test_every_cad_takeoff_tool_pressure(qtbot):
     qtbot.keyClick(canvas, Qt.Key_C)
     assert canvas.markups[-1]["type"] == "polyline"
 
-    # 4. Span Measure & Count Badges
+    # 4. Span Measure (3-click AutoCAD linear dimension: start -> end -> extension offset) & Count Badges
     canvas.mode = "measure"
     qtbot.mouseClick(canvas, Qt.LeftButton, pos=QPoint(500, 300))
     qtbot.mouseClick(canvas, Qt.LeftButton, pos=QPoint(700, 300))
+    qtbot.mouseClick(canvas, Qt.LeftButton, pos=QPoint(600, 270))
     assert canvas.markups[-1]["type"] == "span"
 
     canvas.mode = "count"
@@ -107,6 +108,8 @@ def test_every_workspace_and_export_pressure(qtbot, monkeypatch):
     win.master_ribbon._switch_workspace(2)
     card = win.custom_quoting_tab.active_member_card
     card.addon_rows.clear()
+    if card.cb_conn_preset.count() > 1:
+        card.cb_conn_preset.setCurrentIndex(1)
     card.chk_conn_hardware.setChecked(True)
     card.apply_connection_preset()
     assert len(card.addon_rows) >= 1
